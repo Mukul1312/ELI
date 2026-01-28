@@ -54,16 +54,127 @@ The problem is meaningfully solved if the system can:
 
 ---
 
-## **4. The Scientific Thesis: The "Execution Loop"**
+## **4. The Scientific Thesis: Execution Intelligence (EI)**
 
-We do not track "Time Spent" (a vanity metric). We track the integrity of the **Execution Loop**. If any link in this chain breaks, the student is in decay.
+We do not track "Time Spent" (a vanity metric). We track the integrity of the student's **Execution Loop**. EI is a closed-loop coaching system: it diagnoses *where* the loop breaks and applies the correct intervention **at the transition** (now) and **at the end** (tomorrow).
 
-**The Loop Equation:**
+### **4.1 The Loop Equation (Closed Loop, Not Linear)**
 
-$$Intent \to Effort \to Retrieval \to Feedback \to Adjustment$$
+We treat a study day as a loop where the output updates the next input:
 
-*   **The Break:** If a student studies 10 hours ($Effort$) but skips the testing phase ($Retrieval$) for 3 days, their loop is broken.
-*   **The Signal:** Scores will not drop for 3 weeks, but our platform detects the break on **Day 3**.
+$$State \xrightarrow{\text{Protocol 1}} Intent \xrightarrow{\text{Protocol 2}} Effort \xrightarrow{\text{Protocol 3}} Retrieval \to Feedback \to \mathbf{[Strategic\ Adjustment]} \to State$$
+
+*   **State:** Sleep, energy, anxiety, backlog pressure (engine condition).
+*   **Intent:** Today's targets chosen under that state.
+*   **Effort:** What actually happened (depth, duration, focus).
+*   **Retrieval:** Proof of learning (MCQs/PYQs/recall test/error-log).
+*   **Feedback:** Student's qualitative signal (confidence, shame, denial, friction tags).
+*   **Strategic Adjustment:** Tomorrow's plan rewrite (macro intervention).
+
+### **4.2 The "Transition Protocols" (Catalyst Layer / Decision Gates)**
+
+The arrows ($\to$) are not passive connectors; they are active **Decision Gates**. At each gate, the AI measures the student's **Velocity** (energy + mood + momentum) and triggers one of two modes:
+
+*   **Tactical Rescue (The Paramedic):** Triggered by friction. Lower the bar to keep the loop moving.
+*   **Momentum Boost (The Coach):** Triggered by flow. Raise the bar to maximize growth.
+
+**Why this matters:** A "Rescue-only" system fails the **Smart Kid Problem** (high performers feel patronized). Dual-mode EI stays sticky across the entire spectrum.
+
+### **4.3 Protocol Matrix: Rescue vs. Boost**
+
+| Transition Protocol | The Trigger | If User is... | Mode | Intervention Pattern |
+| :--- | :--- | :--- | :--- | :--- |
+| **Protocol 1: Ignition (State → Intent)** | User opens app. | **LOW ENERGY** *(Anxious, Tired)* | **RESCUE** | **The Reduction:** *"Ignore the backlog. Just do ONE easy win today."* |
+|  |  | **HIGH ENERGY** *(Confident, Well-Slept)* | **BOOST** | **The Stretch:** *"You're fully charged. Let's raise the bar (difficulty/volume)."* |
+| **Protocol 2: Activation (Intent → Effort)** | User sets a goal. | **STALLED** *(Procrastinating)* | **RESCUE** | **The Lubrication:** *"Too hard to start? Just watch the video. No notes."* |
+|  |  | **FLOWING** *(Starts immediately)* | **BOOST** | **The Isolation:** *"You're in the zone. Block distractions for 60m."* |
+| **Protocol 3: Verification (Effort → Retrieval)** | User finishes studying. | **AVOIDANT** *(Closing app without testing)* | **RESCUE** | **The Trojan Horse:** *"Unlock your break by answering 1 question."* |
+|  |  | **CONFIDENT** *(High focus duration)* | **BOOST** | **The Double-Down:** *"Don't waste focus on easy Qs. Unlocking advanced tier."* |
+
+### **4.4 The Adjustment Architecture (The Brain: Now vs. Tomorrow)**
+
+*   **Tactical Rescue (in the arrow):** Micro-interventions to fix the current session.
+*   **Strategic Adjustment (at the end):** Macro-interventions to optimize the next loop.
+
+**Routing logic:**
+
+*   *"The student is stuck right now"* $\to$ call a **Transition Protocol**.
+*   *"The student had a bad week"* $\to$ call **Strategic Adjustment**.
+
+### **4.5 "Cascading Context" (Previous-Step Weightage)**
+
+The AI does not judge steps in isolation. The same effort can mean "heroic" or "failed" depending on prior context.
+
+The transition function evolves as the loop progresses:
+
+*   Transition 1: $f(\text{State})$
+*   Transition 2: $f(\text{Intent}, \text{State})$
+*   Transition 3: $f(\text{Effort}, \text{Intent}, \text{State})$
+*   Transition 4: $f(\text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
+*   Transition 5: $f(\text{Feedback}, \text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
+
+### **4.6 The Delta Strategy (Integrity Metrics)**
+
+The core signal is not the absolute score; it is the **Delta ($\Delta$)** between steps.
+
+| Delta | Formula | Measures | Diagnostic Meaning | Default Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **Ambition Δ** | $\Delta_A = Intent - State$ | Realism | Overcompensation vs. sandbagging | Reduce goal (if too high) / Boost goal (if too low) |
+| **Execution Δ** | $\Delta_E = Effort - Intent$ | Integrity | Execution gap | Rescue: re-scope, adjust retrieval difficulty |
+| **Efficiency Δ** | $\Delta_{Eff} = Retrieval - Effort$ | Method quality | Junk volume vs. mastery | Technique pivot / Promote topic |
+| **Perception Δ** | $\Delta_P = Feedback - Retrieval$ | Self-awareness | Imposter syndrome vs. denial | Confidence correction / Reality check |
+
+### **4.7 The Cognitive Diagnostics Engine (Second Half of the Loop)**
+
+#### **Effort → Retrieval (Efficiency Δ)**
+
+*   **Junk Volume Risk:** High effort, low retrieval.
+    *   **Diagnosis:** Not laziness. Bad technique.
+    *   **Adjustment:** Force active recall / PYQ-first; block passive reading.
+*   **Lucky Guesser / Already Mastered Risk:** Low effort, high retrieval.
+    *   **Diagnosis:** Either mastered or guessing.
+    *   **Adjustment:** Promote topic; raise difficulty tier; skip basics.
+
+#### **Retrieval → Feedback (Perception Δ)**
+
+*   **Imposter Syndrome:** High retrieval + negative self-report.
+    *   **Adjustment:** Show objective streak; confidence boost; reduce anxiety load.
+*   **Dunning-Kruger / Numbness:** Low retrieval + dismissive self-report.
+    *   **Adjustment:** Reality check; pause; structured reflection/reset.
+
+### **4.8 Strategic Adjustment Matrix (Tomorrow's Plan Rewrite)**
+
+At loop-end, the AI chooses tomorrow's strategy from the pattern of deltas.
+
+| Scenario | Ambition Δ | Efficiency Δ | Perception Δ | Strategic Adjustment (Next-Day Plan) |
+| :--- | :--- | :--- | :--- | :--- |
+| **The Burnout** | High (over-planning) | Low (grinding w/o results) | Negative (self-hate) | **Recovery Protocol:** Cut volume by 50%. Protect sleep. Easy wins to restore State. |
+| **The Coaster** | Low (under-planning) | High (easy wins) | Positive / complacent | **Hunter Protocol:** Increase difficulty by ~20% immediately. |
+| **The Grinder** | Balanced | Low (struggling) | Balanced acceptance | **Technique Pivot:** Effort is fine; method is wrong. Switch to retrieval-first + error-log loop. |
+
+### **4.9 The Mastery Index (Revision Is a Spiral, Not a Reset)**
+
+If the AI treats every session as a fresh start, it will fail. It must know: *"Is this first learning or 10th revision?"*
+
+Introduce a persistent variable per topic:
+
+*   **Topic Mastery Score (TMS):** Rolling estimate of mastery that persists across days.
+
+$$Transition = f(Current\_Step + \mathbf{TMS_{Topic}})$$
+
+This detects two common revision failures:
+
+*   **Comfort Zone Revision:** High TMS + passive work $\to$ wasting time.
+    *   **Action:** Block notes; force advanced problems.
+*   **Rush Job Revision:** Low TMS + "quick skim" intent $\to$ fake revision.
+    *   **Action:** Block skim; force deep dive scope.
+
+**Decay Delta (Spaced Repetition Integrity):**
+
+$$\Delta_{Decay} = TMS_{Last} - Retrieval_{Today}$$
+
+*   If $\Delta_{Decay}$ is small: retention is stable $\to$ schedule next revision further out.
+*   If $\Delta_{Decay}$ is large: leaky bucket $\to$ schedule rapid re-test (24h) + technique restart.
 
 ---
 
