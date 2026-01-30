@@ -1,6 +1,6 @@
 # **Execution Intelligence (EI) — Spec**
 
-### *The Deep Technical / Product Thesis*
+### _The Deep Technical / Product Thesis_
 
 ---
 
@@ -10,12 +10,13 @@ This document is the **authoritative specification** for Execution Intelligence 
 
 - The master narrative lives in `Unified_Master_Doc.md`.
 - `Unified_Master_Doc.md` should contain only a **short EI overview** and link here for full depth.
+- Detailed protocol specs and examples live in `EI_Protocols_Deep_Dive.md`.
 
 ---
 
 ## **4. The Scientific Thesis: Execution Intelligence (EI)**
 
-We do not track "Time Spent" (a vanity metric). We track the integrity of the student's **Execution Loop**. EI is a closed-loop coaching system: it diagnoses *where* the loop breaks and applies the correct intervention **at the transition** (now) and **at the end** (next adjustment cycle).
+We do not track "Time Spent" (a vanity metric). We track the integrity of the student's **Execution Loop**. EI is a closed-loop coaching system: it diagnoses _where_ the loop breaks and applies the correct intervention **at the transition** (now) and **at the end** (next adjustment cycle).
 
 ### **4.1 The Loop Equation (Closed Loop, Not Linear)**
 
@@ -23,42 +24,73 @@ We treat study as a loop where the output updates the next input:
 
 $$State \xrightarrow{\text{Protocol 1}} Intent \xrightarrow{\text{Protocol 2}} Effort \xrightarrow{\text{Protocol 3}} Retrieval \to Feedback \to \mathbf{[Strategic\ Adjustment]} \to State$$
 
-*   **State:** Sleep, energy, anxiety, backlog pressure (engine condition).
-*   **Intent:** Today's targets chosen under that state.
-*   **Effort:** What actually happened (depth, duration, focus).
-*   **Retrieval:** Proof of learning (MCQs/PYQs/recall test/error-log).
-*   **Feedback:** Student's qualitative signal (confidence, shame, denial, friction tags).
-*   **Strategic Adjustment:** Next-cycle plan rewrite (macro intervention).
+- **State:** Sleep, energy, anxiety, backlog pressure (engine condition).
+- **Intent:** Today's targets chosen under that state.
+- **Effort:** What actually happened (depth, duration, focus).
+- **Retrieval:** Proof of learning (MCQs/PYQs/recall test/error-log).
+- **Feedback:** Student's qualitative signal (confidence, shame, denial, friction tags).
+- **Strategic Adjustment:** Next-cycle plan rewrite (macro intervention).
 
 ### **4.2 The "Transition Protocols" (Catalyst Layer / Decision Gates)**
 
 The arrows ($\to$) are not passive connectors; they are active **Decision Gates**. At each gate, the AI measures the student's **Velocity** (energy + mood + momentum) and triggers one of two modes:
 
-*   **Tactical Rescue (The Paramedic):** Triggered by friction. Lower the bar to keep the loop moving.
-*   **Momentum Boost (The Coach):** Triggered by flow. Raise the bar to maximize growth.
+- **Tactical Rescue (The Paramedic):** Triggered by friction. Lower the bar to keep the loop moving.
+- **Momentum Boost (The Coach):** Triggered by flow. Raise the bar to maximize growth.
 
 **Why this matters:** A "Rescue-only" system fails the **Smart Kid Problem** (high performers feel patronized). Dual-mode EI stays sticky across the entire spectrum.
 
+#### **Protocol System Overview (Why 3 Gates Work)**
+
+The protocol system focuses on the three highest-leverage breakpoints in real study behavior. These gates are **always-on** because they prevent loop breakage early, with minimal extra effort from the student.
+
+- **Protocol 1 — Ignition (State → Intent):** Prevents unrealistic targets under a bad State. Output is a _NegotiatedIntent_ (scope/difficulty) that matches today’s energy/anxiety.
+- **Protocol 2 — Activation (Intent → Effort):** Prevents “planned but never started.” Output is a startable first action that reduces friction (Rescue) or protects focus (Boost).
+- **Protocol 3 — Verification (Effort → Retrieval):** Prevents passive learning. Output is proof of learning now or a scheduled verification (reduces LoopLatency and OpenLoops).
+
+**Mode switch principle:** Rescue vs Boost is chosen from **State + Evidence**, not from “student type.”
+
+- **Evidence** includes (a) outcome integrity (Δ metrics), (b) **adherence signals** (start-latency, VerificationRate, LoopLatency/OpenLoops, avoidance/silence), and (c) topic memory (TMS/ΔDecay).
+- In short: gating behaves like **State × Evidence × Adherence** — meaning we never “Boost” on mood alone, and we never “Rescue” forever for someone who is reliably closing loops.
+
+**Reliability (what ‘working’ means):**
+
+- Protocol 1 improves realism (reduces Ambition Δ extremes).
+- Protocol 2 reduces start failure (lower start-latency, higher session completion).
+- Protocol 3 improves learning integrity (higher VerificationRate, lower LoopLatency/OpenLoops).
+
+**Safety guardrails (do-no-harm):**
+
+- **Rescue cannot become learned helplessness:** repeated Rescue must evolve (scope ↓, then technique change / replan), not endless reduction.
+- **Boost cannot become burnout:** Boost requires stable evidence; if Efficiency Δ is poor or StateTrend is declining, Boost becomes a _quality boost_ (method) not a _quantity boost_ (volume).
+
+**Roadmap (optional, not required for the 3-gate core):**
+
+- **Protocol 4 — Calibration (Retrieval → Feedback):** Micro-check to correct Perception Δ (imposter syndrome vs denial).
+- **Protocol 5 — Replan (Feedback → Strategic Adjustment):** Scheduled synthesis engine (weekly default; risk-triggered daily wrap) rather than a blocking gate.
+
+For detailed specifications and examples for each protocol, see `EI_Protocols_Deep_Dive.md`.
+
 ### **4.3 Protocol Matrix: Rescue vs. Boost**
 
-| Transition Protocol | The Trigger | If User is... | Mode | Intervention Pattern |
-| :--- | :--- | :--- | :--- | :--- |
-| **Protocol 1: Ignition (State → Intent)** | User opens app. | **LOW ENERGY** *(Anxious, Tired)* | **RESCUE** | **The Reduction:** *"Ignore the backlog. Just do ONE easy win today."* |
-|  |  | **HIGH ENERGY** *(Confident, Well-Slept)* | **BOOST** | **The Stretch:** *"You're fully charged. Let's raise the bar (difficulty/volume)."* |
-| **Protocol 2: Activation (Intent → Effort)** | User sets a goal. | **STALLED** *(Procrastinating)* | **RESCUE** | **The Lubrication:** *"Too hard to start? Just watch the video. No notes."* |
-|  |  | **FLOWING** *(Starts immediately)* | **BOOST** | **The Isolation:** *"You're in the zone. Block distractions for 60m."* |
-| **Protocol 3: Verification (Effort → Retrieval)** | User finishes studying. | **AVOIDANT** *(Closing app without testing)* | **RESCUE** | **The Trojan Horse:** *"Unlock your break by answering 1 question."* |
-|  |  | **CONFIDENT** *(High focus duration)* | **BOOST** | **The Double-Down:** *"Don't waste focus on easy Qs. Unlocking advanced tier."* |
+| Transition Protocol                               | The Trigger             | If User is...                                | Mode       | Intervention Pattern                                                                |
+| :------------------------------------------------ | :---------------------- | :------------------------------------------- | :--------- | :---------------------------------------------------------------------------------- |
+| **Protocol 1: Ignition (State → Intent)**         | User opens app.         | **LOW ENERGY** _(Anxious, Tired)_            | **RESCUE** | **The Reduction:** _"Ignore the backlog. Just do ONE easy win today."_              |
+|                                                   |                         | **HIGH ENERGY** _(Confident, Well-Slept)_    | **BOOST**  | **The Stretch:** _"You're fully charged. Let's raise the bar (difficulty/volume)."_ |
+| **Protocol 2: Activation (Intent → Effort)**      | User sets a goal.       | **STALLED** _(Procrastinating)_              | **RESCUE** | **The Lubrication:** _"Too hard to start? Just watch the video. No notes."_         |
+|                                                   |                         | **FLOWING** _(Starts immediately)_           | **BOOST**  | **The Isolation:** _"You're in the zone. Block distractions for 60m."_              |
+| **Protocol 3: Verification (Effort → Retrieval)** | User finishes studying. | **AVOIDANT** _(Closing app without testing)_ | **RESCUE** | **The Trojan Horse:** _"Unlock your break by answering 1 question."_                |
+|                                                   |                         | **CONFIDENT** _(High focus duration)_        | **BOOST**  | **The Double-Down:** _"Don't waste focus on easy Qs. Unlocking advanced tier."_     |
 
-### **4.4 The Adjustment Architecture (The Brain: Now vs. Tomorrow)**
+### **4.4 The Adjustment Architecture (The Brain: Now vs. Next Cycle)**
 
-*   **Tactical Rescue (in the arrow):** Micro-interventions to fix the current session.
-*   **Strategic Adjustment (at the end):** Macro-interventions to optimize the next loop.
+- **Tactical Rescue (in the arrow):** Micro-interventions to fix the current session.
+- **Strategic Adjustment (at the end):** Macro-interventions to optimize the next loop.
 
 **Routing logic:**
 
-*   *"The student is stuck right now"* $\to$ call a **Transition Protocol**.
-*   *"The student had a bad week"* $\to$ call **Strategic Adjustment**.
+- _"The student is stuck right now"_ $\to$ call a **Transition Protocol**.
+- _"The student had a bad week"_ $\to$ call **Strategic Adjustment**.
 
 ### **4.5 "Cascading Context" (Previous-Step Weightage)**
 
@@ -66,74 +98,74 @@ The AI does not judge steps in isolation. The same effort can mean "heroic" or "
 
 The transition function evolves as the loop progresses:
 
-*   Transition 1: $f(\text{State})$
-*   Transition 2: $f(\text{Intent}, \text{State})$
-*   Transition 3: $f(\text{Effort}, \text{Intent}, \text{State})$
-*   Transition 4: $f(\text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
-*   Transition 5: $f(\text{Feedback}, \text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
+- Transition 1: $f(\text{State})$
+- Transition 2: $f(\text{Intent}, \text{State})$
+- Transition 3: $f(\text{Effort}, \text{Intent}, \text{State})$
+- Transition 4: $f(\text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
+- Transition 5: $f(\text{Feedback}, \text{Retrieval}, \text{Effort}, \text{Intent}, \text{State})$
 
 ### **4.6 The Delta Strategy (Integrity Metrics)**
 
 The core signal is not the absolute score; it is the **Delta ($\Delta$)** between steps.
 
-| Delta | Formula | Measures | Diagnostic Meaning | Default Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **Ambition Δ** | $\Delta_A = Intent - State$ | Realism | Overcompensation vs. sandbagging | Reduce goal (if too high) / Boost goal (if too low) |
-| **Execution Δ** | $\Delta_E = Effort - Intent$ | Integrity | Execution gap | Rescue: re-scope, adjust retrieval difficulty |
-| **Efficiency Δ** | $\Delta_{Eff} = Retrieval - Effort$ | Method quality | Junk volume vs. mastery | Technique pivot / Promote topic |
-| **Perception Δ** | $\Delta_P = Feedback - Retrieval$ | Self-awareness | Imposter syndrome vs. denial | Confidence correction / Reality check |
+| Delta            | Formula                             | Measures       | Diagnostic Meaning               | Default Action                                      |
+| :--------------- | :---------------------------------- | :------------- | :------------------------------- | :-------------------------------------------------- |
+| **Ambition Δ**   | $\Delta_A = Intent - State$         | Realism        | Overcompensation vs. sandbagging | Reduce goal (if too high) / Boost goal (if too low) |
+| **Execution Δ**  | $\Delta_E = Effort - Intent$        | Integrity      | Execution gap                    | Rescue: re-scope, adjust retrieval difficulty       |
+| **Efficiency Δ** | $\Delta_{Eff} = Retrieval - Effort$ | Method quality | Junk volume vs. mastery          | Technique pivot / Promote topic                     |
+| **Perception Δ** | $\Delta_P = Feedback - Retrieval$   | Self-awareness | Imposter syndrome vs. denial     | Confidence correction / Reality check               |
 
 ### **4.7 The Cognitive Diagnostics Engine (Second Half of the Loop)**
 
 #### **Effort → Retrieval (Efficiency Δ)**
 
-*   **Junk Volume Risk:** High effort, low retrieval.
-    *   **Diagnosis:** Not laziness. Bad technique.
-    *   **Adjustment:** Force active recall / PYQ-first; block passive reading.
-*   **Lucky Guesser / Already Mastered Risk:** Low effort, high retrieval.
-    *   **Diagnosis:** Either mastered or guessing.
-    *   **Adjustment:** Promote topic; raise difficulty tier; skip basics.
+- **Junk Volume Risk:** High effort, low retrieval.
+  - **Diagnosis:** Not laziness. Bad technique.
+  - **Adjustment:** Force active recall / PYQ-first; block passive reading.
+- **Lucky Guesser / Already Mastered Risk:** Low effort, high retrieval.
+  - **Diagnosis:** Either mastered or guessing.
+  - **Adjustment:** Promote topic; raise difficulty tier; skip basics.
 
 #### **Retrieval → Feedback (Perception Δ)**
 
-*   **Imposter Syndrome:** High retrieval + negative self-report.
-    *   **Adjustment:** Show objective streak; confidence boost; reduce anxiety load.
-*   **Dunning-Kruger / Numbness:** Low retrieval + dismissive self-report.
-    *   **Adjustment:** Reality check; pause; structured reflection/reset.
+- **Imposter Syndrome:** High retrieval + negative self-report.
+  - **Adjustment:** Show objective streak; confidence boost; reduce anxiety load.
+- **Dunning-Kruger / Numbness:** Low retrieval + dismissive self-report.
+  - **Adjustment:** Reality check; pause; structured reflection/reset.
 
 ### **4.8 Strategic Adjustment Matrix (Next Plan Rewrite)**
 
 At loop-end, the AI chooses the next strategy from the pattern of deltas.
 
-| Scenario | Ambition Δ | Efficiency Δ | Perception Δ | Strategic Adjustment (Next-Day Plan) |
-| :--- | :--- | :--- | :--- | :--- |
-| **The Burnout** | High (over-planning) | Low (grinding w/o results) | Negative (self-hate) | **Recovery Protocol:** Cut volume by 50%. Protect sleep. Easy wins to restore State. |
-| **The Coaster** | Low (under-planning) | High (easy wins) | Positive / complacent | **Hunter Protocol:** Increase difficulty by ~20% immediately. |
-| **The Grinder** | Balanced | Low (struggling) | Balanced acceptance | **Technique Pivot:** Effort is fine; method is wrong. Switch to retrieval-first + error-log loop. |
+| Scenario        | Ambition Δ           | Efficiency Δ               | Perception Δ          | Strategic Adjustment (Next Plan)                                                                  |
+| :-------------- | :------------------- | :------------------------- | :-------------------- | :------------------------------------------------------------------------------------------------ |
+| **The Burnout** | High (over-planning) | Low (grinding w/o results) | Negative (self-hate)  | **Recovery Protocol:** Cut volume by 50%. Protect sleep. Easy wins to restore State.              |
+| **The Coaster** | Low (under-planning) | High (easy wins)           | Positive / complacent | **Hunter Protocol:** Increase difficulty by ~20% immediately.                                     |
+| **The Grinder** | Balanced             | Low (struggling)           | Balanced acceptance   | **Technique Pivot:** Effort is fine; method is wrong. Switch to retrieval-first + error-log loop. |
 
 ### **4.9 The Mastery Index (Revision Is a Spiral, Not a Reset)**
 
-If the AI treats every session as a fresh start, it will fail. It must know: *"Is this first learning or 10th revision?"*
+If the AI treats every session as a fresh start, it will fail. It must know: _"Is this first learning or 10th revision?"_
 
 Introduce a persistent variable per topic:
 
-*   **Topic Mastery Score (TMS):** Rolling estimate of mastery that persists across days.
+- **Topic Mastery Score (TMS):** Rolling estimate of mastery that persists across days.
 
 $$Transition = f(Current\_Step + \mathbf{TMS_{Topic}})$$
 
 This detects two common revision failures:
 
-*   **Comfort Zone Revision:** High TMS + passive work $\to$ wasting time.
-    *   **Action:** Block notes; force advanced problems.
-*   **Rush Job Revision:** Low TMS + "quick skim" intent $\to$ fake revision.
-    *   **Action:** Block skim; force deep dive scope.
+- **Comfort Zone Revision:** High TMS + passive work $\to$ wasting time.
+  - **Action:** Block notes; force advanced problems.
+- **Rush Job Revision:** Low TMS + "quick skim" intent $\to$ fake revision.
+  - **Action:** Block skim; force deep dive scope.
 
 **Decay Delta (Spaced Repetition Integrity):**
 
 $$\Delta_{Decay} = TMS_{Last} - Retrieval_{Today}$$
 
-*   If $\Delta_{Decay}$ is small: retention is stable $\to$ schedule next revision further out.
-*   If $\Delta_{Decay}$ is large: leaky bucket $\to$ schedule rapid re-test (24h) + technique restart.
+- If $\Delta_{Decay}$ is small: retention is stable $\to$ schedule next revision further out.
+- If $\Delta_{Decay}$ is large: leaky bucket $\to$ schedule rapid re-test (24h) + technique restart.
 
 ### **4.10 Multiscale Cadence (Control Loop, Not Calendar)**
 
@@ -141,12 +173,12 @@ The “study day loop” phrasing in **4.1** is a convenience for explaining the
 
 **EI runs as a control loop with multiple cadences:**
 
-*   **Session micro-loop (always-on):** Effort → Retrieval → Feedback
-    *   Goal: prevent passive learning and verification avoidance at the moment it happens.
-*   **Periodic review loop (default weekly; daily optional/adaptive):** State trend → Intent portfolio → Evidence → Strategic adjustment
-    *   Goal: re-balance workload, technique, and confidence using rolling evidence (deltas + latency).
-*   **Macro loop (monthly):** syllabus progress + backlog economics + major strategy shifts
-    * Goal: keep the “north star” aligned without becoming a task manager.
+- **Session micro-loop (always-on):** Effort → Retrieval → Feedback
+  - Goal: prevent passive learning and verification avoidance at the moment it happens.
+- **Periodic review loop (default weekly; daily optional/adaptive):** State trend → Intent portfolio → Evidence → Strategic adjustment
+  - Goal: re-balance workload, technique, and confidence using rolling evidence (deltas + latency).
+- **Macro loop (monthly):** syllabus progress + backlog economics + major strategy shifts
+  - Goal: keep the “north star” aligned without becoming a task manager.
 
 **Key rule:** EI is **event-driven** at the transition gates (Protocols 1–3) and **risk-driven** for periodic reviews (more in 4.13).
 
@@ -156,13 +188,13 @@ Students naturally run multiple topics in parallel (different topics in differen
 
 **Per topic, track a lightweight step-state:**
 
-*   `TopicStep ∈ {Intent, Effort, Retrieval, Feedback}`
-*   `LastEffortAt`, `LastRetrievalAt`, `LastFeedbackAt`
-*   `TMS_Topic` and `ΔDecay`
+- `TopicStep ∈ {Intent, Effort, Retrieval, Feedback}`
+- `LastEffortAt`, `LastRetrievalAt`, `LastFeedbackAt`
+- `TMS_Topic` and `ΔDecay`
 
 **Open loops (WIP):** count topics where Effort has happened but Retrieval is overdue relative to an adaptive window.
 
-*   `OpenLoops = { topic | LastEffortAt exists AND LastRetrievalAt < LastEffortAt AND now - LastEffortAt > TargetLatency(topic) }`
+- `OpenLoops = { topic | LastEffortAt exists AND LastRetrievalAt < LastEffortAt AND now - LastEffortAt > TargetLatency(topic) }`
 
 EI should keep `OpenLoops` bounded (softly) to prevent “spread-out passive study” across many topics.
 
@@ -170,14 +202,14 @@ EI should keep `OpenLoops` bounded (softly) to prevent “spread-out passive stu
 
 EI must respect that many students pre-plan weekly/monthly and do not want an app to “own their calendar.”
 
-*   **BaselineIntent:** the student’s (or coaching’s) pre-planned allocation (week/month targets).
-*   **NegotiatedIntent:** the EI-adjusted scope/difficulty for the next session/day, based on **State + evidence** (deltas, latency, TMS/ΔDecay).
+- **BaselineIntent:** the student’s (or coaching’s) pre-planned allocation (week/month targets).
+- **NegotiatedIntent:** the EI-adjusted scope/difficulty for the next session/day, based on **State + evidence** (deltas, latency, TMS/ΔDecay).
 
 **Rule:** EI does not rewrite the entire plan. It negotiates **at the margin** to protect loop integrity:
 
-*   Reduce scope when State is low (Rescue).
-*   Increase difficulty when flow/evidence supports it (Boost).
-*   Re-route from passive effort to retrieval-first when Efficiency Δ is poor.
+- Reduce scope when State is low (Rescue).
+- Increase difficulty when flow/evidence supports it (Boost).
+- Re-route from passive effort to retrieval-first when Efficiency Δ is poor.
 
 ### **4.13 Check-ins: Event-Driven Gates + Adaptive Reviews**
 
@@ -185,20 +217,20 @@ To keep daily effort minimal while staying a leading-indicator system, EI should
 
 **Always (event-driven, 5–20 seconds):**
 
-*   **Protocol 1 (app open):** capture/infer State (sleep/energy/anxiety/backlog pressure).
-*   **Protocol 2 (goal set):** confirm intent scope (“is this realistic under current State?”).
-*   **Protocol 3 (session end):** verify learning (do-now vs schedule vs skip-with-reason).
+- **Protocol 1 (app open):** capture/infer State (sleep/energy/anxiety/backlog pressure).
+- **Protocol 2 (goal set):** confirm intent scope (“is this realistic under current State?”).
+- **Protocol 3 (session end):** verify learning (do-now vs schedule vs skip-with-reason).
 
 **Sometimes (adaptive periodic reviews):**
 
-*   **Weekly review (default):** strategic adjustment using rolling deltas + latencies.
-*   **Daily wrap-up (optional / triggered):** only when risk spikes (e.g., rising OpenLoops, repeated verification avoidance, silence).
+- **Weekly review (default):** strategic adjustment using rolling deltas + latencies.
+- **Daily wrap-up (optional / triggered):** only when risk spikes (e.g., rising OpenLoops, repeated verification avoidance, silence).
 
 **Escalation triggers (examples):**
 
-*   **Silence:** no meaningful events for 2–3 days.
-*   **Verification avoidance:** repeated Effort without Retrieval.
-*   **Avoidance latency:** a weak/high-priority subject not touched for \(N\) days.
+- **Silence:** no meaningful events for 2–3 days.
+- **Verification avoidance:** repeated Effort without Retrieval.
+- **Avoidance latency:** a weak/high-priority subject not touched for \(N\) days.
 
 ### **4.14 Adaptive Tightness Policy (Works Across Student Types)**
 
@@ -206,29 +238,29 @@ EI should not have a single “strictness level.” It should adapt the pressure
 
 Inputs to a **TightnessPolicy**:
 
-*   **Compliance Elasticity** (how much pressure they tolerate before breaking).
-*   **State trend** (sleep/energy/anxiety).
-*   **Integrity signals:** Execution Δ, Efficiency Δ, Perception Δ.
-*   **Latency signals:** OpenLoops, LoopLatency, AvoidanceLatency, Silence.
+- **Compliance Elasticity** (how much pressure they tolerate before breaking).
+- **State trend** (sleep/energy/anxiety).
+- **Integrity signals:** Execution Δ, Efficiency Δ, Perception Δ.
+- **Latency signals:** OpenLoops, LoopLatency, AvoidanceLatency, Silence.
 
 Outputs:
 
-*   **Prompt frequency** (fewer prompts for high performers; more for drifting students).
-*   **Verification minimum** (e.g., 1 question vs 5 questions).
-*   **Deadlines** (adaptive TargetLatency windows).
-*   **Rescue vs Boost routing** at each protocol gate.
+- **Prompt frequency** (fewer prompts for high performers; more for drifting students).
+- **Verification minimum** (e.g., 1 question vs 5 questions).
+- **Deadlines** (adaptive TargetLatency windows).
+- **Rescue vs Boost routing** at each protocol gate.
 
 ### **4.15 Leading Metrics → B2B Risk Signals**
 
 The system should surface **leading indicators** (behavioral breaks) rather than lagging outcomes (test scores), while keeping raw diary content private.
 
-| Metric (Leading) | Measures | Break it Detects | Example B2B Signal |
-| :--- | :--- | :--- | :--- |
-| **LoopLatency(topic)** | Time from Effort → Retrieval | Passive learning / verification avoidance | “High Effort, Low Recall risk rising” |
-| **VerificationRate** | % sessions that end with retrieval now or scheduled | Avoidant closing / no proof of learning | “Verification compliance dropping” |
-| **OpenLoops (WIP)** | # topics overdue for retrieval | Too many unfinished learning cycles | “Open loops accumulating (burnout/avoidance risk)” |
-| **AvoidanceLatency(subject)** | Days since meaningful retrieval on weak subject | Subject avoidance | “Subject avoidance latency: Physics” |
-| **StateTrend** | sleep/energy/anxiety drift | Burnout runway | “Burnout risk (3-week runway)” |
+| Metric (Leading)              | Measures                                            | Break it Detects                          | Example B2B Signal                                 |
+| :---------------------------- | :-------------------------------------------------- | :---------------------------------------- | :------------------------------------------------- |
+| **LoopLatency(topic)**        | Time from Effort → Retrieval                        | Passive learning / verification avoidance | “High Effort, Low Recall risk rising”              |
+| **VerificationRate**          | % sessions that end with retrieval now or scheduled | Avoidant closing / no proof of learning   | “Verification compliance dropping”                 |
+| **OpenLoops (WIP)**           | # topics overdue for retrieval                      | Too many unfinished learning cycles       | “Open loops accumulating (burnout/avoidance risk)” |
+| **AvoidanceLatency(subject)** | Days since meaningful retrieval on weak subject     | Subject avoidance                         | “Subject avoidance latency: Physics”               |
+| **StateTrend**                | sleep/energy/anxiety drift                          | Burnout runway                            | “Burnout risk (3-week runway)”                     |
 
 These metrics can be aggregated to produce sanitized alerts in the “Radar” dashboard (no raw journaling, no sensitive text).
 
@@ -238,12 +270,12 @@ For MVP safety and low friction, EI should run on structured events (buttons) an
 
 **Minimum event set:**
 
-*   **AppOpen (Protocol 1):** `Energy` + `Anxiety` + optional `Sleep` (quick tap scale).
-*   **IntentSet (Protocol 2):** choose `Topic`, `TaskType` (learn/practice/revise), `DifficultyTier`.
-*   **SessionEnd (Protocol 3):** choose one of:
-    *   `QuickVerifyNow` (1–5 questions)
-    *   `ScheduleVerify` (tomorrow / +2 days / before next class/test)
-    *   `SkipWithReason` (fatigue, time, confusion) — rate-limited by anti-gaming logic elsewhere (Bankruptcy Protocol).
+- **AppOpen (Protocol 1):** `Energy` + `Anxiety` + optional `Sleep` (quick tap scale).
+- **IntentSet (Protocol 2):** choose `Topic`, `TaskType` (learn/practice/revise), `DifficultyTier`.
+- **SessionEnd (Protocol 3):** choose one of:
+  - `QuickVerifyNow` (1–5 questions)
+  - `ScheduleVerify` (tomorrow / +2 days / before next class/test)
+  - `SkipWithReason` (fatigue, time, confusion) — rate-limited by anti-gaming logic elsewhere (Bankruptcy Protocol).
 
 **Design constraint:** EI acts like an “elder brother” — it negotiates and nudges at gates, not a full task manager UI.
 
@@ -280,4 +312,3 @@ flowchart LR
   NegotiatedIntent --> TopicMicroLoops
   TopicMicroLoops --> Adjust
 ```
-
