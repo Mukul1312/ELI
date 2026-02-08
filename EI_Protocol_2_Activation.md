@@ -138,13 +138,13 @@ Track counters over a rolling window (e.g., last 7 days):
 - `ActivationPlanIssued(mode, firstAction, timeboxMin(optional), focusContract(optional), replanCap(optional), issuedAt)`
 - `Replan(reason(optional), replannedAt)`
 - `FirstActionStarted(startedAt)`
-- `EffortStart(topic, startedAt)` (may match FirstActionStarted)
+- `EffortStart(topic, startedAt)` (may match FirstActionStarted; **optional/inferred in v1**)
 - `SessionEnd(topic, endedAt)` (links to Protocol 3 integrity)
 
 #### **Derived metrics (v1)**
-- **StartLatencyMin** = `EffortStart.startedAt - IntentSet.setAt`
+- **StartLatencyMin** = `(EffortStart.startedAt OR FirstActionStarted.startedAt) - IntentSet.setAt`
 - **ReplanRate** = `#Replan / #IntentSet` (rolling)
-- **ActivationSuccessRate** = % intents that reach EffortStart within 15 minutes
+- **ActivationSuccessRate** = % intents that reach (EffortStart OR FirstActionStarted) within 15 minutes
 - **Integrity guardrail check**: Start improvements must not reduce `VerificationRate7d`
 
 ---

@@ -34,6 +34,8 @@ At every Protocol 1 trigger (typically `AppOpen` / pre-session planning), the sy
   - `scope` (timebox minutes or question-count; keep coarse in v1)
   - `difficultyTier ∈ { easy, med, hard, advanced }`
   - `verificationPlan` (minimum verification or schedule window; must not be omitted)
+
+**Note (contract linkage):** `verificationPlan` is a **constraint**, not the verification UI itself. Protocol 3 implements it at `SessionEnd` via `VerificationDecision + VerificationSpec` (e.g., `VerifyNow(minQuestions=1–3)` or `ScheduleVerify(dueInHours=24–48)`).
 - `Constraints` (optional):
   - e.g., “no new topic until 1 open loop is closed”
 - `Rationale` (short):
