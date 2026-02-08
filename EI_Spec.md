@@ -10,7 +10,7 @@ This document is the **authoritative specification** for Execution Intelligence 
 
 - The master narrative lives in `Unified_Master_Doc.md`.
 - `Unified_Master_Doc.md` should contain only a **short EI overview** and link here for full depth.
-- Detailed protocol specs and examples live in `EI_Protocols_Deep_Dive.md`.
+- Protocol shared definitions + index live in `EI_Protocols_Deep_Dive.md` (full deep dives are in `EI_Protocol_1_Ignition.md`, `EI_Protocol_2_Activation.md`, `EI_Protocol_3_Verification.md`).
 
 ---
 
@@ -52,6 +52,9 @@ The protocol system focuses on the three highest-leverage breakpoints in real st
 
 - **Evidence** includes (a) outcome integrity (Δ metrics), (b) **adherence signals** (start-latency, VerificationRate, LoopLatency/OpenLoops, avoidance/silence), and (c) topic memory (TMS/ΔDecay).
 - In short: gating behaves like **State × Evidence × Adherence** — meaning we never “Boost” on mood alone, and we never “Rescue” forever for someone who is reliably closing loops.
+- Practically: adherence signals are the earliest leading indicators (they show loop breakage before scores move).
+- Adherence = behavior/compliance signals
+- Evidence = outcomes + adherence + topic memory
 
 **Reliability (what ‘working’ means):**
 
@@ -69,7 +72,7 @@ The protocol system focuses on the three highest-leverage breakpoints in real st
 - **Protocol 4 — Calibration (Retrieval → Feedback):** Micro-check to correct Perception Δ (imposter syndrome vs denial).
 - **Protocol 5 — Replan (Feedback → Strategic Adjustment):** Scheduled synthesis engine (weekly default; risk-triggered daily wrap) rather than a blocking gate.
 
-For detailed specifications and examples for each protocol, see `EI_Protocols_Deep_Dive.md`.
+For shared definitions and a link index to the protocol deep dives, see `EI_Protocols_Deep_Dive.md`.
 
 ### **4.3 Protocol Matrix: Rescue vs. Boost**
 
@@ -81,6 +84,72 @@ For detailed specifications and examples for each protocol, see `EI_Protocols_De
 |                                                   |                         | **FLOWING** _(Starts immediately)_           | **BOOST**  | **The Isolation:** _"You're in the zone. Block distractions for 60m."_              |
 | **Protocol 3: Verification (Effort → Retrieval)** | User finishes studying. | **AVOIDANT** _(Closing app without testing)_ | **RESCUE** | **The Trojan Horse:** _"Unlock your break by answering 1 question."_                |
 |                                                   |                         | **CONFIDENT** _(High focus duration)_        | **BOOST**  | **The Double-Down:** _"Don't waste focus on easy Qs. Unlocking advanced tier."_     |
+
+#### Operational Definitions (MVP defaults; tune later)
+
+These labels are **observable bundles**, not personality traits. They are used only to route **Rescue vs Boost** at the protocol gates.
+
+**Shared primitives (examples):**
+- `Energy` (1–5), `Anxiety` (1–5), `SleepHours` (optional), `BacklogPressure` (1–5)
+- `StartLatencyMin` = minutes from IntentSet → EffortStart
+- `VerificationRate7d` = verified sessions / ended sessions (rolling 7d)
+- `OpenLoops` = topics where Effort happened but Retrieval is overdue
+- `SilenceDays` = days since a meaningful event (IntentSet / SessionEnd / Retrieval)
+- (If available) `Efficiency Δ` trend, `StateTrend` (sleep/energy/anxiety drift)
+
+##### 1) LOW ENERGY (Protocol 1 label)
+Trigger if **any**:
+- `Energy ≤ 2` OR `SleepHours < 6`
+- `Anxiety ≥ 4` OR `BacklogPressure ≥ 4`
+- `StateTrend` declining (2–3 days of sleep↓ or anxiety↑)
+
+##### 2) HIGH ENERGY (Protocol 1 label)
+Trigger if **all**:
+- `Energy ≥ 4` AND `SleepHours ≥ 7` (if known)
+- `Anxiety ≤ 2` AND `BacklogPressure ≤ 3`
+- No active risk spike (e.g., not `SilenceDays ≥ 2`, not `OpenLoops ≥ 3`)
+
+##### 3) STALLED (Protocol 2 label)
+Trigger if **any**:
+- `StartLatencyMin ≥ 15` (or repeated ≥10 min stalls)
+- ≥2 re-plans/switches after setting intent without starting effort
+- “App open + intent set” but no EffortStart within a reasonable window (e.g., 20 min)
+
+##### 4) FLOWING (Protocol 2 label)
+Trigger if **all**:
+- `StartLatencyMin ≤ 3`
+- No repeated re-planning/switching during start window
+- Not currently in verification-avoidance pattern (see AVOIDANT)
+
+##### 5) AVOIDANT (Protocol 3 label)
+Trigger if **any**:
+- Session ends with **no** `VerifyNow` and **no** `ScheduleVerify`
+- `VerificationRate7d < 0.60`
+- `OpenLoops ≥ 3` or rising quickly
+- `SilenceDays ≥ 2` (avoidance-by-disappearance)
+
+##### 6) CONFIDENT (Protocol 3 label)
+Trigger if **all**:
+- Session ends with `VerifyNow` (or `ScheduleVerify` within a defined window)
+- `VerificationRate7d ≥ 0.75`
+- `OpenLoops ≤ 2`
+- (If available) `Efficiency Δ` not deteriorating
+
+##### Precedence + reliability rules
+- **AVOIDANT overrides CONFIDENT** (high focus duration is not “confidence” if verification is skipped).
+- **BOOST is never chosen from mood alone**. Boost eligibility requires **State + Evidence + Adherence**:
+  - State is stable (not LOW ENERGY),
+  - Evidence shows integrity (Δ + latency not worsening),
+  - Adherence is healthy (verification rate / open loops / start latency).
+- If `Efficiency Δ` is poor or `StateTrend` is declining, any “Boost” becomes a **quality boost** (technique / question type), not a **quantity boost** (more volume).
+
+##### NEUTRAL (fallback when no label matches)
+Real students often fall between extremes. If the user does not meet the thresholds for Rescue or Boost at a gate, route to **NEUTRAL**:
+
+- **Goal:** keep the loop moving with **minimal pressure**, while still protecting integrity.
+- **Protocol 1 (State → Intent):** keep BaselineIntent direction, but negotiate only the margin (slight scope adjustment; set a small verification minimum).
+- **Protocol 2 (Intent → Effort):** provide a simple `FirstAction` (30–120 seconds) without adding strict isolation or extra volume.
+- **Protocol 3 (Effort → Retrieval):** default to **minimum verification** (e.g., 1–3 questions) or **ScheduleVerify within 24–48h**, instead of “skip” (skip only via `SkipWithReason`).
 
 ### **4.4 The Adjustment Architecture (The Brain: Now vs. Next Cycle)**
 
