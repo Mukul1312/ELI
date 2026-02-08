@@ -90,62 +90,87 @@ EI’s core signal is the **Delta ($\Delta$)** between steps (Intent↔Effort↔
 
 EI uses a per-topic mastery memory (TMS) and a decay delta to separate real learning from comfort-zone revision.
 
+### **4.5 Now vs Next Cycle (What EI changes immediately vs later)**
+
+- **Now (event-driven, always-on):** Protocols **1–3** run only at natural decision points (`AppOpen`, `IntentSet`, `SessionEnd`). They negotiate intent, reduce start friction, and enforce proof of learning **without adding extra daily check-ins**.
+- **Next cycle (scheduled + risk-triggered):** **Strategic Adjustment** sets a small number of **dials + constraints** (scope, verification minimums, close-loops-first) on a weekly cadence or when risk spikes. It does **not** become a calendar/task manager.
+
+### **4.6 The Leading Indicators (What institutes can act on safely)**
+
+EI’s value to institutes is a privacy-safe “Radar” built from aggregated signals (no raw journaling):
+
+- `VerificationRate7d` (proof-of-learning commitment)
+- `OpenLoops (WIP)` (unfinished learning debt)
+- `LoopLatency(topic)` (effort → retrieval delay)
+- `ScheduleMisses7d` (paper compliance risk)
+- `SilenceDays` (disengagement risk)
+- `StateTrend` (burnout runway)
+
+These indicators trigger targeted gate interventions (Protocols 1–3) and/or strategic adjustments (next-cycle dials), **weeks before** scores reflect decay.
+
 **Full EI spec (protocols, deltas, diagnostics, multiscale cadence, multi-topic model):** see `EI_Spec.md`.
 
 ---
 
 ## **5. The Solution: "The Swiss Bank Model"**
 
-**Definition:** An independent, privacy-first AI layer that captures daily student execution data, sanitizes it, and sells actionable **"Risk Signals"** to Coaching Institutes.
+**Definition:** An independent, privacy-first AI layer that captures minimal execution signals from students, sanitizes them, and sells actionable **leading risk signals** to Coaching Institutes.
 
 ### **5.1 The "Two-Faced" Architecture**
 
-We solve the "Trust vs. Control" paradox by separating the **Input** from the **Output**.
+We solve the "Trust vs. Control" paradox by separating **private inputs** from **sanitized outputs**.
 
 | Feature | **Face 1: The Student "Confidant" (App)** | **Face 2: The Institute "Radar" (Dashboard)** |
 | :--- | :--- | :--- |
 | **User** | The Student | The Academic Head / Mentor |
 | **Role** | "The Private Wealth Manager" | "Rank Insurance" |
-| **Input** | Raw, honest data (Anxiety, Sleep, Backlogs) | None |
-| **Output** | **Async Negotiations** & Debt Restructuring | Processed "Academic Signals" (Red Flags) |
-| **Promise** | *"We hide your secrets. We fix your debt."* | *"We tell you who is at risk, without the noise."* |
+| **Input** | Raw execution taps (Energy/Anxiety + study decisions + verification choices) | None |
+| **Output** | **Async negotiation** at gates (intent, startability, verification) + debt restructuring (close-loops-first) | Privacy-safe **Risk Alerts** + recommended action class |
+| **Promise** | *"We hide your secrets. We fix your study debt."* | *"We tell you who is at risk—without raw diary content."* |
 
-### **5.2 The "Async Private Banker" Protocol**
+**Hard privacy boundary:** The institute never sees raw journaling, reasons, or chat transcripts—only aggregated metrics + alert types.
 
-Unlike passive trackers, our AI actively helps students recover from backlogs. To avoid Gen Z "Phone Anxiety," we use an **Escalation Ladder**:
+### **5.2 The "Async Private Banker" Protocol (Escalation Ladder)**
 
-1.  **Level 1: The Nudge (Push Notification)**
-    *   *Trigger:* Missed 1 Target.
-    *   *Action:* Interactive Button. *"Missed Physics. Move to Sunday Buffer? [✅ Yes] [❌ No]"*
+Unlike passive trackers, EI intervenes only at **natural decision points** and escalates support based on **leading indicators** (not moral judgment). This avoids Gen Z "phone anxiety" while keeping the system proactive.
 
-2.  **Level 2: The Consult (Voice Note)**
-    *   *Trigger:* Missed 2 Targets + Low Sleep Tag.
-    *   *Action:* A generated 15-second audio file.
-    *   *Script:* *"Hey, I see you're fading on Physics. Sleep logs say you're tired. I've unlocked a 10-min easy quiz just to keep the streak. Listen when you wake up."*
+1.  **Level 1: The Nudge (low-friction prompt)**
+    *   *Trigger (examples):* `OpenLoops = 2` OR `VerificationRate7d` drifting OR first `ScheduleMissed`
+    *   *Action:* 1-tap micro-choice at the next gate:  
+        *"Close 1 open loop now (1 question) or schedule it for tomorrow? [VerifyNow] [ScheduleVerify]"*
 
-3.  **Level 3: The Intervention (Live Call)**
-    *   *Trigger:* **The "Crash" Scenario** (3 Days of Silence).
-    *   *Action:* The "Nuclear Option." The AI calls to confirm the student is active before flagging them to the Institute.
+2.  **Level 2: The Consult (short voice note / coaching-style message)**
+    *   *Trigger (examples):* `OpenLoops ≥ 3` OR `scheduleMisses7d ≥ 2` OR repeated **avoidant exits**
+    *   *Action:* 10–20s “elder brother” consult that sets a simple constraint + reassurance:  
+        *"You’re active, but proof is lagging. Today we close the oldest open loop first—tiny verify, then continue."*
+
+3.  **Level 3: The Intervention (human escalation / welfare check)**
+    *   *Trigger (examples):* `SilenceDays ≥ 3` OR `StateTrend` collapsing (burnout runway) + disengagement risk
+    *   *Action:* escalate to a human mentor/counselor workflow **without sharing private content**: confirm safety + remove pressure + set a recovery-oriented next step before any academic escalation
 
 ### **5.3 The "Bankruptcy Protocol" (Anti-Gaming Logic)**
 
-To prevent students from using the AI to rationalize laziness, we enforce a **Debt Ceiling**:
+To prevent students from using the AI to rationalize avoidance, EI enforces a **debt ceiling** without shaming.
 
-*   **The "Write-Off" Token:** Students get **2 "Penalty-Free Drops" per month** where the AI negotiates a strategic chapter skip.
-*   **The Insolvency Trigger:** If a student overloads their "Buffer Sunday" (>8 hours) for the **3rd time**, the AI refuses to negotiate. It locks the schedule and requires a "Reset Commitment" (Reflection Form).
+*   **The "Write-Off" Token:** Students get **2 penalty-free drops per month** (explicitly logged) for unavoidable days. This protects trust and prevents silent disengagement.
+*   **The Insolvency Trigger:** If integrity debt keeps rising (e.g., `OpenLoops ≥ 3` + repeated `ScheduleMissed`), EI temporarily stops negotiating new scope and enforces **Close-Loops-First** constraints at gates until debt is bounded.
 
 ---
 
 ## **6. The Product Catalog: Risk Signals**
 
-We do not sell raw data to institutes (that violates trust). We sell **Alerts**.
+We do not sell raw data to institutes (that violates trust). We sell **privacy-safe Alerts** that map to an owner and a clear action class.
 
-| The Behavior (Student Reality) | The B2B Alert (Product Sold) | The Fix (Micro-Action) |
-| :--- | :--- | :--- |
-| **Passive Learning** *(Studying without retrieval)* | **Signal: High Effort, Low Recall** | Prompt student to solve 5 MCQs before reading the next chapter. |
-| **Avoidance** *(Drifting from hard topics)* | **Signal: Subject Avoidance Latency** | Alert Mentor: *"Student is blocked on Physics (4 Days)."* |
-| **Emotional Revision** *(Revising only easy topics)* | **Signal: Comfort Zone Loop** | Lock "Strong Topics" until "Weak Topic" backlog is cleared. |
-| **Energy Mismatch** *(Hard tasks at low-energy times)* | **Signal: Cognitive Misallocation** | Nudge: *"You are tired. Switch from Calculus to Chemistry."* |
+| The Behavior (Student Reality) | The B2B Alert (Product Sold) | Alert threshold (coarse; v1) | Who should act | The Fix (Micro-Action) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Passive Learning** *(Studying without proof)* | **Verification Drop / High Effort, Low Recall** | `VerificationRate7d < 0.60` OR `LoopLatency(topic)` rising OR `avoidantExits7d ≥ 2` | Mentor | Enforce minimum proof at session end: `VerifyNow(1–3)` or `ScheduleVerify(24h)`; shift to error-log/recall if repeats. |
+| **Avoidance** *(Drifting from hard topics)* | **Subject Avoidance Latency** | `AvoidanceLatency(subject) ≥ 5–7 days` *(tune by exam proximity)* | Mentor | Schedule a guided restart slot + smallest-first intent; keep proof minimal but non-zero. |
+| **Emotional Revision** *(Only easy topics; comfort zone)* | **Comfort Zone Loop** | High `TMS(topic)` + repeated low-signal intent (notes-only) + weak-topic untouched | Academic Head (or Mentor) | Apply “weak-topic-first” constraint for 3–7 days; replace notes with retrieval-first (PYQs / recall). |
+| **Energy mismatch** *(Hard tasks on low-energy days)* | **Cognitive Misallocation** | `StateTrend` worsening OR frequent LOW ENERGY opens + high Ambition Δ | Mentor | Rescue negotiation: reduce scope, keep integrity minimal, and re-route to lighter work **without** calendar ownership. |
+| **Paper compliance** *(Schedules but doesn’t honor)* | **Scheduling Not Honored (Integrity Debt)** | `scheduleMisses7d ≥ 2` OR `OpenLoops ≥ 3` | Mentor + Academic Head | Temporarily reduce scheduling freedom; enforce Close-Loops-First until debt is bounded (`maxOpenLoops=2`). |
+| **Disengagement / crash runway** *(Going silent)* | **Silence Risk** | `SilenceDays ≥ 2` (red at `≥ 3`) | Counselor / Mentor | Welfare check + recovery mode; re-engage with a tiny loop closure before any academic escalation. |
+
+**Radar rule (v1):** The institute dashboard shows **one primary alert per student** (deduped). If multiple triggers fire, prioritize: `Silence` → `IntegrityDebt/OpenLoopsSpike` → `VerificationDrop` → `BurnoutRunway` → `SubjectAvoidance`.
 
 ---
 
@@ -190,10 +215,32 @@ We utilize a **"Compound AI System"** rather than a generic Chatbot.
 ## **9. Roadmap: The "Safety First" Launch**
 
 ### **Phase 1: The "Clicker" (MVP) – Weeks 1-8**
-*   **Goal:** Safe Data Collection.
-*   **Feature:** **Structured Buttons Only.** No Voice.
-*   **Input:** *Did you finish targets?* [Yes / Partial / No].
-*   **Output:** Friday Risk Report (CSV).
+*   **Goal:** Prove EI’s **leading indicators** and institute actionability (before building richer UI).
+*   **Pilot cohort:** 50–200 students, 1–2 institutes, 1–3 batches
+*   **Duration:** 2–4 weeks
+*   **Feature:** **Structured buttons only.** No voice, no raw journaling.
+
+*   **Student-side instrumentation (minimum; structured only):**
+    *   `AppOpen`: Energy (1–5), Anxiety (1–5), optional SleepHours
+    *   `IntentSet`: Topic, TaskType (learn/practice/revise), DifficultyTier
+    *   `SessionEnd`: `VerifyNow` vs `ScheduleVerify` vs `SkipWithReason`
+    *   Derived automatically: `OpenLoops`, `LoopLatency(topic)`, `VerificationRate7d`, `scheduleMisses7d`, `SilenceDays`
+
+*   **Institute deliverables (what they receive):**
+    *   **Weekly Radar export:** 1 primary alert per student (deduped) + owner + recommended action class
+    *   **Batch summary:** distribution of `VerificationRate7d`, `OpenLoops`, `SilenceDays`, top alert types
+    *   *(Optional)* daily red-alert triage queue (10–15 minutes)
+
+*   **Operating rhythm (lightweight):**
+    *   Mentors triage **red alerts** daily (10–15 min)
+    *   Academic head reviews weekly trend summary (15–20 min)
+
+*   **Success metrics (pilot outcomes; leading indicators):**
+    *   `VerificationRate7d` ↑
+    *   `OpenLoops` ↓ / bounded
+    *   `SilenceDays` events ↓
+    *   `scheduleMisses7d` ↓
+    *   **Non-goal:** do not judge success by mock scores in 2–4 weeks (scores are lagging)
 
 ### **Phase 2: The "Async Banker" – Months 3-6**
 *   **Goal:** High Engagement.
