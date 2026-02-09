@@ -116,7 +116,7 @@ This is a **product-readable** storyboard for a single student journey (S7), wri
   - `Skip (Time | Fatigue | Confusion)`
 - **If student skips**:
   - they must choose one reason (no free-form)
-  - ELI keeps tone calm and keeps tomorrow’s plan smaller
+  - ELI keeps tone calm and suggests a smaller scope at the next start—ELI does not assign tasks or manage the calendar.
 
 ### **Scene 9 — Day 14: Light personalization (same scale, clearer meaning)**
 - **Where**: opens app after a good streak
@@ -130,6 +130,7 @@ This is a **product-readable** storyboard for a single student journey (S7), wri
 - **ELI sets two plain rules for the week** (no engine terms):
   - “Keep **pending checks ≤ 2**.”
   - “New topic comes **after** you clear 1 pending check today.”
+- **Note**: These are two guardrails, not a full weekly plan—ELI does not become a task manager or calendar.
 - **Student response**: “Fair. That’s not pressure, that’s structure.”
 
 ### **Scene 11 — Day 16–18: Autonomy returns (fewer prompts)**
