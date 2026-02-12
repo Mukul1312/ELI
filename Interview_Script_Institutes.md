@@ -1,59 +1,49 @@
-# Interview Script: Coaching Institutes (Academic Heads/Directors)
+# Interview Script: Coaching Institutes (Academic Heads/Directors) - Meeting 1: Problem Discovery
 
 ## Goal of this Interview
 
-To validate that "Silent Decay" is a critical, top-of-mind problem for institutes and to test their reaction to the "Execution Intelligence" platform as a paid solution. We want to understand their current workflows, pains, and willingness to pay.
+To deeply understand the challenges, current processes, and unmet needs of coaching institutes regarding student underperformance and burnout. The primary goal is to validate the problem's severity and earn the right to a second meeting to discuss potential solutions.
 
 ---
 
 ### **1. Introduction & Warm-up (5 mins)**
 
 - "Hi [Name], thank you for taking the time. I know you're incredibly busy, so I'll be brief and to the point. My name is [Your Name], and my research focuses on a single, expensive problem for institutes: retaining top students who are at risk of burnout."
-- "I'm hoping to get your expert take on it for 15 minutes. Is that okay?"
+- "I'm hoping to get your expert take on it for 20-25 minutes. Is that okay?"
 - "To start, could you tell me a bit about your role at [Institute Name]?"
 
 ---
 
-### **2. Problem Discovery: The Current State (15 mins)**
+### **2. The World of the Academic Head (15-20 mins)**
 
-_Our goal here is to get them to talk about the problem without us leading them to it._
+_Our goal is to become an expert in their daily reality and pain points._
 
-- "When you think about your top-performing students, what are the key factors that you believe contribute to their success?"
-  - (Listen for: study habits, time management, focus, motivation, support system, etc.)
+- "Can you walk me through the lifecycle of a star student, from the day they enroll to the day they get their rank?"
 - "On the flip side, can you tell me about a time when a student who you believed had huge potential ended up underperforming? What happened there?"
-  - (Listen for: burnout, disengagement, lack of support, etc.)
-  - (Probe: "How did you first realize things were going wrong?")
-  - (Probe: "In hindsight, were there any earlier signs?")
-- "How do you currently identify students who are struggling, burning out, or—even worse—**at risk of leaving the institute entirely**, long before it gets to a crisis point?"
-  - (Listen for: reliance on test scores, teacher intuition, student self-reporting, etc.)
-- "Describe the process. Who is responsible for this? What tools or data do you use?"
-
-- "On a scale of 1-5, how confident are you in this current process? Why?"
-- "What are the biggest challenges or anxieties you face when it comes to ensuring consistent student performance and well-being?"
+  - (Probe: "Looking back, what were the absolute earliest signs that something was off?")
+  - (Probe: "How did you first realize things were going wrong? What was the trigger?")
+- "How do you currently identify students who are struggling, burning out, or at risk of disengaging?"
+  - (Probe: "Walk me through that process. Who is responsible? What tools or data do you rely on?")
+- "On a scale of 1-5, how much of this process relies on 'teacher intuition' versus hard data?"
+- "What is the single most frustrating or anxiety-inducing part of managing student performance across an entire batch?"
 - "In a typical year, can you give me a rough estimate of how many students you feel fall into this category of 'high-potential but underperforming'?"
-- "Putting aside any current constraints, if you could wave a magic wand and get a perfect solution to any single problem related to student performance, what would it solve for you?"
 
 ---
 
-### **3. Solution Exploration: Gauging the Value Prop (10 mins)**
+### **3. The "Magic Wand" Question (5 mins)**
 
-_Our goal here is to get them to talk about the problem without us leading them to it._
+_Our goal here is to get them to design their own dream solution._
 
-- "We're exploring a concept to address this. Imagine you had a 'performance radar' for your students."
-- "It wouldn't show you their private diaries or chats. Instead, it would provide privacy-safe alerts, flagging behaviors linked to burnout or performance decay. For example, an alert might say 'Student X is consistently studying without verifying their learning' or 'Student Y is showing signs of disengagement'."
-- "This would give you a 2-3 week head start to intervene before their scores drop."
-- "What's your initial gut reaction to that?"
-  - (Probe / If they ask for an example: "For instance, imagine a student keeps studying new topics but tells the app, ‘I’ll test myself later.’ After a few times, the app gently intervenes, saying, ‘Hey, you’re working hard, but you have 3 pending checks. Let’s clear one before starting something new.’ It’s this pattern—studying without proof—that generates a ‘Low Verification Rate’ alert for you. The student’s interaction is private, but you get the risk signal.")
-- "What information would be most valuable in such an alert for you to take action?"
-- "And if you received that perfect alert today, what specific action would your team take? Who would be responsible for that action?"
-- "What are your biggest concerns about a system like this? (e.g., data privacy, accuracy, student perception)."
-  - (If they bring up privacy: "That's exactly why we're designing it so you _never_ see the raw data, only the actionable signal. Does that address your concern?")
+- "This has been incredibly insightful. It's clear you're dealing with a lot of complex variables."
+- "If you could wave a magic wand and get **any piece of data or any kind of report** about your students—something you don't have today—what would it be? What would it tell you?"
+  - (Probe): "And if you had that perfect report on your desk tomorrow, what specific action would you or your team take?"
 
 ---
 
-### **4. Pricing & Wrap-up (5 mins)**
+### **4. Wrap-up & Next Steps (5 mins)**
 
-- "Let's assume this system worked perfectly and gave you reliable, early warnings."
-- "How would you quantify the value of preventing one of your top 50 students from dropping out of the top 100?"
-- "Is this a 'nice-to-have' or a 'must-have' solution for you?"
-- "Thank you so much for your time and insights. This has been incredibly helpful. Would you be open to another conversation in a few weeks as we develop these ideas further?"
+_Our goal is to summarize what we learned and secure a second meeting._
+
+- "This has been enormously helpful. It sounds like the biggest challenges are [Summarize their 2-3 main pain points in their own words]. Is that an accurate reflection?"
+- "Based on this, I have a few initial ideas that might be relevant. Would you be open to a follow-up call in a couple of weeks where I could share some concepts specifically tailored to the challenges we discussed today?"
+- "Thank you again for your time. Your perspective is incredibly valuable."
