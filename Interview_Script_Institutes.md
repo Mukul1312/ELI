@@ -18,19 +18,31 @@ To deeply understand the challenges, current processes, and unmet needs of coach
 
 _Our goal is to become an expert in their daily reality and pain points._
 
-- "Can you walk me through the lifecycle of a star student, from the day they enroll to the day they get their rank?"
-- "On the flip side, can you tell me about a time when a student who you believed had huge potential ended up underperforming? What happened there?"
-  - (Probe: "Looking back, what were the absolute earliest signs that something was off?")
-  - (Probe: "How did you first realize things were going wrong? What was the trigger?")
-- "How do you currently identify students who are struggling, burning out, or at risk of disengaging?"
-  - (Probe: "Walk me through that process. Who is responsible? What tools or data do you rely on?")
-- "On a scale of 1-5, how much of this process relies on 'teacher intuition' versus hard data?"
+- "To start, could you tell me the story of one of your best students? What does their journey look like?"
+- "Thanks for that. Now, let's talk about the opposite. Can you think of a student who started out strong but then began to struggle? What happened there?"
+  - (Probe): "What was the first clue, even if you weren't sure at the time?"
+  - (Probe): "And what was the final trigger? The moment you knew for sure there was a real problem?"
+- "So what's your system today for spotting a student who's starting to struggle or burn out?"
+  - (Probe 1): "Could you walk me through that process step-by-step?"
+  - (Probe 2): "And who on the team is usually responsible for that?"
+  - (Probe 3): "What data or tools, if any, do you find yourselves using?"
+- "So, to summarize that process, on a scale of 1-5, how much would you say it relies on 'teacher intuition' versus hard data?"
 - "What is the single most frustrating or anxiety-inducing part of managing student performance across an entire batch?"
+  - (Probe): "That's really insightful. When you think about your different student segments—the top performers, the ones who are struggling, and the motivated middle—where does your team find itself spending the most effort for the least amount of return?"
 - "In a typical year, can you give me a rough estimate of how many students you feel fall into this category of 'high-potential but underperforming'?"
 
 ---
 
-### **3. The "Magic Wand" Question (5 mins)**
+### **3. Business & Strategy Context (5 mins)**
+
+_Our goal is to understand how they think about growth and the business itself._
+
+- "Thinking about the business side for a moment, every institute has to balance the immediate needs of today with the long-term vision for the future. Could you tell me a bit about how you and your team think about balancing your short-term goals with your long-term goals?"
+  - (Probe, if needed): "That's helpful context. For example, when you think about the next 6 months, is the primary focus on something like increasing admissions? And when you look out 2-3 years, is it more about building the brand through student ranks?"
+
+---
+
+### **4. The "Magic Wand" Question (5 mins)**
 
 _Our goal here is to get them to design their own dream solution._
 
