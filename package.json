@@ -1,0 +1,25 @@
+{
+  "name": "ai-study-brother",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "test": "vitest",
+    "migrate": "tsx src/ei/db/migrate.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "latest",
+    "@mastra/pg": "latest",
+    "zod": "^3.24.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "mastra": "latest",
+    "vitest": "^3.0.0",
+    "tsx": "^4.19.0"
+  }
+}
