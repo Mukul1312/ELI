@@ -1,203 +1,139 @@
 /**
- * Protocol 2: Activation Workflow (thin orchestrator)
+ * Protocol 2: Activation Workflow (structured documentation)
  *
- * Trigger: IntentSet event (student commits to a topic/task)
- * Output:  ActivationPlanIssued event
- *
- * Flow:
- *   loadStudentContext    -> tools: computeAggregates, getPolicy, queryEvents (recent Replans/FirstAction)
- *   computeSessionMetrics -> pure:  compute startLatencyMin, replanCount from queried events
- *   classifyAndSelect     -> pure:  assignP2Label -> resolveMode -> escalation -> selectPlay
- *   executeAndEmit        -> pure:  executePlay -> tool: appendEvent(ActivationPlanIssued)
- *
- * Cross-protocol: if play is P2-R3 (watch-only), the ActivationPlanIssued payload
- * sets `constraints.enforceWatchOnlyVerification = true`. P3 reads this flag and
- * MUST enforce minimum verification even though the student only watched/read.
- *
- * The client must track Replan and FirstActionStarted events and send them
- * so the system can detect STALLED behaviour.
+ * Real orchestration happens in src/ei/protocol-runner.ts.
  *
  * @see EI_Protocol_2_Activation.md
  * @see EI_Engine_Taxonomy.md sections 3.2, 4
  */
 
-import { createStep } from '@mastra/core/workflows';
-import { createWorkflow } from '@mastra/core/workflows';
+import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-// Engine layers (pure functions)
 import { assignP2Label, resolveMode } from '../../ei/engine/classify';
 import type { StudentAggregates, StudentPolicy, P2Context } from '../../ei/engine/classify';
-import { computeTightnessLevel, getP2Escalation, applyDoNoHarmGuardrail } from '../../ei/engine/escalation';
+import { computeTightnessLevel, getP2Escalation } from '../../ei/engine/escalation';
 import { selectPlay } from '../../ei/engine/plays';
 import type { PlayContext } from '../../ei/engine/plays';
 import { executeP2Play } from '../../ei/engine/play-executor';
+import { ActivationPlanIssuedSchema } from '../../ei/schemas/outputs';
 
 // ============================================================================
-// Step 1: Load student context via tools
+// Schemas
+// ============================================================================
+
+const AggregatesSchema = z.object({
+  pendingChecks: z.number(), openLoops: z.number(), verificationRate7d: z.number(),
+  scheduleMisses7d: z.number(), avoidantExits7d: z.number(), skipCount7d: z.number(),
+  silenceDays: z.number(), startLatencyMin: z.number().optional(),
+  intentAcceptanceRate7d: z.number().nullable().optional(), replanLoopCount7d: z.number(),
+  stateTrend7d: z.enum(['improving', 'flat', 'worsening']),
+  loopLatencyTrend: z.enum(['improving', 'worsening', 'stable']).nullable().optional(),
+});
+
+const PolicySchema = z.object({
+  tightnessLevel: z.enum(['Loose', 'Normal', 'Tight']).optional(),
+  scopeMultiplier: z.number().optional(), difficultyTierDelta: z.number().optional(),
+  constraints: z.object({ closeLoopsFirst: z.boolean().optional(), noNewTopicUntil: z.string().optional() }).optional(),
+});
+
+const ModeSchema = z.enum(['Rescue', 'Neutral', 'Boost']);
+
+const P2Input = z.object({
+  studentId: z.string(), topic: z.string(), taskType: z.string().optional(), setAt: z.string().datetime(),
+});
+
+const ContextLoaded = P2Input.extend({
+  aggregates: AggregatesSchema, policy: PolicySchema,
+  sessionEvents: z.array(z.object({ eventType: z.string(), occurredAt: z.coerce.date() })),
+});
+
+const Metricked = ContextLoaded.extend({
+  replanCount: z.number(), hasStartSignal: z.boolean(),
+  startLatencyMin: z.number().optional(), timeSinceIntentSet: z.number(),
+});
+
+const Classified = Metricked.extend({
+  label: z.string(), mode: ModeSchema, play: z.record(z.unknown()),
+  playContext: z.record(z.unknown()), tightnessLevel: z.string(),
+});
+
+// ============================================================================
+// Steps
 // ============================================================================
 
 const loadStudentContext = createStep({
   id: 'load-student-context',
-  inputSchema: z.object({
-    studentId: z.string(),
-    topic: z.string(),
-    taskType: z.string().optional(),
-    setAt: z.string().datetime(),
+  inputSchema: P2Input,
+  outputSchema: ContextLoaded,
+  execute: async ({ inputData }): Promise<any> => ({
+    ...inputData,
+    aggregates: {} as StudentAggregates,
+    policy: {} as StudentPolicy,
+    sessionEvents: [],
   }),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { studentId, topic, setAt } = inputData;
-
-    // tool: computeAggregates({ studentId })
-    const aggregates = {} as StudentAggregates;
-    // tool: getPolicy({ studentId })
-    const policy = {} as StudentPolicy;
-    // tool: queryEvents({ studentId, filters: { eventTypes: ['Replan', 'FirstActionStarted', 'IntentSet'], since: <sessionStart> } })
-    const sessionEvents: Array<{ eventType: string; occurredAt: Date }> = [];
-
-    return {
-      ...inputData,
-      aggregates,
-      policy,
-      sessionEvents,
-    };
-  },
 });
-
-// ============================================================================
-// Step 2: Compute session metrics from raw events (pure)
-// ============================================================================
 
 const computeSessionMetrics = createStep({
   id: 'compute-session-metrics',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
+  inputSchema: ContextLoaded,
+  outputSchema: Metricked,
+  execute: async ({ inputData }): Promise<any> => {
     const { sessionEvents, setAt } = inputData;
-
-    // Count replans before first action
-    const replans = sessionEvents.filter((e: { eventType: string }) => e.eventType === 'Replan');
-    const firstAction = sessionEvents.find((e: { eventType: string }) => e.eventType === 'FirstActionStarted');
-
+    const replans = sessionEvents.filter((e: any) => e.eventType === 'Replan');
+    const firstAction = sessionEvents.find((e: any) => e.eventType === 'FirstActionStarted');
     const replanCount = replans.length;
     const hasStartSignal = !!firstAction;
-
-    // Compute start latency in minutes
     let startLatencyMin: number | undefined;
     if (firstAction) {
-      const intentSetTime = new Date(setAt).getTime();
-      const startTime = new Date(firstAction.occurredAt).getTime();
-      startLatencyMin = (startTime - intentSetTime) / 60_000;
+      startLatencyMin = (new Date(firstAction.occurredAt).getTime() - new Date(setAt).getTime()) / 60_000;
     }
-
-    // Time since intent was set
     const timeSinceIntentSet = (Date.now() - new Date(setAt).getTime()) / 60_000;
-
-    return {
-      ...inputData,
-      replanCount,
-      hasStartSignal,
-      startLatencyMin,
-      timeSinceIntentSet,
-    };
+    return { ...inputData, replanCount, hasStartSignal, startLatencyMin, timeSinceIntentSet };
   },
 });
-
-// ============================================================================
-// Step 3: Classify, check escalation, select play (pure)
-// ============================================================================
 
 const classifyAndSelectPlay = createStep({
   id: 'classify-and-select-play',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const {
-      aggregates,
-      policy,
-      replanCount,
-      hasStartSignal,
-      startLatencyMin,
-      timeSinceIntentSet,
-    } = inputData;
-
-    const p2Context: P2Context = {
-      startLatencyMin,
-      replanCount,
-      hasStartSignal,
-      timeSinceIntentSet,
-    };
-
-    // 1. Assign label
-    const label = assignP2Label(p2Context, aggregates);
-
-    // 2. Resolve mode
-    let mode = resolveMode(label, aggregates, policy);
-
-    // 3. Check P2-specific escalation
-    const tightnessLevel = computeTightnessLevel(aggregates);
-    // For stallCount7d and watchOnlyCount7d we would query events; placeholder 0 for now
-    const p2Escalation = getP2Escalation(aggregates, 0, 0);
-
-    // 4. Build play context and select play
+  inputSchema: Metricked,
+  outputSchema: Classified,
+  execute: async ({ inputData }): Promise<any> => {
+    const { aggregates, policy, replanCount, hasStartSignal, startLatencyMin, timeSinceIntentSet } = inputData;
+    const agg = aggregates as unknown as StudentAggregates;
+    const pol = policy as unknown as StudentPolicy;
+    const p2Context: P2Context = { startLatencyMin, replanCount, hasStartSignal, timeSinceIntentSet };
+    const label = assignP2Label(p2Context, agg);
+    const mode = resolveMode(label, agg, pol);
+    const tightnessLevel = computeTightnessLevel(agg);
+    const p2Escalation = getP2Escalation(agg, 0, 0);
     const playContext: PlayContext = {
-      studentId: inputData.studentId,
-      topicId: inputData.topic,
-      aggregates,
-      tightnessLevel,
-      p2Escalation,
-      replanCount,
-      startLatencyMin,
-      currentEnergy: undefined, // P2 doesn't re-read energy; uses aggregates
-      currentPressure: undefined,
+      studentId: inputData.studentId, topicId: inputData.topic,
+      aggregates: agg, tightnessLevel, p2Escalation, replanCount, startLatencyMin,
     };
-
     const play = selectPlay(2, mode, playContext);
-
-    return {
-      ...inputData,
-      label,
-      mode,
-      play,
-      playContext,
-      tightnessLevel,
-    };
+    return { ...inputData, label, mode, play, playContext, tightnessLevel };
   },
 });
-
-// ============================================================================
-// Step 4: Execute play and emit event (pure + tool)
-// ============================================================================
 
 const executeAndEmit = createStep({
   id: 'execute-and-emit',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { play, playContext, policy } = inputData;
-
-    const output = executeP2Play(play, playContext, policy);
-
-    // In actual implementation: tool call to appendEvent('ActivationPlanIssued', output)
-
-    return output;
+  inputSchema: Classified,
+  outputSchema: ActivationPlanIssuedSchema,
+  execute: async ({ inputData }): Promise<any> => {
+    const { play, playContext, policy, mode } = inputData;
+    const output = executeP2Play(play as any, playContext as unknown as PlayContext, policy as unknown as StudentPolicy);
+    return { ...output, mode, issuedAt: new Date().toISOString() };
   },
 });
 
 // ============================================================================
-// Workflow definition
+// Workflow
 // ============================================================================
 
 export const protocol2ActivationWorkflow = createWorkflow({
   id: 'ei-protocol2-activation',
-  inputSchema: z.object({
-    studentId: z.string(),
-    topic: z.string(),
-    taskType: z.string().optional(),
-    setAt: z.string().datetime(),
-  }),
-  outputSchema: z.any(),
+  inputSchema: P2Input,
+  outputSchema: ActivationPlanIssuedSchema,
 })
   .then(loadStudentContext)
   .then(computeSessionMetrics)
