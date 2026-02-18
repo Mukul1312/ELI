@@ -5,6 +5,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
+import { getEiDb } from '../../ei/runtime/db';
 
 const topicStateOutput = z.object({
   studentId: z.string(),
@@ -40,8 +41,8 @@ export const getTopicStateTool = createTool({
     topicId: z.string(),
   }),
   outputSchema: topicStateOutput.nullable(),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const row = await Q.getTopicState(db, input.studentId, input.topicId);
     return row ? formatRow(row) : null;
   },
@@ -56,8 +57,8 @@ export const getAllTopicStatesTool = createTool({
   outputSchema: z.object({
     topics: z.array(topicStateOutput),
   }),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const rows = await Q.getAllTopicStates(db, input.studentId);
     return { topics: rows.map(formatRow) };
   },
@@ -73,12 +74,11 @@ export const updateTMSTool = createTool({
     deltaDecay: z.number(),
   }),
   outputSchema: topicStateOutput,
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const row = await Q.upsertTopicState(db, input.studentId, input.topicId, {
       tms: input.tms,
       delta_decay: input.deltaDecay,
-      last_retrieval_at: new Date(),
     });
     return formatRow(row);
   },

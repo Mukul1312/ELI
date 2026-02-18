@@ -58,7 +58,7 @@ const loadStudentContext = createStep({
     recentIntents: z.any(),
     recentResponses: z.any(),
   }),
-  execute: async ({ inputData, mapiClient }) => {
+  execute: async ({ inputData }) => {
     const { studentId, energy, sleepBucket, pressure, backlogPressure } = inputData;
 
     // Call tools to load context
@@ -68,7 +68,7 @@ const loadStudentContext = createStep({
 
     const aggregates = {} as StudentAggregates; // tool: computeAggregates({ studentId })
     const policy = {} as StudentPolicy; // tool: getPolicy({ studentId })
-    const topicStates = []; // tool: getAllTopicStates({ studentId })
+    const topicStates: unknown[] = []; // tool: getAllTopicStates({ studentId })
     const recentIntents = [] as NegotiatedIntentEvent[]; // tool: queryEvents({ studentId, filters: { eventTypes: ['NegotiatedIntentIssued'] } })
     const recentResponses = [] as IntentResponseEvent[]; // tool: queryEvents({ studentId, filters: { eventTypes: ['IntentResponse'] } })
 

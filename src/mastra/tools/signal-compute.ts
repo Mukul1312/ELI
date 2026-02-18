@@ -8,7 +8,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
-import { SCHEDULE_GRACE_HOURS, SILENCE_DAYS_THRESHOLD } from '../../ei/engine/tunables';
+import { SCHEDULE_GRACE_HOURS } from '../../ei/engine/tunables';
+import { getEiDb } from '../../ei/runtime/db';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -33,9 +34,10 @@ export const computeAggregatesTool = createTool({
     stateTrend7d: z.string(),
     loopLatencyTrend: z.string().nullable(),
   }),
-  execute: async (input) => {
+  execute: async (input, context) => {
     const { studentId } = input;
-    const db = (globalThis as any).__eiDb;
+    const db = getEiDb(context);
+
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - SEVEN_DAYS_MS);
 
@@ -105,7 +107,7 @@ export const computeAggregatesTool = createTool({
     ).length;
     const intentAcceptanceRate7d = intentIssued > 0 ? intentAccepted / intentIssued : null;
 
-    // --- startLatencyMinMedian7d (simplified: average of available latencies) ---
+    // --- startLatencyMinMedian7d (simplified: median of available latencies) ---
     const intentSetEvents = events.filter((e) => e.event_type === 'IntentSet').reverse();
     const firstActionEvents = events.filter((e) => e.event_type === 'FirstActionStarted').reverse();
     const latencies: number[] = [];
@@ -146,7 +148,7 @@ export const computeAggregatesTool = createTool({
       avoidantExits7d,
       skipCount7d,
       silenceDays,
-      startLatencyMinMedian7d: startLatencyMinMedian7d,
+      startLatencyMinMedian7d,
       intentAcceptanceRate7d,
       replanLoopCount7d,
       stateTrend7d,
@@ -188,9 +190,10 @@ export const checkOverdueSchedulesTool = createTool({
       hoursOverdue: z.number(),
     })),
   }),
-  execute: async (input) => {
+  execute: async (input, context) => {
     const { studentId, graceHours } = input;
-    const db = (globalThis as any).__eiDb;
+    const db = getEiDb(context);
+
     const now = new Date();
     const graceMs = graceHours * 60 * 60 * 1000;
 
@@ -230,8 +233,8 @@ export const listStudentsTool = createTool({
   outputSchema: z.object({
     studentIds: z.array(z.string()),
   }),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const studentIds = await Q.listActiveStudents(db, input.activeWithinDays);
     return { studentIds };
   },

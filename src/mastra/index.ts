@@ -1,5 +1,7 @@
 import { Mastra } from '@mastra/core';
 import { PostgresStore } from '@mastra/pg';
+import { VercelDeployer } from "@mastra/deployer-vercel";
+
 
 // Tools
 import { appendEventTool, queryEventsTool } from './tools/event-store';
@@ -21,6 +23,12 @@ const storage = new PostgresStore({
 });
 
 export const mastra = new Mastra({
+  deployer: new VercelDeployer({
+    // optional but useful for longer workflows/batches
+    // maxDuration: 300,
+    // memory: 1024,
+    // regions: ["iad1"],
+  }),
   storage,
   workflows: {
     protocol1IgnitionWorkflow,

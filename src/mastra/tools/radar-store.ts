@@ -8,6 +8,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
+import { getEiDb } from '../../ei/runtime/db';
 
 export const upsertRadarAlertTool = createTool({
   id: 'upsert-radar-alert',
@@ -24,8 +25,8 @@ export const upsertRadarAlertTool = createTool({
     alertId: z.string(),
     isNew: z.boolean(),
   }),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const { row, isNew } = await Q.upsertRadarAlert(
       db,
       input.studentId,
@@ -65,8 +66,8 @@ export const getRadarAlertsTool = createTool({
     })),
     total: z.number(),
   }),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const { alerts, total } = await Q.getRadarAlerts(
       db,
       input.filters,

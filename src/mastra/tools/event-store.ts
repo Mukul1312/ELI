@@ -9,6 +9,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { EventTypeEnum } from '../../ei/schemas/events';
 import * as Q from '../../ei/db/queries';
+import { getEiDb } from '../../ei/runtime/db';
 
 export const appendEventTool = createTool({
   id: 'append-event',
@@ -24,9 +25,9 @@ export const appendEventTool = createTool({
     eventId: z.string(),
     occurredAt: z.string(),
   }),
-  execute: async (input) => {
+  execute: async (input, context) => {
     const { studentId, eventType, topicId, payload, occurredAt } = input;
-    const db = (globalThis as any).__eiDb; // injected by Mastra runtime (see below)
+    const db = getEiDb(context);
 
     const row = await Q.insertEvent(
       db,
@@ -94,9 +95,9 @@ export const queryEventsTool = createTool({
       occurredAt: z.string(),
     })),
   }),
-  execute: async (input) => {
+  execute: async (input, context) => {
     const { studentId, filters } = input;
-    const db = (globalThis as any).__eiDb;
+    const db = getEiDb(context);
 
     const rows = await Q.queryEvents(db, studentId, {
       eventTypes: filters?.eventTypes,

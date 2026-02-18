@@ -5,6 +5,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
+import { getEiDb } from '../../ei/runtime/db';
 
 const policyOutput = z.object({
   studentId: z.string(),
@@ -33,8 +34,8 @@ export const getPolicyTool = createTool({
     studentId: z.string(),
   }),
   outputSchema: policyOutput.nullable(),
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const row = await Q.getPolicy(db, input.studentId);
     return row ? formatRow(row) : null;
   },
@@ -51,8 +52,8 @@ export const setPolicyTool = createTool({
     constraints: z.record(z.unknown()).default({}),
   }),
   outputSchema: policyOutput,
-  execute: async (input) => {
-    const db = (globalThis as any).__eiDb;
+  execute: async (input, context) => {
+    const db = getEiDb(context);
     const row = await Q.upsertPolicy(
       db,
       input.studentId,

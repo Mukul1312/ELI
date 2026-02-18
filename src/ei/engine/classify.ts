@@ -254,7 +254,7 @@ export function resolveMode(
 
   if (hasRiskSignals) {
     // Even if label suggests Boost (HIGH_ENERGY, FLOWING, CONFIDENT), downgrade
-    if (label === 'LOW_ENERGY' || label === 'STALLED' || label === 'AVOIDANT') {
+    if (label === 'LOW_ENERGY') {
       return 'Rescue';
     }
     return 'Neutral'; // block Boost, but not severe enough for Rescue
@@ -269,7 +269,7 @@ export function resolveMode(
 
   if (!hasStability) {
     // Block Boost if stability conditions not met
-    if (label === 'LOW_ENERGY' || label === 'STALLED' || label === 'AVOIDANT') {
+    if (label === 'LOW_ENERGY') {
       return 'Rescue';
     }
     return 'Neutral';
@@ -280,11 +280,8 @@ export function resolveMode(
   // The mode can still be Boost, but the play executor will apply quality-boost rules
 
   // Now assign mode based on label
-  if (
-    label === 'LOW_ENERGY' ||
-    label === 'STALLED' ||
-    label === 'AVOIDANT'
-  ) {
+  // Note: 'STALLED' and 'AVOIDANT' already returned 'Rescue' above; only LOW_ENERGY remains.
+  if (label === 'LOW_ENERGY') {
     return 'Rescue';
   }
 

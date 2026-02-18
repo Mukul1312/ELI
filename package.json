@@ -4,22 +4,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "mastra dev",
-    "build": "mastra build",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "test": "vitest",
     "migrate": "tsx src/ei/db/migrate.ts"
   },
   "dependencies": {
     "@mastra/core": "latest",
+    "@mastra/deployer-vercel": "^1.0.5",
     "@mastra/pg": "latest",
-    "zod": "^3.24.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "mastra": "latest",
-    "vitest": "^3.0.0",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   }
 }
