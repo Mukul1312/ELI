@@ -5,6 +5,7 @@
 **Subdomain(s):** AdaptiveCoaching, StudySessionOrchestration  
 **Context Map reference:** [03-context-map.md](03-context-map.md)  
 **Sources:** [02-subdomains.md](02-subdomains.md), [05-domain-message-flows-storyboards.md](05-domain-message-flows-storyboards.md)
+**See also (cross-cutting):** [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md) — invariants, event catalog, data ownership, ACLs
 
 ---
 
@@ -56,6 +57,21 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | LOW_ENERGY / HIGH_ENERGY | P1 labels from LoopHealthSnapshot                                                              |
 | STALLED / FLOWING        | P2 labels from LoopHealthSnapshot                                                              |
 | AVOIDANT / CONFIDENT     | P3 labels from LoopHealthSnapshot                                                              |
+| TightnessLevel           | Loose / Normal / Tight; from SA policy; how strictly protocols enforce integrity              |
+| VerificationFloor        | P1 NegotiatedIntent sets verification commitment; P3 honors it (cross-protocol)               |
+| WatchOnlyConstraint      | P2 can flag watch-only topic; P3 treats as lower verification bar                             |
+
+
+### Student-facing scales
+
+Source: [EI_UX_Scales.md](../../EI_UX_Scales.md)
+
+| Scale           | Values            | Labels (student sees)                                     |
+| --------------- | ----------------- | --------------------------------------------------------- |
+| Energy          | 1–5               | Exhausted, Low, Okay, Good, Sharp                         |
+| Pressure        | 1–5               | Calm, Slightly tense, Uneasy, Very stressed, Panicky      |
+| BacklogPressure | 1–5               | On track, Mostly on track, Some pending, Behind, Drowning   |
+| SleepBucket     | <6, 6-7, 7-8, >=8 | Sleep-debt, Low sleep, Okay sleep, Fully slept            |
 
 
 ---

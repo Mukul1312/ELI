@@ -4,7 +4,7 @@
 
 **Subdomain(s):** _e.g. AdaptiveCoaching, StudySessionOrchestration_  
 **Context Map reference:** [03-context-map.md](03-context-map.md)
-
+**See also (cross-cutting):** [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md) — invariants, event catalog, data ownership, ACLs
 
 ---
 

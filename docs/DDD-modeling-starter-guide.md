@@ -339,7 +339,7 @@ As a starting point, we recommend the [Aggregate Design Canvas](https://github.c
 #### Tools
 
 - [Aggregate Design Canvas](https://github.com/ddd-crew/aggregate-design-canvas)
-- [C4 Component Diagrams](https://c4model.com/#ComponentDiagram)
+- [C4 Component Diagrams](https://c4model.com/#ComponentDiagram) 
 - [Design-Level EventStorming](https://www.eventstorming.com/)
 - [Event Modeling](https://eventmodeling.org/posts/what-is-event-modeling/)
 - [Hexagonal Architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
