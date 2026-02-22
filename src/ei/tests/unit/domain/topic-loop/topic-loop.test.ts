@@ -1,10 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { TopicLoop } from '../../../../domain/topic-loop/topic-loop';
 import { TopicLoopId, TopicLoopState } from '../../../../domain/topic-loop/value-objects';
+import { MissingStudentIdError, MissingTopicIdError } from '../../../../domain/topic-loop/errors';
 
 function makeLoop(studentId = 'student-1', topicId = 'topic-1') {
   return TopicLoop.empty(TopicLoopId.create(studentId, topicId));
 }
+
+describe('TopicLoopId', () => {
+  it('throws MissingStudentIdError when studentId is empty', () => {
+    expect(() => TopicLoopId.create('', 'topic-1')).toThrow(MissingStudentIdError);
+    expect(() => TopicLoopId.create('   ', 'topic-1')).toThrow(MissingStudentIdError);
+  });
+
+  it('throws MissingTopicIdError when topicId is empty', () => {
+    expect(() => TopicLoopId.create('student-1', '')).toThrow(MissingTopicIdError);
+    expect(() => TopicLoopId.create('student-1', '   ')).toThrow(MissingTopicIdError);
+  });
+
+  it('trims whitespace from valid ids', () => {
+    const id = TopicLoopId.create('  s1  ', '  t1  ');
+    expect(id.studentId).toBe('s1');
+    expect(id.topicId).toBe('t1');
+  });
+});
 
 describe('TopicLoop aggregate', () => {
   const t1 = new Date('2025-03-01T10:00:00Z');

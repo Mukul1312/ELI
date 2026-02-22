@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "c1ab3a923710ec04670f7fb81919d7c5a3783c00ccaad6ce367f62d4d004aeba"
+    }
+  }
+}

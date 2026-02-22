@@ -89,8 +89,7 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
     const verified = events.filter(
       (e) => e.eventType === 'RetrievalVerified' || e.eventType === 'VerificationCompleted',
     ).length;
-    const scheduled = events.filter((e) => e.eventType === 'RetrievalScheduled').length;
-    const verificationRate7d = Math.min(1, sessionEnds > 0 ? (verified + scheduled) / sessionEnds : 1.0);
+    const verificationRate7d = Math.min(1, sessionEnds > 0 ? verified / sessionEnds : 1.0);
 
     const scheduleMisses7d = Math.max(0, topicStates.filter((t) => {
       if (!t.lastScheduledDueAt) return false;
@@ -149,7 +148,7 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       : null;
 
     const replanCount = events.filter((e) => e.eventType === 'Replan').length;
-    const replanLoopCount7d = Math.max(0, replanCount >= 2 ? replanCount : 0);
+    const replanLoopCount7d = Math.max(0, replanCount);
 
     const appOpens = events.filter((e) => e.eventType === 'AppOpen').reverse();
     let stateTrend7d: StateTrend = 'flat';

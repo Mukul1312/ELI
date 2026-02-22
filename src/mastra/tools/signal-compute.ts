@@ -45,8 +45,9 @@ export const computeAggregatesTool = createTool({
     const eventReader = new PostgresStudentEventStreamReader(db);
     const topicReader = new PostgresTopicStateReader(db);
 
+    const graceMs = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
     const handler = new RecomputeStudentAggregatesHandler(repo, eventReader, topicReader, clock);
-    return handler.execute({ studentId: input.studentId });
+    return handler.execute({ studentId: input.studentId, graceMs });
   },
 });
 

@@ -8,6 +8,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { EventTypeEnum } from '../../ei/schemas/events';
+import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import * as Q from '../../ei/db/queries';
 import { getEiDb } from '../../ei/runtime/db';
 import { isTopicLoopEventType } from '../../ei/domain/topic-loop/events';
@@ -32,12 +33,14 @@ export const appendEventTool = createTool({
     const { studentId, eventType, topicId, payload, occurredAt } = input;
     const db = getEiDb(context);
 
+    const validatedPayload = validateEventPayload(eventType, payload as Record<string, unknown>);
+
     const row = await Q.insertEvent(
       db,
       studentId,
       eventType,
       topicId ?? null,
-      payload,
+      validatedPayload,
       occurredAt ? new Date(occurredAt) : undefined,
     );
 
@@ -48,7 +51,7 @@ export const appendEventTool = createTool({
         studentId,
         topicId,
         eventType,
-        payload,
+        payload: validatedPayload,
       });
     }
 

@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ApplyEventToTopicLoopHandler } from '../../../../application/apply-event-to-topic-loop/handler';
+import { InvalidEventPayloadError } from '../../../../application/apply-event-to-topic-loop/errors';
 import type { ITopicLoopRepository } from '../../../../domain/topic-loop/repository';
 import type { TopicLoop } from '../../../../domain/topic-loop/topic-loop';
 import type { TopicLoopId } from '../../../../domain/topic-loop/value-objects';
+import { MissingStudentIdError, MissingTopicIdError } from '../../../../domain/topic-loop/errors';
 
 class InMemoryTopicLoopRepository implements ITopicLoopRepository {
   private store = new Map<string, TopicLoop>();
@@ -119,6 +121,36 @@ describe('ApplyEventToTopicLoopHandler', () => {
     const all = repo.getAll();
     expect(all[0].state.lastEffortAt).toEqual(t1);
     expect(all[0].state.lastRetrievalAt).toBeNull();
+  });
+
+  it('rejects missing studentId', async () => {
+    await expect(
+      handler.execute({ studentId: '', topicId: 't1', eventType: 'SessionEnd', payload: { endedAt: t1.toISOString() } }),
+    ).rejects.toThrow(MissingStudentIdError);
+  });
+
+  it('rejects missing topicId', async () => {
+    await expect(
+      handler.execute({ studentId: 's1', topicId: '', eventType: 'SessionEnd', payload: { endedAt: t1.toISOString() } }),
+    ).rejects.toThrow(MissingTopicIdError);
+  });
+
+  it('rejects SessionEnd with missing endedAt', async () => {
+    await expect(
+      handler.execute({ studentId: 's1', topicId: 't1', eventType: 'SessionEnd', payload: {} }),
+    ).rejects.toThrow(InvalidEventPayloadError);
+  });
+
+  it('rejects SessionEnd with invalid endedAt', async () => {
+    await expect(
+      handler.execute({ studentId: 's1', topicId: 't1', eventType: 'SessionEnd', payload: { endedAt: 'not-a-date' } }),
+    ).rejects.toThrow(InvalidEventPayloadError);
+  });
+
+  it('rejects RetrievalVerified with missing verifiedAt', async () => {
+    await expect(
+      handler.execute({ studentId: 's1', topicId: 't1', eventType: 'RetrievalVerified', payload: {} }),
+    ).rejects.toThrow(InvalidEventPayloadError);
   });
 
   it('keeps separate TopicLoops for different (studentId, topicId) pairs', async () => {

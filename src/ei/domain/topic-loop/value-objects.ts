@@ -1,4 +1,5 @@
 import { ValueObject } from '../shared/value-object';
+import { MissingStudentIdError, MissingTopicIdError } from './errors';
 
 interface TopicLoopIdProps {
   studentId: string;
@@ -11,7 +12,13 @@ export class TopicLoopId extends ValueObject<TopicLoopIdProps> {
   }
 
   static create(studentId: string, topicId: string): TopicLoopId {
-    return new TopicLoopId({ studentId, topicId });
+    if (!studentId || typeof studentId !== 'string' || studentId.trim().length === 0) {
+      throw new MissingStudentIdError();
+    }
+    if (!topicId || typeof topicId !== 'string' || topicId.trim().length === 0) {
+      throw new MissingTopicIdError();
+    }
+    return new TopicLoopId({ studentId: studentId.trim(), topicId: topicId.trim() });
   }
 
   get studentId(): string {

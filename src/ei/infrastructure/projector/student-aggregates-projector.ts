@@ -1,10 +1,13 @@
 import type { PostgresStore } from '@mastra/pg';
+import { SCHEDULE_GRACE_HOURS } from '../../engine/tunables';
 import { RecomputeStudentAggregatesHandler } from '../../application/recompute-student-aggregates/handler';
 import { PostgresStudentAggregatesRepository } from '../persistence/student-aggregates-repository.pg';
 import { PostgresStudentEventStreamReader } from '../persistence/student-event-stream-reader.pg';
 import { PostgresTopicStateReader } from '../persistence/topic-state-reader.pg';
 
 type DbClient = PostgresStore['db'];
+
+const GRACE_MS = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
 
 /**
  * Canonical repair/backfill entrypoint.
@@ -21,5 +24,5 @@ export async function recomputeStudentAggregates(
   const clock = { now: () => now ?? new Date() };
 
   const handler = new RecomputeStudentAggregatesHandler(repo, eventReader, topicReader, clock);
-  return handler.execute({ studentId, now });
+  return handler.execute({ studentId, now, graceMs: GRACE_MS });
 }

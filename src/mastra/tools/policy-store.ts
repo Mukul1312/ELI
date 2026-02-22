@@ -6,6 +6,8 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
 import { getEiDb } from '../../ei/runtime/db';
+import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
+import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
 
 const policyOutput = z.object({
   studentId: z.string(),
@@ -54,14 +56,19 @@ export const setPolicyTool = createTool({
   outputSchema: policyOutput,
   execute: async (input, context) => {
     const db = getEiDb(context);
-    const row = await Q.upsertPolicy(
-      db,
-      input.studentId,
-      input.tightnessLevel,
-      input.adjustmentMode ?? null,
-      input.dials,
-      input.constraints,
-    );
-    return formatRow(row);
+    const repo = new PostgresStudentPolicyRepository(db);
+    const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);
+
+    await handler.execute({
+      studentId: input.studentId,
+      tightnessLevel: input.tightnessLevel,
+      adjustmentMode: input.adjustmentMode ?? null,
+      dials: input.dials,
+      constraints: input.constraints,
+      issuedAt: new Date(),
+    });
+
+    const row = await Q.getPolicy(db, input.studentId);
+    return formatRow(row!);
   },
 });

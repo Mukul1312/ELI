@@ -1,4 +1,3 @@
-import { SCHEDULE_GRACE_HOURS } from '../../engine/tunables';
 import { StudentAggregates, type DomainEventSnapshot } from '../../domain/student-aggregates/student-aggregates';
 import { StudentAggregatesId } from '../../domain/student-aggregates/value-objects';
 import type { IStudentAggregatesRepository } from '../../domain/student-aggregates/repository';
@@ -21,7 +20,7 @@ export class RecomputeStudentAggregatesHandler implements IRecomputeStudentAggre
   async execute(command: RecomputeStudentAggregatesCommand): Promise<RecomputeStudentAggregatesResult> {
     const now = command.now ?? this.clock.now();
     const sevenDaysAgo = new Date(now.getTime() - SEVEN_DAYS_MS);
-    const graceMs = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
+    const graceMs = command.graceMs;
 
     const [rawEvents, rawTopicStates, latestEvent] = await Promise.all([
       this.eventReader.readEventsForStudentInWindow(command.studentId, sevenDaysAgo),

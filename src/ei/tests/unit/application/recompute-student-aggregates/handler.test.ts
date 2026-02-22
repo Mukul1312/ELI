@@ -6,6 +6,7 @@ import type { StudentAggregatesId } from '../../../../domain/student-aggregates/
 import type { IStudentEventStreamReader, StudentStreamedEvent } from '../../../../application/shared/port-student-event-stream-reader';
 import type { ITopicStateReader, TopicStateSnapshot } from '../../../../application/shared/port-topic-state-reader';
 import type { IClock } from '../../../../application/shared/port-clock';
+import { MissingStudentIdError } from '../../../../domain/student-aggregates/errors';
 
 class InMemoryStudentAggregatesRepository implements IStudentAggregatesRepository {
   private store = new Map<string, StudentAggregates>();
@@ -47,6 +48,11 @@ class InMemoryTopicStateReader implements ITopicStateReader {
 }
 
 const FIXED_NOW = new Date('2025-03-15T12:00:00Z');
+const GRACE_MS = 12 * 60 * 60 * 1000;
+
+function makeCommand(overrides: { studentId?: string; now?: Date; graceMs?: number } = {}) {
+  return { studentId: 's1', graceMs: GRACE_MS, ...overrides };
+}
 
 const fixedClock: IClock = { now: () => FIXED_NOW };
 
@@ -65,7 +71,7 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    const result = await handler.execute({ studentId: 's1' });
+    const result = await handler.execute(makeCommand());
 
     expect(result.studentId).toBe('s1');
     expect(result.pendingChecks).toBe(0);
@@ -83,7 +89,7 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    await handler.execute({ studentId: 's1' });
+    await handler.execute(makeCommand());
 
     const saved = repo.getAll();
     expect(saved).toHaveLength(1);
@@ -106,7 +112,7 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    const result = await handler.execute({ studentId: 's1' });
+    const result = await handler.execute(makeCommand());
 
     expect(result.pendingChecks).toBe(0);
     expect(result.verificationRate7d).toBe(1.0);
@@ -128,13 +134,12 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    const result = await handler.execute({ studentId: 's1', now: customNow });
+    const result = await handler.execute(makeCommand({ now: customNow }));
     expect(result.silenceDays).toBe(3);
   });
 
   it('detects open loops from overdue schedules', async () => {
-    const graceMs = 12 * 60 * 60 * 1000;
-    const overdueDate = new Date(FIXED_NOW.getTime() - graceMs - 60_000);
+    const overdueDate = new Date(FIXED_NOW.getTime() - GRACE_MS - 60_000);
     const topicStates: TopicStateSnapshot[] = [
       { topicId: 't1', lastEffortAt: null, lastRetrievalAt: null, lastScheduledDueAt: overdueDate },
     ];
@@ -146,9 +151,22 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    const result = await handler.execute({ studentId: 's1' });
+    const result = await handler.execute(makeCommand());
     expect(result.openLoops).toBe(1);
     expect(result.scheduleMisses7d).toBe(1);
+  });
+
+  it('rejects empty studentId', async () => {
+    const handler = new RecomputeStudentAggregatesHandler(
+      repo,
+      new InMemoryStudentEventStreamReader(),
+      new InMemoryTopicStateReader(),
+      fixedClock,
+    );
+
+    await expect(handler.execute({ studentId: '', graceMs: GRACE_MS })).rejects.toThrow(
+      MissingStudentIdError,
+    );
   });
 
   it('is idempotent — calling twice yields same result', async () => {
@@ -163,8 +181,8 @@ describe('RecomputeStudentAggregatesHandler', () => {
       fixedClock,
     );
 
-    const result1 = await handler.execute({ studentId: 's1' });
-    const result2 = await handler.execute({ studentId: 's1' });
+    const result1 = await handler.execute(makeCommand());
+    const result2 = await handler.execute(makeCommand());
 
     expect(result1).toEqual(result2);
   });

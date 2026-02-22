@@ -13,6 +13,9 @@ import { computeTightnessLevel } from '../../ei/engine/escalation';
 import { computeStrategicAdjustment } from '../../ei/engine/strategic-adjustment';
 import type { DeltaMetrics, TopicState } from '../../ei/engine/strategic-adjustment';
 import { SA_REVIEW_WINDOW_MIN_DAYS } from '../../ei/engine/tunables';
+import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
+import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
+import { eiStore } from '../../ei/runtime/db';
 
 // ============================================================================
 // Schemas
@@ -89,11 +92,25 @@ const computeTightnessStep = createStep({
 
 const persistAndEmit = createStep({
   id: 'persist-and-emit', inputSchema: Tightened, outputSchema: FinalOutput,
-  execute: async ({ inputData }): Promise<any> => ({
-    studentId: inputData.studentId, mode: inputData.saDecision.mode,
-    dials: inputData.saDecision.dials, diagnosis: inputData.saDecision.diagnosis,
-    tightnessLevel: inputData.tightnessLevel,
-  }),
+  execute: async ({ inputData }): Promise<any> => {
+    const repo = new PostgresStudentPolicyRepository(eiStore.db);
+    const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);
+
+    await handler.execute({
+      studentId: inputData.studentId,
+      tightnessLevel: inputData.tightnessLevel,
+      adjustmentMode: inputData.saDecision.mode,
+      dials: inputData.saDecision.dials as Record<string, unknown>,
+      constraints: {},
+      issuedAt: new Date(),
+    });
+
+    return {
+      studentId: inputData.studentId, mode: inputData.saDecision.mode,
+      dials: inputData.saDecision.dials, diagnosis: inputData.saDecision.diagnosis,
+      tightnessLevel: inputData.tightnessLevel,
+    };
+  },
 });
 
 // ============================================================================

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { StudentAggregates, type DomainEventSnapshot, type TopicStateSnapshot, type RecomputeInput } from '../../../../domain/student-aggregates/student-aggregates';
 import { StudentAggregatesId } from '../../../../domain/student-aggregates/value-objects';
+import { MissingStudentIdError } from '../../../../domain/student-aggregates/errors';
 
 const NOW = new Date('2025-03-15T12:00:00Z');
 const SEVEN_DAYS_AGO = new Date(NOW.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -35,6 +36,18 @@ function makeTopicState(overrides: Partial<TopicStateSnapshot> = {}): TopicState
     ...overrides,
   };
 }
+
+describe('StudentAggregatesId', () => {
+  it('throws MissingStudentIdError when studentId is empty', () => {
+    expect(() => StudentAggregatesId.create('')).toThrow(MissingStudentIdError);
+    expect(() => StudentAggregatesId.create('   ')).toThrow(MissingStudentIdError);
+  });
+
+  it('trims whitespace from valid studentId', () => {
+    const id = StudentAggregatesId.create('  s1  ');
+    expect(id.studentId).toBe('s1');
+  });
+});
 
 describe('StudentAggregates.recompute', () => {
   describe('no events, no topic states', () => {
@@ -220,13 +233,13 @@ describe('StudentAggregates.recompute', () => {
   });
 
   describe('replanLoopCount7d', () => {
-    it('returns 0 when fewer than 2 Replan events', () => {
+    it('returns count of Replan events in 7d', () => {
       const events = [makeEvent('Replan', new Date('2025-03-14T10:00:00Z'))];
       const agg = StudentAggregates.recompute(makeId(), makeInput({ events }));
-      expect(agg.metrics.replanLoopCount7d).toBe(0);
+      expect(agg.metrics.replanLoopCount7d).toBe(1);
     });
 
-    it('returns count when 2+ Replan events', () => {
+    it('returns count when multiple Replan events', () => {
       const events = [
         makeEvent('Replan', new Date('2025-03-14T10:00:00Z')),
         makeEvent('Replan', new Date('2025-03-14T11:00:00Z')),
