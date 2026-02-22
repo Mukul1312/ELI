@@ -68,6 +68,28 @@ All of these feed the modeling. Reference them explicitly when filling each sect
 | [09-tactical-ddd-candidates.md](09-tactical-ddd-candidates.md) | Proposed aggregates and value objects                               |
 
 
+### Bounded context canvases (core)
+
+Detailed canvases per [bounded-context-canvas-template.md](bounded-context-canvas-template.md):
+
+| Canvas | Context |
+|--------|---------|
+| [canvas-ei-runtime.md](canvas-ei-runtime.md) | EI Runtime (AdaptiveCoaching, StudySessionOrchestration) |
+| [canvas-ei-event-ledger.md](canvas-ei-event-ledger.md) | EI Event Ledger |
+| [canvas-ei-projections.md](canvas-ei-projections.md) | EI Projections (DerivedSignals) |
+| [canvas-loop-health-assessment.md](canvas-loop-health-assessment.md) | LoopHealthAssessment |
+
+### Bounded context canvases (supporting + generic)
+
+| Canvas | Context |
+|--------|---------|
+| [canvas-strategic-adjustment.md](canvas-strategic-adjustment.md) | Strategic Adjustment (StrategicAdjustment) |
+| [canvas-cohort-access.md](canvas-cohort-access.md) | CohortAccess (Identity, Cohorts, RBAC) |
+| [canvas-institute-radar.md](canvas-institute-radar.md) | Institute Radar (InstituteRadar) |
+| [canvas-ops-observability.md](canvas-ops-observability.md) | Ops & Observability (OpsObservability) |
+| [canvas-billing-entitlements.md](canvas-billing-entitlements.md) | BillingEntitlements |
+
+
 ---
 
 ## Implemented vs planned (code pointers)
