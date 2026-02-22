@@ -76,7 +76,7 @@ Single source for invariants, event contracts, data ownership, and ACLs. Canvase
 | RetrievalSkipped | studentId, topic, reason, skippedAt | UI | Ledger | — |
 | VerificationCompleted | studentId, topic, completedAt, result | UI | Ledger | ei_topic_state.last_retrieval_at |
 | ScheduleMissed | studentId, topic, missedAt | System/Projection | Ledger | — |
-| StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt | SA | Ledger | ei_student_policy |
+| StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt; optional: tightnessLevel, nextCycleConstraints | SA, setPolicyTool | Projections | ei_student_policy |
 
 ---
 
@@ -131,7 +131,7 @@ Schema for alerts consumed by Institute dashboard. Privacy-safe: no raw events, 
 | ei_events             | EI Event Ledger | Append-only; query by student_id         |
 | ei_topic_state        | EI Projections  | Derived from events; TopicLoop lifecycle |
 | ei_student_aggregates | EI Projections  | Recomputed from events; 7d signals       |
-| ei_student_policy     | EI Projections  | Written by SA; read by P1/P2/P3          |
+| ei_student_policy     | EI Projections  | Persisted by Projections from Ledger events; SA owns semantics; read by P1/P2/P3 |
 | ei_radar_alerts       | Institute Radar | Privacy boundary; never raw events       |
 
 ---

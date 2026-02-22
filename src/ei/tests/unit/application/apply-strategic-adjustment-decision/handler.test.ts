@@ -86,6 +86,22 @@ describe('ApplyStrategicAdjustmentDecisionHandler', () => {
     expect(repo.getAll()).toHaveLength(0);
   });
 
+  it('rejects missing or invalid issuedAt', async () => {
+    await expect(
+      handler.execute({ ...baseCommand, issuedAt: undefined! }),
+    ).rejects.toThrow('issuedAt is required and must be a valid date');
+
+    await expect(
+      handler.execute({ ...baseCommand, issuedAt: null! }),
+    ).rejects.toThrow('issuedAt is required and must be a valid date');
+
+    await expect(
+      handler.execute({ ...baseCommand, issuedAt: new Date('invalid') }),
+    ).rejects.toThrow('issuedAt is required and must be a valid date');
+
+    expect(repo.getAll()).toHaveLength(0);
+  });
+
   it('idempotent — same command twice yields same state', async () => {
     await handler.execute(baseCommand);
     await handler.execute(baseCommand);

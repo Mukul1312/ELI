@@ -15,7 +15,9 @@ import type { DeltaMetrics, TopicState } from '../../ei/engine/strategic-adjustm
 import { SA_REVIEW_WINDOW_MIN_DAYS } from '../../ei/engine/tunables';
 import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
 import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
-import { eiStore } from '../../ei/runtime/db';
+import { eiStore, getEiDb } from '../../ei/runtime/db';
+import * as Q from '../../ei/db/queries';
+import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 
 // ============================================================================
 // Schemas
@@ -92,17 +94,34 @@ const computeTightnessStep = createStep({
 
 const persistAndEmit = createStep({
   id: 'persist-and-emit', inputSchema: Tightened, outputSchema: FinalOutput,
-  execute: async ({ inputData }): Promise<any> => {
-    const repo = new PostgresStudentPolicyRepository(eiStore.db);
-    const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);
+  execute: async (params): Promise<any> => {
+    const { inputData, requestContext } = params as { inputData: z.infer<typeof Tightened>; requestContext?: unknown };
+    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
+    const issuedAt = new Date();
 
+    const dials = inputData.saDecision.dials as Record<string, unknown>;
+    const constraints = (dials as { constraints?: Record<string, unknown> }).constraints ?? {};
+    const { constraints: _c, ...dialsWithoutConstraints } = dials;
+
+    const ledgerPayload = validateEventPayload('StrategicAdjustmentDecision', {
+      studentId: inputData.studentId,
+      adjustmentMode: inputData.saDecision.mode,
+      dials: dialsWithoutConstraints,
+      nextCycleConstraints: Object.keys(constraints).length > 0 ? constraints : undefined,
+      tightnessLevel: inputData.tightnessLevel,
+      issuedAt: issuedAt.toISOString(),
+    } as Record<string, unknown>);
+    await Q.insertEvent(db, inputData.studentId, 'StrategicAdjustmentDecision', null, ledgerPayload, issuedAt);
+
+    const repo = new PostgresStudentPolicyRepository(db);
+    const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);
     await handler.execute({
       studentId: inputData.studentId,
       tightnessLevel: inputData.tightnessLevel,
       adjustmentMode: inputData.saDecision.mode,
-      dials: inputData.saDecision.dials as Record<string, unknown>,
-      constraints: {},
-      issuedAt: new Date(),
+      dials,
+      constraints,
+      issuedAt,
     });
 
     return {

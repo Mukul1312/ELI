@@ -10,6 +10,19 @@ export class ApplyStrategicAdjustmentDecisionHandler implements IApplyStrategicA
   async execute(command: ApplyStrategicAdjustmentDecisionCommand): Promise<void> {
     const id = StudentPolicyId.create(command.studentId);
 
+    const issuedAt =
+      command.issuedAt instanceof Date
+        ? command.issuedAt
+        : command.issuedAt != null
+          ? new Date(command.issuedAt)
+          : null;
+    if (!issuedAt || isNaN(issuedAt.getTime())) {
+      throw new Error('issuedAt is required and must be a valid date');
+    }
+
+    const dials = command.dials ?? {};
+    const constraints = command.constraints ?? {};
+
     let policy = await this.repo.findById(id);
     if (!policy) {
       policy = StudentPolicy.empty(id);
@@ -18,9 +31,9 @@ export class ApplyStrategicAdjustmentDecisionHandler implements IApplyStrategicA
     policy.applyStrategicAdjustmentDecision({
       tightnessLevel: command.tightnessLevel,
       adjustmentMode: command.adjustmentMode,
-      dials: command.dials,
-      constraints: command.constraints,
-      issuedAt: command.issuedAt,
+      dials,
+      constraints,
+      issuedAt,
     });
 
     await this.repo.save(policy);

@@ -20,7 +20,7 @@
 
 ## 2) Description
 
-- **Responsibility:** Hold next-cycle policy semantics: dials, tightness level, constraints (maxOpenLoops, noNewTopicUntil, closeOldestOpenLoopFirst). Written by Strategic Adjustment; read by P1/P2/P3 protocols for gate decisions.
+- **Responsibility:** Hold next-cycle policy semantics: dials, tightness level, constraints (maxOpenLoops, noNewTopicUntil, closeOldestOpenLoopFirst). Produced by Strategic Adjustment (appended to Ledger); persisted by Projections; read by P1/P2/P3 protocols for gate decisions.
 - **Why these boundaries:** Policy is per student; protocols need a single coherent policy view. SA owns semantics; Projections own storage. One aggregate per student keeps write conflicts low (SA runs per student, not per topic).
 - **Trade-offs:** We do NOT model per-topic policy here; policy applies across topics for the student. Wrong SA affects a week; wrong gate play affects a session.
 
@@ -45,7 +45,7 @@
 
 - **Atomic write:** Policy is written atomically by SA. No partial updates.
 - **Projections own storage:** EI Projections persist policy; SA owns semantics. Consistency boundary is the policy row for (studentId).
-- **Single writer:** Only Strategic Adjustment writes policy; protocols read.
+- **Single writer:** Strategic Adjustment is sole producer of StrategicAdjustmentDecision events; Projections persist policy; protocols read.
 
 ---
 

@@ -34,7 +34,7 @@ Next-cycle synthesis engine that emits a StrategicAdjustmentDecision (guardrails
 ## Domain Roles
 
 - **Analysis context:** Policy semantics from accumulated evidence (aggregates, topic state, labels); mode choice (Recovery, TechniquePivot, IntegrityClamp, etc.)
-- **Gateway context:** StrategicAdjustmentDecision contract; writes policy into Projections storage
+- **Gateway context:** StrategicAdjustmentDecision contract; appends StrategicAdjustmentDecision to Ledger; Projections consume and persist policy
 
 ---
 
@@ -42,7 +42,7 @@ Next-cycle synthesis engine that emits a StrategicAdjustmentDecision (guardrails
 
 | Term                      | Definition (in this context)                                                                                                                                 |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| StrategicAdjustmentDecision | Output: guardrails + dials + constraints; persisted as policy via Projections                                                                             |
+| StrategicAdjustmentDecision | Output: guardrails + dials + constraints; appended to Ledger; Projections consume and persist policy                                                       |
 | AdjustmentMode            | Recovery, TechniquePivot, IntegrityClamp, DifficultyRaise, CloseLoopsFirst                                                                                   |
 | dials                     | scopeMultiplier, difficultyTierDelta, minQuestionsDefault, scheduleAllowed, dueInHoursDefault                                                                |
 | constraints               | maxOpenLoops, noNewTopicUntil, closeOldestOpenLoopFirst                                                                                                     |
@@ -63,9 +63,11 @@ Next-cycle synthesis engine that emits a StrategicAdjustmentDecision (guardrails
 
 ## Outbound Communication
 
-| Message type | Message name                | Collaborator    | Key data                                      | Integration style | Relationship      |
-| ------------ | --------------------------- | -------------- | --------------------------------------------- | ----------------- | ----------------- |
-| Command      | StrategicAdjustmentDecision  | EI Projections | dials, constraints, adjustmentMode, tightnessLevel | Sync write        | Customer-Supplier |
+| Message type | Message name                | Collaborator      | Key data                                               | Integration style | Relationship      |
+| ------------ | --------------------------- | ----------------- | ------------------------------------------------------ | ----------------- | ----------------- |
+| Event        | StrategicAdjustmentDecision | EI Event Ledger   | dials, constraints, adjustmentMode, tightnessLevel, issuedAt | Sync append       | Customer-Supplier |
+
+Projections consume from Ledger and persist to ei_student_policy per Event Catalog.
 
 ---
 

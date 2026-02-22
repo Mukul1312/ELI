@@ -1,12 +1,14 @@
 import type { PolicyRow } from '../../../db/queries';
 import { StudentPolicy } from '../../../domain/student-policy/student-policy';
-import { StudentPolicyId, type TightnessLevel } from '../../../domain/student-policy/value-objects';
+import { StudentPolicyId, isTightnessLevel } from '../../../domain/student-policy/value-objects';
 
 export const StudentPolicyMapper = {
   toDomain(row: PolicyRow): StudentPolicy {
     const id = StudentPolicyId.create(row.student_id);
+    const raw = row.tightness_level as string;
+    const tightnessLevel = isTightnessLevel(raw) ? raw : 'Normal';
     return StudentPolicy.reconstitute(id, {
-      tightnessLevel: row.tightness_level as TightnessLevel,
+      tightnessLevel,
       adjustmentMode: row.adjustment_mode,
       dials: row.dials,
       constraints: row.constraints,

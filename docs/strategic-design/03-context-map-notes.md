@@ -51,10 +51,10 @@ We only draw a relationship when there is a **real integration**: one context **
 
 **Radar:** Needs labels (from LHA) and the privacy-safe alerts feed (from Projections). LHA supplies interpretation; Projections supplies the feed/metrics for alerts. Both edges stay.
 
-**SA:** Needs state (from Projections) and labels (from LHA) to decide adjustment mode and policy. LHA supplies interpretation; Projections supplies the state SA needs beyond the snapshot. Both edges stay.
+**SA:** Needs state (from Projections) and labels (from LHA) to decide adjustment mode and policy. SA appends StrategicAdjustmentDecision to Ledger; Projections consume from Ledger and persist policy. LHA supplies interpretation; Projections supplies the state SA needs beyond the snapshot. Both edges stay.
 
 ---
 
 ## SA and Projections: not mutually dependent
 
-We have **Proj → SA** (Proj supplies state) and **SA → Proj** (SA supplies policy). So each plays supplier and customer in different flows. That does *not* make them **mutually dependent**. Mutually dependent means: *both* need the other to deliver; neither can succeed without the other. Here: **Projections** can exist and serve Runtime, LHA, Radar, Ops without SA. **SA** cannot succeed without Projections (it needs state to decide and a place to write policy). So the dependency is one-sided; we keep both relationships as separate upstream–downstream pairs.
+We have **Proj → SA** (Proj supplies state) and **SA → Ledger** (SA appends decisions). SA does not write directly to Projections; Projections consume from Ledger and persist policy. That does *not* make SA and Projections **mutually dependent**. Mutually dependent means: *both* need the other to deliver; neither can succeed without the other. Here: **Projections** can exist and serve Runtime, LHA, Radar, Ops without SA. **SA** cannot succeed without Projections (it needs state to decide) and without Ledger (it needs a place to append decisions). So the dependency is one-sided; we keep both relationships as separate upstream–downstream pairs.

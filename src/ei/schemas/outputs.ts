@@ -132,6 +132,7 @@ export const StrategicAdjustmentDecisionSchema = z.object({
   adjustmentMode: AdjustmentModeEnum,
   dials: SADialsSchema,
   nextCycleConstraints: SAConstraintsSchema.optional(),
+  tightnessLevel: z.string().optional(),
   diagnosis: z.enum(['junkVolume', 'luckyGuesser', 'normal']).optional(),
   rationale: z.string().optional(),
   issuedAt: z.string().datetime(),

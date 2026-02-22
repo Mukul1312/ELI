@@ -137,8 +137,7 @@ sequenceDiagram
     LoopHealth-->>Runtime: R/LoopHealthSnapshot {p1=highEnergy, p3=avoidantRisk}
 
     opt Weekly or risk-trigger adjustment cycle
-        StrategicAdj->>Projections: C/StrategicAdjustmentDecision {closeLoopFirst=true, maxOpenLoops=2}
-        Projections-->>Runtime: R/PolicyReadModelUpdated {constraintsApplied=true}
+        StrategicAdj->>Ledger: E/StrategicAdjustmentDecision {closeLoopFirst=true, maxOpenLoops=2}
     end
 
     Runtime-->>Student: C/NegotiatedIntentIssued {closeOnePendingCheckFirst=true, noNewTopicUntilOneClosed}
