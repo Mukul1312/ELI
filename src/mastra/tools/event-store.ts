@@ -10,6 +10,9 @@ import { z } from 'zod';
 import { EventTypeEnum } from '../../ei/schemas/events';
 import * as Q from '../../ei/db/queries';
 import { getEiDb } from '../../ei/runtime/db';
+import { isTopicLoopEventType } from '../../ei/domain/topic-loop/events';
+import { PostgresTopicLoopRepository } from '../../ei/infrastructure/persistence/topic-loop-repository.pg';
+import { ApplyEventToTopicLoopHandler } from '../../ei/application/apply-event-to-topic-loop/handler';
 
 export const appendEventTool = createTool({
   id: 'append-event',
@@ -38,32 +41,15 @@ export const appendEventTool = createTool({
       occurredAt ? new Date(occurredAt) : undefined,
     );
 
-    // Side-effect: update ei_topic_state for relevant events
-    if (topicId) {
-      switch (eventType) {
-        case 'SessionEnd':
-          await Q.upsertTopicState(db, studentId, topicId, {
-            last_effort_at: row.occurred_at,
-          });
-          break;
-
-        case 'RetrievalVerified':
-        case 'VerificationCompleted':
-          await Q.upsertTopicState(db, studentId, topicId, {
-            last_retrieval_at: row.occurred_at,
-          });
-          break;
-
-        case 'RetrievalScheduled': {
-          const dueAt = (payload as any).dueAt;
-          if (dueAt) {
-            await Q.upsertTopicState(db, studentId, topicId, {
-              last_scheduled_due_at: new Date(dueAt),
-            });
-          }
-          break;
-        }
-      }
+    if (topicId && isTopicLoopEventType(eventType)) {
+      const repo = new PostgresTopicLoopRepository(db);
+      const handler = new ApplyEventToTopicLoopHandler(repo);
+      await handler.execute({
+        studentId,
+        topicId,
+        eventType,
+        payload,
+      });
     }
 
     return {

@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest",
-    "migrate": "tsx src/ei/db/migrate.ts"
+    "migrate": "tsx src/ei/db/migrate.ts",
+    "test:integration": "vitest run --testPathPattern=topic-loop-repository.pg.test"
   },
   "dependencies": {
     "@mastra/core": "latest",
