@@ -42,12 +42,14 @@ Maintain a faithful, append-only record of what happened (domain events) as the 
 
 | Term | Definition (in this context) |
 |------|------------------------------|
-| Event | Immutable record of something that happened, with type and payload |
-| Event type | One of AppOpen, IntentSet, SessionEnd, NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued, RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, StrategicAdjustmentDecision, ScheduleMissed, etc. |
-| Event payload | Schema-validated data for the event; see events.ts |
-| Append-only | No updates or deletes; events are immutable once written |
-| Idempotency key | Per-write key ensuring duplicate appends are ignored |
-| Behavioral timeline | Ordered event stream per student; source of truth for what happened |
+| Event | **Domain Event (stored, not raised here):** immutable record of a significant occurrence in the EI domain — type, student context, schema-validated payload, occurred_at. Produced by Runtime or SA; schema-owned by Ledger; stored (not raised) by Ledger. Equality by all fields; no mutable lifecycle; append-only. |
+| Event type | **Enum Value Object:** one of `AppOpen \| IntentSet \| SessionEnd \| NegotiatedIntentIssued \| ActivationPlanIssued \| IntentResponse \| FirstActionStarted \| Replan \| VerificationDecisionIssued \| RetrievalVerified \| RetrievalScheduled \| RetrievalSkipped \| VerificationCompleted \| StrategicAdjustmentDecision \| ScheduleMissed` — immutable string union, equality by value. Schema ownership: Ledger (`src/ei/schemas/events.ts`). |
+| Event payload | **Structural Value Object (per-type):** Zod-validated JSONB data for one event type; shape varies per EventType (AppOpenPayload, IntentSetPayload, etc.). Immutable by convention, equality by all fields. See `src/ei/schemas/events.ts`. |
+| Append-only | Invariant (not a building block): no updates or deletes; events are immutable once written. |
+| Idempotency key | **Value Object:** non-empty string uniquely identifying one logical append attempt. Recommended format: `{context}:{eventType}:{studentId}:{timestamp}`. Equality by string value. Stored in `ei_idempotency_keys`; guards against duplicate appends on retry. |
+| Behavioral timeline | **Read Model:** ordered stream of EventRecords per student produced by QueryEventsByStudent. Not a persistent entity — derived on query. Consumed by Projections (batch recompute) and Ops (debug). |
+
+> **Building block note:** The Event Ledger's primary tactical building block is the **Domain Event** (stored, not raised here). The Ledger does not contain an Aggregate — the append-only store has no consistency boundary over mutable state; the idempotency + immutability invariants replace aggregate consistency semantics. Value Objects (`EventType`, `IdempotencyKey`, `EventPayload<T>`) capture the schema and idempotency semantics. Tactical spec: [`ei-event-ledger-tactical-spec.md`](tactical/ei-event-ledger-tactical-spec.md).
 
 ---
 

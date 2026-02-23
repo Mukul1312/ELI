@@ -5,7 +5,7 @@
 **Owned by bounded context:** LoopHealthAssessment
 **Related subdomain(s):** LoopHealthAssessment
 **Sources:** [02-subdomains.md](../02-subdomains.md), [03-context-map.md](../03-context-map.md), [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md), [canvas-loop-health-assessment.md](../canvas-loop-health-assessment.md)
-**Code pointers (current):** [src/ei/engine/classify.ts](../../src/ei/engine/classify.ts), [src/ei/engine/tunables.ts](../../src/ei/engine/tunables.ts)
+**Code pointers (current):** [src/ei/domain/loop-health/assess-loop-health.ts](../../src/ei/domain/loop-health/assess-loop-health.ts), [src/ei/domain/loop-health/tunables.ts](../../src/ei/domain/loop-health/tunables.ts)
 
 ---
 
@@ -40,11 +40,13 @@
 | ----------- | --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | studentId   | string                            | Yes      | Student identifier                                                                                                                      |
 | aggregates  | StudentAggregates                 | Yes      | openLoops, verificationRate7d, silenceDays, scheduleMisses7d, startLatencyMin, stateTrend7d, loopLatencyTrend, etc.                     |
-| gateContext | P1Context | P2Context | P3Context | Yes      | Protocol-specific context (energy, sleepBucket, pressure for P1; startLatencyMin, replanCount for P2; hasRetrieval, hasSchedule for P3) |
+| gateContext | P1Context \| P2Context \| P3Context | Yes | Input Value Objects — protocol-specific context shapes (immutable, passed by value): energy, sleepBucket, pressure for P1; startLatencyMin, replanCount for P2; hasRetrieval, hasSchedule for P3 |
 | policy      | StudentPolicy                     | No       | Optional; influences mode resolution                                                                                                    |
 
 
-### Output (LoopHealthSnapshot)
+### Output (LoopHealthSnapshot — Value Object)
+
+`LoopHealthSnapshot` is a structural Value Object — immutable, produced fresh per invocation. Defined in [`loop-health-snapshot.ts`](../../src/ei/domain/loop-health/loop-health-snapshot.ts).
 
 **Version:** 1 (schemaVersion when exposed as API/event)
 
@@ -103,7 +105,10 @@ Per [05-cross-cutting-concerns.md#invariants](../05-cross-cutting-concerns.md):
 
 - [loop-health-assessment-tactical-spec.md](../tactical/loop-health-assessment-tactical-spec.md)
 - [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md)
-- [classify.ts](../../src/ei/engine/classify.ts) — assignP1Label, assignP2Label, assignP3Label, resolveMode, classifyP1, classifyP2, classifyP3
-- [tunables.ts](../../src/ei/engine/tunables.ts) — threshold constants
+- [src/ei/domain/loop-health/loop-health-snapshot.ts](../../src/ei/domain/loop-health/loop-health-snapshot.ts) — LoopHealthSnapshot, LoopHealthEvidence (output VOs)
+- [src/ei/domain/loop-health/gate-context.ts](../../src/ei/domain/loop-health/gate-context.ts) — P1Context, P2Context, P3Context (input VOs)
+- [src/ei/domain/loop-health/assess-loop-health.ts](../../src/ei/domain/loop-health/assess-loop-health.ts) — assignP1Label, assignP2Label, assignP3Label, resolveMode, classifyP1, classifyP2, classifyP3
+- [src/ei/domain/loop-health/tunables.ts](../../src/ei/domain/loop-health/tunables.ts) — threshold constants (canonical)
+- [src/ei/engine/classify.ts](../../src/ei/engine/classify.ts) (re-export bridge; backward compat only)
 - [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (labels), §4 (precedence)
 

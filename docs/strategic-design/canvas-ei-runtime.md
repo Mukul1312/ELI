@@ -47,20 +47,24 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | ------------------------ | ---------------------------------------------------------------------------------------------- |
 | Gate                     | A decision point in the study session (P1 State→Intent, P2 Intent→Effort, P3 Effort→Retrieval) |
 | Protocol                 | Named gate logic (P1 Ignition, P2 Activation, P3 Verification)                                 |
-| NegotiatedIntent         | P1 output: scope, difficulty, verification minimum                                             |
-| ActivationPlan           | P2 output: first action, focus contract, timebox                                               |
-| VerificationDecision     | P3 output: VerifyNow / ScheduleVerify / Skip with rules                                        |
-| Rescue                   | Mode when student needs friction reduction or scope negotiation                                |
-| Neutral                  | Mode when neither Rescue nor Boost                                                             |
-| Boost                    | Mode when student can stretch (requires adherence)                                             |
-| play                     | Named coaching move (e.g. The Reduction, The Trojan Horse)                                     |
-| LOW_ENERGY / HIGH_ENERGY | P1 labels from LoopHealthSnapshot                                                              |
-| STALLED / FLOWING        | P2 labels from LoopHealthSnapshot                                                              |
-| AVOIDANT / CONFIDENT     | P3 labels from LoopHealthSnapshot                                                              |
-| TightnessLevel           | Loose / Normal / Tight; from SA policy; how strictly protocols enforce integrity              |
-| VerificationFloor        | P1 NegotiatedIntent sets verification commitment; P3 honors it (cross-protocol)               |
-| WatchOnlyConstraint      | P2 can flag watch-only topic; P3 treats as lower verification bar                             |
+| StudySession             | **Aggregate Root:** one student study session — from AppOpen to retrieval decision. Lifecycle: `negotiating → activating → active → verifying → closed`. Owns NegotiatedIntent, ActivationPlan, VerificationDecision as child Value Objects. Identity: `sessionId`. Code: `src/ei/domain/study-session/study-session.ts` |
+| ProtocolEngine           | **Domain Service:** stateless play selection from the 24-play catalog (`engine/plays.ts`) given protocol (1/2/3), mode (Rescue/Neutral/Boost), and PlayContext. Code: `src/ei/domain/study-session/protocol-engine.ts` |
+| NegotiatedIntent         | **Value Object (P1 output):** immutable — scope, verification plan, constraints. Created by `StudySession.issueNegotiatedIntent()`. |
+| ActivationPlan           | **Value Object (P2 output):** immutable — firstAction, replanCap, constraints. Created by `StudySession.issueActivationPlan()`. |
+| VerificationDecision     | **Value Object (P3 output):** immutable — decision type (VerifyNow/ScheduleVerify/Skip) + parameters. Enforces P1 floor + watch-only overrides. Created by `StudySession.issueVerificationDecision()`. |
+| Rescue                   | **Mode: Enum VO value** (`Rescue \| Neutral \| Boost`). Coaching posture when student needs friction reduction or scope negotiation. |
+| Neutral                  | **Mode: Enum VO value.** Coaching posture when neither Rescue nor Boost conditions apply. |
+| Boost                    | **Mode: Enum VO value.** Coaching posture when student can stretch (requires adherence evidence). |
+| play                     | **Domain concept backed by PlaySelection Value Object:** named coaching move selected by `ProtocolEngine` from the 24-play catalog (`engine/plays.ts`). |
+| LOW_ENERGY / HIGH_ENERGY | **Enum Value Object values (P1Label):** assigned by LoopHealthAssessment; consumed by P1 gate handler via LoopHealthSnapshot. |
+| STALLED / FLOWING        | **Enum Value Object values (P2Label):** assigned by LoopHealthAssessment; consumed by P2 gate handler via LoopHealthSnapshot. |
+| AVOIDANT / CONFIDENT     | **Enum Value Object values (P3Label):** assigned by LoopHealthAssessment; consumed by P3 gate handler via LoopHealthSnapshot. |
+| TightnessLevel           | **Enum Value Object:** `Loose \| Normal \| Tight` — from SA policy; influences escalation context passed to gate handlers. |
+| VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in Ledger event; read back in P3 via `IStudentEventStreamReader` and passed through `P3GateContext`. |
+| WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; read back in P3 via `P3GateContext.p2WatchOnlyFlag`; enforced in `VerificationDecision.create()`. |
 
+
+> **Building block note:** `StudySession` is the **Aggregate Root** that enforces gate lifecycle ordering and cross-protocol invariants (P1 verification floor → P3, P2 watch-only → P3 override). `NegotiatedIntent`, `ActivationPlan`, `VerificationDecision`, and `PlaySelection` are **class-based Value Objects** (private constructor, `static create()`, validation on construction). `ProtocolEngine` is a **Domain Service** (stateless, spans 24 plays across 3 protocols). `LoopHealthSnapshot` is a **Published Language Value Object** consumed from LoopHealthAssessment. Tactical spec: [`ei-runtime-tactical-spec.md`](tactical/ei-runtime-tactical-spec.md).
 
 ### Student-facing scales
 

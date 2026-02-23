@@ -13,6 +13,7 @@
 
 | Aggregate | Responsibility | Consistency boundary | Code location (current) | Canvas |
 |-----------|-----------------|----------------------|-------------------------|--------|
+| StudySession | One student study session: P1→P2→P3 lifecycle; cross-protocol invariants (P1 verification floor → P3, P2 watchOnly → P3); emits NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued | One session from AppOpen to retrieval decision | [src/ei/domain/study-session/](../../src/ei/domain/study-session/), [src/ei/application/run-p1-gate/](../../src/ei/application/run-p1-gate/), [src/ei/application/run-p2-gate/](../../src/ei/application/run-p2-gate/), [src/ei/application/run-p3-gate/](../../src/ei/application/run-p3-gate/) | [canvas-ei-runtime.md](canvas-ei-runtime.md), [ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md) |
 | TopicLoop | Per (studentId, topicId): effort → verification lifecycle; overdue detection | ei_topic_state + relevant events | [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/), [src/ei/infrastructure/projector/topic-loop-projector.ts](../../src/ei/infrastructure/projector/topic-loop-projector.ts), [src/ei/infrastructure/persistence/topic-loop-repository.pg.ts](../../src/ei/infrastructure/persistence/topic-loop-repository.pg.ts) | [agg-topic-loop.md](aggregates/agg-topic-loop.md) |
 | StudentPolicy | SA dials, tightness level, constraints; read by all protocols | ei_student_policy | [src/ei/domain/student-policy/](../../src/ei/domain/student-policy/), [src/ei/application/apply-strategic-adjustment-decision/](../../src/ei/application/apply-strategic-adjustment-decision/) | [agg-student-policy.md](aggregates/agg-student-policy.md) |
 | StudentAggregates | Per student: openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | ei_student_aggregates | [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/), [src/ei/infrastructure/projector/student-aggregates-projector.ts](../../src/ei/infrastructure/projector/student-aggregates-projector.ts), [src/ei/infrastructure/persistence/](../../src/ei/infrastructure/persistence/) (repository and mappers) | [agg-student-aggregates.md](aggregates/agg-student-aggregates.md) |
@@ -47,13 +48,17 @@
 
 ## Where they would live
 
-**Implemented:** StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`), **TopicLoop** (`domain/topic-loop/`, `application/apply-event-to-topic-loop/`), **StudentAggregates** (`domain/student-aggregates/`, `application/recompute-student-aggregates/`).
+**Implemented:** StudySession (`domain/study-session/`, `application/run-p1-gate/`, `run-p2-gate/`, `run-p3-gate/`), StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`), **TopicLoop** (`domain/topic-loop/`, `application/apply-event-to-topic-loop/`), **StudentAggregates** (`domain/student-aggregates/`, `application/recompute-student-aggregates/`).
 
 **Layout (implemented aggregates and use cases):**
 
 ```
 src/ei/
 ├── domain/
+│   ├── study-session/        # StudySession aggregate (implemented)
+│   │   ├── study-session.ts
+│   │   ├── value-objects.ts
+│   │   └── protocol-engine.ts
 │   ├── topic-loop/           # TopicLoop aggregate (implemented)
 │   │   ├── topic-loop.ts
 │   │   ├── value-objects.ts
@@ -69,6 +74,9 @@ src/ei/
 │   └── shared/
 │       └── ids.ts            # StudentId, TopicId value objects
 └── application/
+    ├── run-p1-gate/                    # StudySession P1 use case (implemented)
+    ├── run-p2-gate/                    # StudySession P2 use case (implemented)
+    ├── run-p3-gate/                    # StudySession P3 use case (implemented)
     ├── apply-event-to-topic-loop/      # (implemented)
     ├── recompute-student-aggregates/   # (implemented)
     ├── apply-strategic-adjustment-decision/  # (implemented)
