@@ -23,7 +23,7 @@ Single source for invariants, event contracts, data ownership, and ACLs. Canvase
 - **Projections:** Idempotent by design (GREATEST / recompute). No Ledger idempotency key needed for consumed events; projection logic is deterministic.
 - **Command-style Ledger appends (e.g. StrategicAdjustmentDecision):** Require idempotency key for retry safety. Recommended key format: `{context}:{eventType}:{studentId}:{issuedAt}` or client-provided.
 
-Implementation: `ei_idempotency_keys` table (key, event_id, created_at) and optional `idempotencyKey` parameter on `insertEvent` — see Future tables. Until implemented, document as target; SA workflow is single-writer per student.
+Implementation: `ei_idempotency_keys` table (key, event_id, created_at) and optional `idempotencyKey` parameter on `insertEvent`. SA workflow and setPolicyTool pass key `sa:StrategicAdjustmentDecision:{studentId}:{issuedAt}`; event-store tool accepts optional `idempotencyKey` in input. See `src/ei/db/migrate.ts` and `src/ei/db/queries.ts`.
 
 ---
 
@@ -175,7 +175,7 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 | enrollments               | Identity        |       |
 | coupons                   | Billing/Sponsor | P1    |
 | coupon_redemptions        | Billing/Sponsor | P1    |
-| idempotency_keys          | EI Event Ledger | P0    |
+| ei_idempotency_keys       | EI Event Ledger | Implemented (migrate.ts) |
 
 ---
 

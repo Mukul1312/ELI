@@ -25,6 +25,8 @@ export interface StudentPolicyInput {
   scopeMultiplier?: number;
   difficultyTierDelta?: number;
   constraints?: {
+    closeOldestOpenLoopFirst?: boolean;
+    /** @deprecated Use closeOldestOpenLoopFirst. Kept for backward compat when reading from DB. */
     closeLoopsFirst?: boolean;
     noNewTopicUntil?: string;
   };

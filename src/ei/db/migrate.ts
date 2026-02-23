@@ -37,6 +37,15 @@ const SQL_STATEMENTS = [
    ON ei_events (student_id, event_type, occurred_at DESC)`,
 
   // ================================================================
+  // 1b. ei_idempotency_keys (for Ledger append retry safety)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS ei_idempotency_keys (
+    key         TEXT PRIMARY KEY,
+    event_id    TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  // ================================================================
   // 2. ei_topic_state (per student + topic, upserted)
   // ================================================================
   `CREATE TABLE IF NOT EXISTS ei_topic_state (
@@ -128,7 +137,7 @@ async function migrate() {
       console.log(`  Executing: ${firstLine}...`);
       await store.db.none(sql);
     }
-    console.log('Migration complete. All 5 EI tables created/verified.');
+    console.log('Migration complete. All EI tables (including ei_idempotency_keys) created/verified.');
   } catch (err) {
     console.error('Migration failed:', err);
     process.exit(1);

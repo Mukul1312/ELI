@@ -155,6 +155,7 @@ export interface PersistedSADials {
  * P1 reads these to enforce loop-closure constraints.
  */
 export interface PersistedSAConstraints {
+  /** @deprecated Use closeOldestOpenLoopFirst. Kept for backward compat when reading from DB. */
   closeLoopsFirst?: boolean;
   noNewTopicUntil?: string; // e.g., "1LoopClosed"
   closeOldestOpenLoopFirst?: boolean;
@@ -166,7 +167,10 @@ export interface PersistedSAConstraints {
  * Check if SA policy requires closing loops before new topics.
  */
 export function requiresCloseLoopsFirst(constraints?: PersistedSAConstraints): boolean {
-  return constraints?.closeLoopsFirst === true;
+  return (
+    constraints?.closeOldestOpenLoopFirst === true ||
+    constraints?.closeLoopsFirst === true
+  );
 }
 
 /**

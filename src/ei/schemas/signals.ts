@@ -69,9 +69,10 @@ export const StudentPolicySchema = z.object({
     dueInHoursDefault: z.number().optional(),
   }).optional(),
   constraints: z.object({
+    closeOldestOpenLoopFirst: z.boolean().optional(),
+    /** @deprecated Use closeOldestOpenLoopFirst */
     closeLoopsFirst: z.boolean().optional(),
     noNewTopicUntil: z.string().optional(),
-    closeOldestOpenLoopFirst: z.boolean().optional(),
     maxOpenLoops: z.number().int().optional(),
     forceQualityVerification: z.boolean().optional(),
   }).optional(),

@@ -34,7 +34,7 @@ const AggregatesSchema = z.object({
 const PolicySchema = z.object({
   tightnessLevel: z.enum(['Loose', 'Normal', 'Tight']).optional(),
   scopeMultiplier: z.number().optional(), difficultyTierDelta: z.number().optional(),
-  constraints: z.object({ closeLoopsFirst: z.boolean().optional(), noNewTopicUntil: z.string().optional() }).optional(),
+  constraints: z.object({ closeOldestOpenLoopFirst: z.boolean().optional(), noNewTopicUntil: z.string().optional() }).optional(),
 });
 
 const ModeSchema = z.enum(['Rescue', 'Neutral', 'Boost']);

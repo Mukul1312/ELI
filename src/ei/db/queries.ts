@@ -30,13 +30,37 @@ export async function insertEvent(
   topicId: string | null,
   payload: Record<string, unknown>,
   occurredAt?: Date,
+  idempotencyKey?: string,
 ): Promise<StoredEventRow> {
-  return db.one(
+  if (idempotencyKey) {
+    const existing = await db.oneOrNone<{ event_id: string }>(
+      'SELECT event_id FROM ei_idempotency_keys WHERE key = $1',
+      [idempotencyKey],
+    );
+    if (existing) {
+      const row = await db.oneOrNone<StoredEventRow>(
+        'SELECT * FROM ei_events WHERE id = $1',
+        [existing.event_id],
+      );
+      if (row) return row;
+    }
+  }
+
+  const row = await db.one(
     `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
     [studentId, eventType, topicId, JSON.stringify(payload), occurredAt ?? new Date()],
   );
+
+  if (idempotencyKey) {
+    await db.none(
+      'INSERT INTO ei_idempotency_keys (key, event_id) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+      [idempotencyKey, row.id],
+    );
+  }
+
+  return row;
 }
 
 export interface EventQueryFilters {
@@ -84,6 +108,37 @@ export async function queryEvents(
     `SELECT * FROM ei_events WHERE ${where} ORDER BY occurred_at DESC ${limitClause}`,
     params,
   );
+}
+
+/** Per-topic event counts in the last 7 days for SA efficiency diagnosis. */
+export interface TopicEventCounts7d {
+  topicId: string;
+  effortCount7d: number;
+  retrievalCount7d: number;
+}
+
+export async function getTopicEventCounts7d(
+  db: DbClient,
+  studentId: string,
+  since: Date,
+): Promise<TopicEventCounts7d[]> {
+  const rows = await queryEvents(db, studentId, {
+    eventTypes: ['SessionEnd', 'RetrievalVerified'],
+    since,
+  });
+  const byTopic = new Map<string, { effort: number; retrieval: number }>();
+  for (const row of rows) {
+    const topicId = row.topic_id ?? 'default-topic';
+    const entry = byTopic.get(topicId) ?? { effort: 0, retrieval: 0 };
+    if (row.event_type === 'SessionEnd') entry.effort++;
+    else if (row.event_type === 'RetrievalVerified') entry.retrieval++;
+    byTopic.set(topicId, entry);
+  }
+  return Array.from(byTopic.entries()).map(([topicId, { effort, retrieval }]) => ({
+    topicId,
+    effortCount7d: effort,
+    retrievalCount7d: retrieval,
+  }));
 }
 
 // ============================================================================

@@ -24,13 +24,14 @@ export const appendEventTool = createTool({
     topicId: z.string().optional(),
     payload: z.record(z.unknown()).default({}),
     occurredAt: z.string().datetime().optional(),
+    idempotencyKey: z.string().optional(),
   }),
   outputSchema: z.object({
     eventId: z.string(),
     occurredAt: z.string(),
   }),
   execute: async (input, context) => {
-    const { studentId, eventType, topicId, payload, occurredAt } = input;
+    const { studentId, eventType, topicId, payload, occurredAt, idempotencyKey } = input;
     const db = getEiDb(context);
 
     const validatedPayload = validateEventPayload(eventType, payload as Record<string, unknown>);
@@ -42,6 +43,7 @@ export const appendEventTool = createTool({
       topicId ?? null,
       validatedPayload,
       occurredAt ? new Date(occurredAt) : undefined,
+      idempotencyKey,
     );
 
     if (topicId && isTopicLoopEventType(eventType)) {

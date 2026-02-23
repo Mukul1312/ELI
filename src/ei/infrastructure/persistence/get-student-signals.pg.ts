@@ -34,7 +34,9 @@ function rowToPolicyInput(row: Q.PolicyRow): StudentPolicyInput {
     difficultyTierDelta: dials.difficultyTierDelta as number | undefined,
     constraints: Object.keys(constraints).length > 0
       ? {
-          closeLoopsFirst: constraints.closeLoopsFirst as boolean | undefined,
+          closeOldestOpenLoopFirst:
+            (constraints.closeOldestOpenLoopFirst as boolean | undefined) ??
+            (constraints.closeLoopsFirst as boolean | undefined),
           noNewTopicUntil: constraints.noNewTopicUntil as string | undefined,
         }
       : undefined,

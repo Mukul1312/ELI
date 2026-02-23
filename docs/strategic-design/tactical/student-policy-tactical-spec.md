@@ -89,9 +89,11 @@ StudentPolicy does not emit new domain events. It updates `ei_student_policy` on
 | Port | Role | Responsibility |
 |------|------|----------------|
 | **StudentPolicyRepository** | Driven | Load by `studentId`; save/upsert policy state |
-| **EventStreamReader** | Driven | Read `StrategicAdjustmentDecision` events from Ledger for a student (used for replay/recompute) |
+| **IStrategicAdjustmentDecisionEventReader** | Driven | Read latest `StrategicAdjustmentDecision` from Ledger for a student (used for replay/recompute) |
 
 - Repository interface lives in `domain/student-policy/repository.ts`.
+- Event reader interface lives in `application/apply-strategic-adjustment-decision/port.ts`.
+- `PostgresStrategicAdjustmentDecisionEventReader` implements the reader over `ei_events` via `queryEvents`.
 - Application handler lives in `application/apply-strategic-adjustment-decision/handler.ts`.
 - Adapter implements `IStudentPolicyRepository` over `ei_student_policy` using `upsertPolicy` from `db/queries.ts`.
 

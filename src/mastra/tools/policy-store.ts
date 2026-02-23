@@ -83,7 +83,16 @@ export const setPolicyTool = createTool({
       tightnessLevel: input.tightnessLevel,
       issuedAt: issuedAt.toISOString(),
     } as Record<string, unknown>);
-    await Q.insertEvent(db, input.studentId, 'StrategicAdjustmentDecision', null, ledgerPayload, issuedAt);
+    const idempotencyKey = `sa:StrategicAdjustmentDecision:${input.studentId}:${issuedAt.toISOString()}`;
+    await Q.insertEvent(
+      db,
+      input.studentId,
+      'StrategicAdjustmentDecision',
+      null,
+      ledgerPayload,
+      issuedAt,
+      idempotencyKey,
+    );
 
     const repo = new PostgresStudentPolicyRepository(db);
     const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);

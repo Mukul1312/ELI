@@ -13,9 +13,16 @@ import { computeTightnessLevel } from '../../ei/engine/escalation';
 import { computeStrategicAdjustment } from '../../ei/engine/strategic-adjustment';
 import type { DeltaMetrics, TopicState } from '../../ei/engine/strategic-adjustment';
 import { SA_REVIEW_WINDOW_MIN_DAYS } from '../../ei/engine/tunables';
+import { SCHEDULE_GRACE_HOURS } from '../../ei/engine/tunables';
 import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresStudentAggregatesRepository } from '../../ei/infrastructure/persistence/student-aggregates-repository.pg';
+import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persistence/student-event-stream-reader.pg';
+import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
 import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
+import { RecomputeStudentAggregatesHandler } from '../../ei/application/recompute-student-aggregates/handler';
 import { eiStore, getEiDb } from '../../ei/runtime/db';
+import { getClock } from '../../ei/runtime/clock';
 import * as Q from '../../ei/db/queries';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 
@@ -56,12 +63,90 @@ const FinalOutput = z.object({ studentId: z.string(), mode: z.string(), dials: z
 // ============================================================================
 
 const loadFullEvidence = createStep({
-  id: 'load-full-evidence', inputSchema: SAInput, outputSchema: Loaded,
-  execute: async ({ inputData }): Promise<any> => ({
-    ...inputData,
-    aggregates: {} as StudentAggregates, topicStates: [] as TopicState[],
-    reviewEvents: [], reviewWindowDays: SA_REVIEW_WINDOW_MIN_DAYS,
-  }),
+  id: 'load-full-evidence',
+  inputSchema: SAInput,
+  outputSchema: Loaded,
+  execute: async (params): Promise<any> => {
+    const { inputData, requestContext } = params as {
+      inputData: z.infer<typeof SAInput>;
+      requestContext?: unknown;
+    };
+    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
+    const clock = getClock({ requestContext });
+
+    const signalsAdapter = new PostgresGetStudentSignalsAdapter(db);
+    let signals = await signalsAdapter.getSignals(inputData.studentId);
+
+    if (!signals) {
+      const graceMs = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
+      const repo = new PostgresStudentAggregatesRepository(db);
+      const eventReader = new PostgresStudentEventStreamReader(db);
+      const topicReader = new PostgresTopicStateReader(db);
+      const recomputeHandler = new RecomputeStudentAggregatesHandler(
+        repo,
+        eventReader,
+        topicReader,
+        clock,
+      );
+      await recomputeHandler.execute({
+        studentId: inputData.studentId,
+        graceMs,
+      });
+      signals = await signalsAdapter.getSignals(inputData.studentId);
+    }
+
+    const aggregates = signals?.aggregates ?? null;
+    if (!aggregates) {
+      return {
+        ...inputData,
+        aggregates: {} as StudentAggregates,
+        topicStates: [] as TopicState[],
+        reviewEvents: [],
+        reviewWindowDays: SA_REVIEW_WINDOW_MIN_DAYS,
+      };
+    }
+
+    const sevenDaysAgo = new Date(clock.now().getTime() - 7 * 24 * 60 * 60 * 1000);
+    const reviewUntil = new Date(clock.now());
+    const reviewSince = new Date(
+      clock.now().getTime() - SA_REVIEW_WINDOW_MIN_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [topicRows, eventCounts, reviewRows] = await Promise.all([
+      Q.getAllTopicStates(db, inputData.studentId),
+      Q.getTopicEventCounts7d(db, inputData.studentId, sevenDaysAgo),
+      Q.queryEvents(db, inputData.studentId, { since: reviewSince, until: reviewUntil }),
+    ]);
+
+    const countsByTopic = new Map(
+      eventCounts.map((c) => [c.topicId, { effort: c.effortCount7d, retrieval: c.retrievalCount7d }]),
+    );
+
+    const topicStates: TopicState[] = topicRows.map((row) => {
+      const counts = countsByTopic.get(row.topic_id) ?? { effort: 0, retrieval: 0 };
+      return {
+        topicId: row.topic_id,
+        effortCount7d: counts.effort,
+        retrievalCount7d: counts.retrieval,
+        tms: row.tms,
+        deltaDecay: row.delta_decay,
+      };
+    });
+
+    const reviewEvents = reviewRows.map((r) => ({
+      eventType: r.event_type,
+      payload: r.payload,
+      occurredAt: r.occurred_at instanceof Date ? r.occurred_at : new Date(r.occurred_at),
+    }));
+
+    return {
+      ...inputData,
+      aggregates,
+      topicStates,
+      reviewEvents,
+      reviewWindowDays: SA_REVIEW_WINDOW_MIN_DAYS,
+    };
+  },
 });
 
 const computeDeltas = createStep({
@@ -111,7 +196,16 @@ const persistAndEmit = createStep({
       tightnessLevel: inputData.tightnessLevel,
       issuedAt: issuedAt.toISOString(),
     } as Record<string, unknown>);
-    await Q.insertEvent(db, inputData.studentId, 'StrategicAdjustmentDecision', null, ledgerPayload, issuedAt);
+    const idempotencyKey = `sa:StrategicAdjustmentDecision:${inputData.studentId}:${issuedAt.toISOString()}`;
+    await Q.insertEvent(
+      db,
+      inputData.studentId,
+      'StrategicAdjustmentDecision',
+      null,
+      ledgerPayload,
+      issuedAt,
+      idempotencyKey,
+    );
 
     const repo = new PostgresStudentPolicyRepository(db);
     const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);

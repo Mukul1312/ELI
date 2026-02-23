@@ -102,7 +102,9 @@ function adaptPolicy(raw: Record<string, any> | null): StudentPolicy {
     scopeMultiplier: dials.scopeMultiplier as number | undefined,
     difficultyTierDelta: dials.difficultyTierDelta as number | undefined,
     constraints: {
-      closeLoopsFirst: constraints.closeLoopsFirst as boolean | undefined,
+      closeOldestOpenLoopFirst:
+        (constraints.closeOldestOpenLoopFirst as boolean | undefined) ??
+        (constraints.closeLoopsFirst as boolean | undefined),
       noNewTopicUntil: constraints.noNewTopicUntil as string | undefined,
     },
   };

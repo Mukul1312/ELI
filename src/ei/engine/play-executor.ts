@@ -200,7 +200,10 @@ export function executeP1Play(
     constraints.closeOpenLoopFirst = true;
     constraints.noNewTopicUntil = '1LoopClosed';
   }
-  if (policy?.constraints?.closeLoopsFirst) {
+  if (
+    policy?.constraints?.closeOldestOpenLoopFirst ||
+    policy?.constraints?.closeLoopsFirst
+  ) {
     constraints.closeOpenLoopFirst = true;
   }
 
