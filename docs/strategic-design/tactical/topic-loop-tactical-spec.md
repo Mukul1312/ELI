@@ -109,7 +109,7 @@ TopicLoop does not emit domain events. It updates `ei_topic_state` only.
 | **TopicLoopRepository**       | Driven | Load by (studentId, topicId); save/upsert TopicLoop state                    |
 | **EventStreamReader**         | Driven | Read events from Ledger for a student (and optionally topic filter)          |
 | **Clock** (optional)          | Driven | Provide "now" for ScheduleMissed derivation; can be system clock abstraction |
-| **TopicLoopProjectionWriter** | Driven | Persist TopicLoop state to ei_topic_state                                    |
+| **TopicLoopProjectionWriter** | Driven | Persist TopicLoop state to ei_topic_state. Implemented by ITopicLoopRepository.save(). |
 
 
 - Domain layer defines repository interface (load/save). Application layer orchestrates: read events → apply to TopicLoop → persist.

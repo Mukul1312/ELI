@@ -13,9 +13,9 @@
 
 | Aggregate | Responsibility | Consistency boundary | Code location (current) | Canvas |
 |-----------|-----------------|----------------------|-------------------------|--------|
-| TopicLoop | Per (studentId, topicId): effort → verification lifecycle; overdue detection | ei_topic_state + relevant events | ei_topic_state, appendEvent side-effects | [agg-topic-loop.md](aggregates/agg-topic-loop.md) |
+| TopicLoop | Per (studentId, topicId): effort → verification lifecycle; overdue detection | ei_topic_state + relevant events | [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/), [src/ei/infrastructure/projector/topic-loop-projector.ts](../../src/ei/infrastructure/projector/topic-loop-projector.ts), [src/ei/infrastructure/persistence/topic-loop-repository.pg.ts](../../src/ei/infrastructure/persistence/topic-loop-repository.pg.ts) | [agg-topic-loop.md](aggregates/agg-topic-loop.md) |
 | StudentPolicy | SA dials, tightness level, constraints; read by all protocols | ei_student_policy | [src/ei/domain/student-policy/](../../src/ei/domain/student-policy/), [src/ei/application/apply-strategic-adjustment-decision/](../../src/ei/application/apply-strategic-adjustment-decision/) | [agg-student-policy.md](aggregates/agg-student-policy.md) |
-| StudentAggregates | Per student: openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | ei_student_aggregates | ei_student_aggregates, projection logic | [agg-student-aggregates.md](aggregates/agg-student-aggregates.md) |
+| StudentAggregates | Per student: openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | ei_student_aggregates | [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/), [src/ei/infrastructure/projector/student-aggregates-projector.ts](../../src/ei/infrastructure/projector/student-aggregates-projector.ts), [src/ei/infrastructure/persistence/](../../src/ei/infrastructure/persistence/) (repository and mappers) | [agg-student-aggregates.md](aggregates/agg-student-aggregates.md) |
 | StudentMembership | Exactly one active cohort or unassigned; atomic join on redemption | student_cohort_membership | student_cohort_membership (future) | [agg-student-membership.md](aggregates/agg-student-membership.md) |
 | Coupon | Eligibility, limits, expiry; idempotency for redemptions | coupons | coupons (future) | [agg-coupon.md](aggregates/agg-coupon.md) |
 | Redemption | Idempotent record of coupon use; triggers membership change | coupon_redemptions | coupon_redemptions (future) | [agg-redemption.md](aggregates/agg-redemption.md) |
@@ -47,17 +47,18 @@
 
 ## Where they would live
 
-**Implemented:** StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`).
+**Implemented:** StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`), **TopicLoop** (`domain/topic-loop/`, `application/apply-event-to-topic-loop/`), **StudentAggregates** (`domain/student-aggregates/`, `application/recompute-student-aggregates/`).
 
-**Future refactor:**
+**Layout (implemented aggregates and use cases):**
 
 ```
 src/ei/
 ├── domain/
-│   ├── topic-loop/           # TopicLoop aggregate (planned)
+│   ├── topic-loop/           # TopicLoop aggregate (implemented)
 │   │   ├── topic-loop.ts
 │   │   ├── value-objects.ts
 │   │   └── events.ts
+│   ├── student-aggregates/   # StudentAggregates aggregate (implemented)
 │   ├── student-policy/       # StudentPolicy aggregate (implemented)
 │   │   ├── student-policy.ts
 │   │   └── value-objects.ts
@@ -68,11 +69,13 @@ src/ei/
 │   └── shared/
 │       └── ids.ts            # StudentId, TopicId value objects
 └── application/
+    ├── apply-event-to-topic-loop/      # (implemented)
+    ├── recompute-student-aggregates/   # (implemented)
     ├── apply-strategic-adjustment-decision/  # (implemented)
-    └── assess-loop-health/                   # LHA use case (implemented)
+    └── assess-loop-health/             # LHA use case (implemented)
         ├── command.ts
         ├── handler.ts
         └── port.ts
 ```
 
-<!-- Full EI layout: tactical/01-ei-tactical-conventions.md -->
+Full EI layer layout and port rules: [tactical/01-ei-tactical-conventions.md](tactical/01-ei-tactical-conventions.md).

@@ -87,6 +87,7 @@ Compute and persist the student's derived state/metrics from the event ledger fo
 - **Idempotent recompute:** Projections can be recomputed from the event stream; monotonic timestamps.
 - **Projections own policy storage:** Strategic Adjustment appends StrategicAdjustmentDecision to Ledger; Projections consume from Ledger and persist to ei_student_policy; SA owns policy semantics.
 - **Numeric evidence only:** Projections supply numbers and state; interpretation (labels) belongs to LoopHealthAssessment.
+- **GetStudentSignals returns pre-computed state:** Aggregates, topic state, and policy are stored by projection logic; rolling windows (e.g. 7d) are defined in that logic, not by a horizon parameter on the query.
 
 ---
 

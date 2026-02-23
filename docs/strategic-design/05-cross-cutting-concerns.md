@@ -93,6 +93,12 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 
 ---
 
+### ei_topic_state projection storage
+
+In addition to the timestamp columns listed in the event catalog table (`last_effort_at`, `last_retrieval_at`, `last_scheduled_due_at`), `ei_topic_state` stores derived 7-day counts: **effort_count_7d** (SessionEnd events in the last 7 days per topic) and **retrieval_count_7d** (RetrievalVerified/VerificationCompleted in the last 7 days per topic). These are persisted when the TopicLoop projection is saved (e.g. in the TopicLoop repository adapter) and are used by Strategic Adjustment and other consumers that need 7d counts per topic without querying the event stream at read time.
+
+---
+
 ### Integration event schemas
 
 > **Purpose:** Published, versioned schemas for cross-context or external consumers. EI never exposes raw event payloads externally.

@@ -5,7 +5,7 @@
 **Owned by bounded context:** EI Projections (DerivedSignals)
 **Related subdomain(s):** DerivedSignals
 **Sources:** [02-subdomains.md](../02-subdomains.md), [03-context-map.md](../03-context-map.md), [05-domain-message-flows-storyboards.md](../05-domain-message-flows-storyboards.md), [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md)
-**Code pointers (current):** `ei_student_aggregates`, projection logic
+**Code pointers (current):** `ei_student_aggregates`; [src/ei/domain/student-aggregates/](../../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../../src/ei/application/recompute-student-aggregates/), [src/ei/infrastructure/projector/student-aggregates-projector.ts](../../../src/ei/infrastructure/projector/student-aggregates-projector.ts), [src/ei/infrastructure/persistence/](../../../src/ei/infrastructure/persistence/) (student-aggregates repository and mappers)
 
 ---
 

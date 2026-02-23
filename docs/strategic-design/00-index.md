@@ -115,4 +115,7 @@ Use these when reconciling spec vs reality:
 - **DB layer:** [src/ei/db/](../../src/ei/db/)
 - **API routes:** [src/app/api/ei/](../../src/app/api/ei/)
 - **Event schemas:** [src/ei/schemas/events.ts](../../src/ei/schemas/events.ts), [src/ei/schemas/outputs.ts](../../src/ei/schemas/outputs.ts)
+- **TopicLoop (domain + use case):** [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/)
+- **StudentAggregates (domain + use case):** [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/)
+- **GetStudentSignals / projectors:** [src/ei/infrastructure/persistence/get-student-signals.pg.ts](../../src/ei/infrastructure/persistence/get-student-signals.pg.ts), [src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)
 

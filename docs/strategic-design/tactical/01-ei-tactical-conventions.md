@@ -126,6 +126,8 @@ Infrastructure → Application → Domain
 | Event stream reader | Driven | `application/shared/` or `infrastructure/` | `I{Aggregate}EventStreamReader` | Infrastructure |
 | GetStudentSignalsPort (LHA) | Driven | `application/assess-loop-health/port.ts` or `application/shared/` | `IGetStudentSignalsPort` | Infrastructure |
 
+**EventStreamReader (projections):** The conceptual "event stream reader" for projections is implemented as two driven ports: **IEventStreamReader** (topic-scoped: `readEventsForTopic(studentId, topicId)`, used by the TopicLoop projector) in `application/shared/port-event-stream-reader.ts`, and **IStudentEventStreamReader** (student-scoped: `readEventsForStudentInWindow`, `readLatestEvent`, used by RecomputeStudentAggregates) in `application/shared/port-student-event-stream-reader.ts`. **ITopicStateReader** (student-scoped topic state for StudentAggregates recompute) lives in `application/shared/port-topic-state-reader.ts`.
+
 **AssessLoopHealth driver port:** Callers (Runtime, SA, Radar) invoke AssessLoopHealth by depending on `IAssessLoopHealthUseCase`, defined in `application/assess-loop-health/port.ts`. The interface exposes the single entry point for loop health assessment; the handler implements it and uses `IGetStudentSignalsPort` (driven) to fetch signals.
 
 **Key rules:**

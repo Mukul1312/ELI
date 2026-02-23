@@ -5,7 +5,7 @@
 **Owned by bounded context:** EI Projections (DerivedSignals)
 **Related subdomain(s):** DerivedSignals
 **Sources:** [02-subdomains.md](../02-subdomains.md), [03-context-map.md](../03-context-map.md), [05-domain-message-flows-storyboards.md](../05-domain-message-flows-storyboards.md), [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md)
-**Code pointers (current):** `ei_topic_state`, `appendEvent` side-effects
+**Code pointers (current):** `ei_topic_state`; [src/ei/domain/topic-loop/](../../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../../src/ei/application/apply-event-to-topic-loop/), [src/ei/infrastructure/projector/topic-loop-projector.ts](../../../src/ei/infrastructure/projector/topic-loop-projector.ts), [src/ei/infrastructure/persistence/topic-loop-repository.pg.ts](../../../src/ei/infrastructure/persistence/topic-loop-repository.pg.ts)
 
 ---
 

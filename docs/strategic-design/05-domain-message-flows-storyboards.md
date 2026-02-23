@@ -28,6 +28,8 @@ It follows the DMF guidance in [../domain-modelling-flow.md](../domain-modelling
 - `Ledger` - EI Event Ledger bounded context (append-only source of truth).
 - `Radar` - Institute Radar bounded context (privacy-safe risk signaling).
 
+**GetStudentSignals:** The query is shown in diagrams as `Q/GetStudentSignals {studentId, horizon=7d}`; the 7d horizon is implicit in how Projections build and store aggregates/topic state (not a parameter of the read API).
+
 ---
 
 ## S2 DMF - Revenge planning after a bad mock
