@@ -57,9 +57,23 @@ const SQL_STATEMENTS = [
     last_scheduled_due_at TIMESTAMPTZ,
     tms                 DOUBLE PRECISION NOT NULL DEFAULT 0,
     delta_decay         DOUBLE PRECISION NOT NULL DEFAULT 0,
+    effort_count_7d     INTEGER NOT NULL DEFAULT 0,
+    retrieval_count_7d  INTEGER NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (student_id, topic_id)
   )`,
+
+  // Backfill columns for existing DBs (no-op if already present)
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'effort_count_7d') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN effort_count_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'retrieval_count_7d') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN retrieval_count_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)

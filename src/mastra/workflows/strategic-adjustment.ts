@@ -106,32 +106,23 @@ const loadFullEvidence = createStep({
       };
     }
 
-    const sevenDaysAgo = new Date(clock.now().getTime() - 7 * 24 * 60 * 60 * 1000);
     const reviewUntil = new Date(clock.now());
     const reviewSince = new Date(
       clock.now().getTime() - SA_REVIEW_WINDOW_MIN_DAYS * 24 * 60 * 60 * 1000,
     );
 
-    const [topicRows, eventCounts, reviewRows] = await Promise.all([
+    const [topicRows, reviewRows] = await Promise.all([
       Q.getAllTopicStates(db, inputData.studentId),
-      Q.getTopicEventCounts7d(db, inputData.studentId, sevenDaysAgo),
       Q.queryEvents(db, inputData.studentId, { since: reviewSince, until: reviewUntil }),
     ]);
 
-    const countsByTopic = new Map(
-      eventCounts.map((c) => [c.topicId, { effort: c.effortCount7d, retrieval: c.retrievalCount7d }]),
-    );
-
-    const topicStates: TopicState[] = topicRows.map((row) => {
-      const counts = countsByTopic.get(row.topic_id) ?? { effort: 0, retrieval: 0 };
-      return {
-        topicId: row.topic_id,
-        effortCount7d: counts.effort,
-        retrievalCount7d: counts.retrieval,
-        tms: row.tms,
-        deltaDecay: row.delta_decay,
-      };
-    });
+    const topicStates: TopicState[] = topicRows.map((row) => ({
+      topicId: row.topic_id,
+      effortCount7d: row.effort_count_7d ?? 0,
+      retrievalCount7d: row.retrieval_count_7d ?? 0,
+      tms: row.tms,
+      deltaDecay: row.delta_decay,
+    }));
 
     const reviewEvents = reviewRows.map((r) => ({
       eventType: r.event_type,

@@ -154,6 +154,8 @@ export interface TopicStateRow {
   last_scheduled_due_at: Date | null;
   tms: number;
   delta_decay: number;
+  effort_count_7d: number;
+  retrieval_count_7d: number;
   updated_at: Date;
 }
 
@@ -182,7 +184,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];
