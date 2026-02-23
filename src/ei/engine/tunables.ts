@@ -13,9 +13,8 @@
 // ============================================================================
 // Risk-Trigger Thresholds (from EI_Engine_Taxonomy.md 6.1)
 // ============================================================================
+// SILENCE_DAYS_THRESHOLD, OPEN_LOOPS_THRESHOLD re-exported from domain/loop-health/tunables
 
-export const SILENCE_DAYS_THRESHOLD = 2;
-export const OPEN_LOOPS_THRESHOLD = 3;
 export const VERIFICATION_RATE_LOW = 0.60;
 export const VERIFICATION_RATE_HEALTHY = 0.75;
 export const SCHEDULE_MISSES_THRESHOLD = 2;
@@ -188,28 +187,46 @@ export const DIFFICULTY_HARD_ADDON = 2;
 export const DIFFICULTY_ADVANCED_ADDON = 3;
 
 // ============================================================================
-// Classification Thresholds
+// Classification Thresholds (from domain/loop-health)
 // ============================================================================
 
-// P1 Label thresholds
-export const P1_LOW_ENERGY_THRESHOLD = 2; // energy <= 2
-export const P1_HIGH_ENERGY_THRESHOLD = 4; // energy >= 4
-export const P1_HIGH_PRESSURE_THRESHOLD = 4; // pressure >= 4
-export const P1_HIGH_BACKLOG_THRESHOLD = 4; // backlogPressure >= 4
-export const P1_HIGH_ENERGY_PRESSURE_MAX = 2; // pressure <= 2
-export const P1_HIGH_ENERGY_BACKLOG_MAX = 3; // backlogPressure <= 3
+import {
+  P1_LOW_ENERGY_THRESHOLD,
+  P1_HIGH_ENERGY_THRESHOLD,
+  P1_HIGH_PRESSURE_THRESHOLD,
+  P1_HIGH_BACKLOG_THRESHOLD,
+  P1_HIGH_ENERGY_PRESSURE_MAX,
+  P1_HIGH_ENERGY_BACKLOG_MAX,
+  P2_STALLED_LATENCY_THRESHOLD,
+  P2_STALLED_REPLAN_THRESHOLD,
+  P2_FLOWING_LATENCY_MAX,
+  P3_AVOIDANT_VERIFICATION_RATE_MAX,
+  P3_AVOIDANT_OPEN_LOOPS_MIN,
+  P3_AVOIDANT_SILENCE_DAYS_MIN,
+  P3_CONFIDENT_VERIFICATION_RATE_MIN,
+  P3_CONFIDENT_OPEN_LOOPS_MAX,
+  SILENCE_DAYS_THRESHOLD,
+  OPEN_LOOPS_THRESHOLD,
+} from '../domain/loop-health/tunables';
 
-// P2 Label thresholds
-export const P2_STALLED_LATENCY_THRESHOLD = 15; // minutes
-export const P2_STALLED_REPLAN_THRESHOLD = 2; // replans before start
-export const P2_FLOWING_LATENCY_MAX = 3; // minutes
-
-// P3 Label thresholds
-export const P3_AVOIDANT_VERIFICATION_RATE_MAX = 0.60;
-export const P3_AVOIDANT_OPEN_LOOPS_MIN = 3;
-export const P3_AVOIDANT_SILENCE_DAYS_MIN = 2;
-export const P3_CONFIDENT_VERIFICATION_RATE_MIN = 0.75;
-export const P3_CONFIDENT_OPEN_LOOPS_MAX = 2;
+export {
+  P1_LOW_ENERGY_THRESHOLD,
+  P1_HIGH_ENERGY_THRESHOLD,
+  P1_HIGH_PRESSURE_THRESHOLD,
+  P1_HIGH_BACKLOG_THRESHOLD,
+  P1_HIGH_ENERGY_PRESSURE_MAX,
+  P1_HIGH_ENERGY_BACKLOG_MAX,
+  P2_STALLED_LATENCY_THRESHOLD,
+  P2_STALLED_REPLAN_THRESHOLD,
+  P2_FLOWING_LATENCY_MAX,
+  P3_AVOIDANT_VERIFICATION_RATE_MAX,
+  P3_AVOIDANT_OPEN_LOOPS_MIN,
+  P3_AVOIDANT_SILENCE_DAYS_MIN,
+  P3_CONFIDENT_VERIFICATION_RATE_MIN,
+  P3_CONFIDENT_OPEN_LOOPS_MAX,
+  SILENCE_DAYS_THRESHOLD,
+  OPEN_LOOPS_THRESHOLD,
+};
 
 // ============================================================================
 // Review Windows (for Strategic Adjustment and aggregates)

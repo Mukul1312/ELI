@@ -17,12 +17,13 @@ import { queryEventsTool, appendEventTool } from '../mastra/tools/event-store';
 // ── Engine (pure functions) ────────────────────────────────────────────────
 import { computeStateScore } from './engine/score';
 import type { SleepBucket } from './engine/score';
-import {
-  assignP1Label, assignP2Label, assignP3Label, resolveMode,
-} from './engine/classify';
 import type {
   StudentAggregates, StudentPolicy, P1Context, P2Context, P3Context, StateTrend, Mode,
 } from './engine/classify';
+import { AssessLoopHealthHandler } from './application/assess-loop-health/handler';
+import { PostgresGetStudentSignalsAdapter } from './infrastructure/persistence/get-student-signals.pg';
+import { getEiDb } from './runtime/db';
+import { getClock } from './runtime/clock';
 import {
   computeEscalationContext, computeTightnessLevel,
   getP2Escalation, getP3Escalation, applyDoNoHarmGuardrail,
@@ -174,12 +175,25 @@ export async function runProtocol1(
   const recentIntents = extractNegotiatedIntentEvents(rawEvents);
   const recentResponses = extractIntentResponseEvents(rawEvents);
 
-  // ── 3. Engine pipeline ──────────────────────────────────────────────────
+  // ── 3. Engine pipeline (LHA use case) ────────────────────────────────────
   const stateScore = computeStateScore({ energy, sleepBucket, pressure, backlogPressure });
 
   const p1Context: P1Context = { energy, sleepBucket, pressure, backlogPressure };
-  const label = assignP1Label(p1Context, aggregates);
-  let mode = resolveMode(label, aggregates, policy);
+  const db = getEiDb(ctx);
+  const clock = getClock(ctx);
+  const assessLoopHealthUseCase = new AssessLoopHealthHandler(
+    new PostgresGetStudentSignalsAdapter(db),
+    clock,
+  );
+  const snapshot = await assessLoopHealthUseCase.execute({
+    studentId,
+    gatePhase: 'P1',
+    gateContext: p1Context,
+    aggregates,
+    policy,
+  });
+  let mode = snapshot.mode;
+  mode = applyDoNoHarmGuardrail(mode, aggregates, energy, pressure, sleepBucket);
 
   const escalation = computeEscalationContext(
     aggregates, energy, pressure, backlogPressure, sleepBucket,
@@ -268,10 +282,22 @@ export async function runProtocol2(
   }
   const timeSinceIntentSet = (Date.now() - new Date(setAt).getTime()) / 60_000;
 
-  // ── 4. Engine pipeline ──────────────────────────────────────────────────
+  // ── 4. Engine pipeline (LHA use case) ─────────────────────────────────────
   const p2Context: P2Context = { startLatencyMin, replanCount, hasStartSignal, timeSinceIntentSet };
-  const label = assignP2Label(p2Context, aggregates);
-  const mode = resolveMode(label, aggregates, policy);
+  const db = getEiDb(ctx);
+  const clock = getClock(ctx);
+  const assessLoopHealthUseCase = new AssessLoopHealthHandler(
+    new PostgresGetStudentSignalsAdapter(db),
+    clock,
+  );
+  const snapshot = await assessLoopHealthUseCase.execute({
+    studentId,
+    gatePhase: 'P2',
+    gateContext: p2Context,
+    aggregates,
+    policy,
+  });
+  const mode = snapshot.mode;
 
   const tightnessLevel = computeTightnessLevel(aggregates);
   const p2Escalation = getP2Escalation(aggregates, 0, 0);
@@ -361,10 +387,22 @@ export async function runProtocol3(
   const hasRetrieval = storedEvents.some((e) => e.eventType === 'RetrievalVerified');
   const hasSchedule = storedEvents.some((e) => e.eventType === 'RetrievalScheduled');
 
-  // ── 4. Engine pipeline ──────────────────────────────────────────────────
+  // ── 4. Engine pipeline (LHA use case) ─────────────────────────────────────
   const p3Context: P3Context = { hasRetrieval, hasSchedule };
-  const label = assignP3Label(p3Context, aggregates);
-  const mode = resolveMode(label, aggregates, policy);
+  const db = getEiDb(ctx);
+  const clock = getClock(ctx);
+  const assessLoopHealthUseCase = new AssessLoopHealthHandler(
+    new PostgresGetStudentSignalsAdapter(db),
+    clock,
+  );
+  const snapshot = await assessLoopHealthUseCase.execute({
+    studentId,
+    gatePhase: 'P3',
+    gateContext: p3Context,
+    aggregates,
+    policy,
+  });
+  const mode = snapshot.mode;
 
   const tightnessLevel = computeTightnessLevel(aggregates);
   const p3Escalation = getP3Escalation(aggregates);
