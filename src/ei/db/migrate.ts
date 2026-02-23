@@ -129,6 +129,38 @@ const SQL_STATEMENTS = [
 
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_radar_alerts_student_type
    ON ei_radar_alerts (student_id, alert_type)`,
+
+  // ================================================================
+  // 6. CohortAccess tables (institutes, cohorts, students, membership, roles)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS institutes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS cohorts (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institute_id    UUID NOT NULL REFERENCES institutes(id),
+    name            TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS students (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_user_id    TEXT NOT NULL UNIQUE,
+    institute_id    UUID REFERENCES institutes(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS student_cohort_membership (
+    student_id      UUID PRIMARY KEY REFERENCES students(id),
+    cohort_id       UUID REFERENCES cohorts(id),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS roles (
+    student_id      UUID PRIMARY KEY REFERENCES students(id),
+    role            TEXT NOT NULL CHECK (role IN ('student', 'admin', 'institute')),
+    scope           TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
 ];
 
 async function migrate() {
@@ -151,7 +183,7 @@ async function migrate() {
       console.log(`  Executing: ${firstLine}...`);
       await store.db.none(sql);
     }
-    console.log('Migration complete. All EI tables (including ei_idempotency_keys) created/verified.');
+    console.log('Migration complete. All EI tables (including ei_idempotency_keys) and CohortAccess tables created/verified.');
   } catch (err) {
     console.error('Migration failed:', err);
     process.exit(1);

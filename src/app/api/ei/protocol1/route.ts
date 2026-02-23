@@ -5,7 +5,7 @@
  * Emits AppOpen event first, then delegates to RunP1GateHandler.
  *
  * Body: { studentId, topic, energy, sleepBucket?, pressure?, backlogPressure? }
- * Auth: Bearer <PILOT_SECRET>
+ * Auth: ResolveAuthSession (session) or Bearer <PILOT_SECRET> fallback (body studentId)
  */
 
 import { eiStore } from '@/ei/runtime/db';
@@ -14,21 +14,11 @@ import { PostgresAppendEventAdapter } from '@/ei/infrastructure/persistence/appe
 import { AssessLoopHealthHandler } from '@/ei/application/assess-loop-health/handler';
 import { RunP1GateHandler } from '@/ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '@/ei/domain/study-session/protocol-engine';
+import { withEiSession } from '@/app/api/ei/with-session';
 
 export const dynamic = 'force-dynamic';
 
-function isAuthorized(req: Request): boolean {
-  const secret = process.env.PILOT_SECRET;
-  if (!secret) return true;
-  const header = req.headers.get('Authorization') ?? '';
-  return header === `Bearer ${secret}`;
-}
-
 export async function POST(req: Request) {
-  if (!isAuthorized(req)) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   let body: any;
   try {
     body = await req.json();
@@ -36,7 +26,14 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { studentId, topic, energy, sleepBucket, pressure, backlogPressure } = body;
+  const { studentId: bodyStudentId, topic, energy, sleepBucket, pressure, backlogPressure } = body;
+
+  const authResult = await withEiSession(req, bodyStudentId);
+  if (!authResult.authorized) {
+    return authResult.response;
+  }
+  const studentId = authResult.studentId;
+
   if (!studentId || !topic || energy == null) {
     return Response.json({ error: 'Missing required fields: studentId, topic, energy' }, { status: 400 });
   }
@@ -48,7 +45,6 @@ export async function POST(req: Request) {
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
 
-    // Emit AppOpen event so the event log includes the trigger
     await appendEvent.append({
       studentId,
       eventType: 'AppOpen',

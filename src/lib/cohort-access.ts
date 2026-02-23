@@ -1,0 +1,38 @@
+/**
+ * Composition root for CohortAccess bounded context.
+ * Wires adapters and handlers. No DI container; manual constructor injection.
+ */
+
+import type { CohortAccessDb } from '@/cohort-access/infrastructure/persistence/db-types';
+import { ResolveAuthSessionHandler } from '@/cohort-access/application/resolve-auth-session/handler';
+import { GetCohortScopeHandler } from '@/cohort-access/application/get-cohort-scope/handler';
+import { ChangeStudentMembershipHandler } from '@/cohort-access/application/change-student-membership/handler';
+import { StudentMembershipRepositoryPg } from '@/cohort-access/infrastructure/persistence/student-membership-repository.pg';
+import { IdempotencyKeyStorePg } from '@/cohort-access/infrastructure/persistence/idempotency-key-store.pg';
+import { GetInstituteScopePg } from '@/cohort-access/infrastructure/persistence/get-institute-scope.pg';
+import { NeonAuthResolverPg } from '@/cohort-access/infrastructure/auth/neon-auth-resolver.pg';
+import type { IResolveAuthSessionUseCase } from '@/cohort-access/application/resolve-auth-session/port';
+import type { IGetCohortScopeUseCase } from '@/cohort-access/application/get-cohort-scope/port';
+import type { IChangeStudentMembershipUseCase } from '@/cohort-access/application/change-student-membership/port';
+
+/** Session supplier for Neon Auth. When @neondatabase/auth is not set up, pass () => Promise.resolve(null). */
+export type GetSessionFn = () => Promise<{ user: { id: string }; session: { userId: string } } | null>;
+
+export function createResolveAuthSessionUseCase(
+  db: CohortAccessDb,
+  getSession: GetSessionFn,
+): IResolveAuthSessionUseCase {
+  const port = new NeonAuthResolverPg(db, getSession);
+  return new ResolveAuthSessionHandler(port);
+}
+
+export function createGetCohortScopeUseCase(db: CohortAccessDb): IGetCohortScopeUseCase {
+  const port = new GetInstituteScopePg(db);
+  return new GetCohortScopeHandler(port);
+}
+
+export function createChangeStudentMembershipUseCase(db: CohortAccessDb): IChangeStudentMembershipUseCase {
+  const membershipRepo = new StudentMembershipRepositoryPg(db);
+  const idempotencyStore = new IdempotencyKeyStorePg(db);
+  return new ChangeStudentMembershipHandler(membershipRepo, idempotencyStore);
+}

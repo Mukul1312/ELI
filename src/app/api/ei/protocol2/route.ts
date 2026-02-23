@@ -4,7 +4,7 @@
  * Runs Protocol 2 (Activation): takes intent-set data, returns ActivationPlanIssued.
  *
  * Body: { studentId, topic, taskType?, setAt }
- * Auth: Bearer <PILOT_SECRET>
+ * Auth: ResolveAuthSession (session) or Bearer <PILOT_SECRET> fallback (body studentId)
  */
 
 import { eiStore } from '@/ei/runtime/db';
@@ -14,21 +14,11 @@ import { PostgresQueryEventsAdapter } from '@/ei/infrastructure/persistence/quer
 import { AssessLoopHealthHandler } from '@/ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '@/ei/application/run-p2-gate/handler';
 import { ProtocolEngine } from '@/ei/domain/study-session/protocol-engine';
+import { withEiSession } from '@/app/api/ei/with-session';
 
 export const dynamic = 'force-dynamic';
 
-function isAuthorized(req: Request): boolean {
-  const secret = process.env.PILOT_SECRET;
-  if (!secret) return true;
-  const header = req.headers.get('Authorization') ?? '';
-  return header === `Bearer ${secret}`;
-}
-
 export async function POST(req: Request) {
-  if (!isAuthorized(req)) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   let body: any;
   try {
     body = await req.json();
@@ -36,7 +26,14 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { studentId, topic, taskType, setAt } = body;
+  const { studentId: bodyStudentId, topic, taskType, setAt } = body;
+
+  const authResult = await withEiSession(req, bodyStudentId);
+  if (!authResult.authorized) {
+    return authResult.response;
+  }
+  const studentId = authResult.studentId;
+
   if (!studentId || !topic || !setAt) {
     return Response.json({ error: 'Missing required fields: studentId, topic, setAt' }, { status: 400 });
   }

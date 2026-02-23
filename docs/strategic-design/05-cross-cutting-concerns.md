@@ -173,12 +173,12 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 
 | Table                     | Context         | Notes |
 | ------------------------- | --------------- | ----- |
-| institutes                | Identity        |       |
-| cohorts                   | Identity        |       |
-| students                  | Identity        |       |
-| student_cohort_membership | Identity        |       |
-| roles                     | Identity        |       |
-| enrollments               | Identity        |       |
+| institutes                | CohortAccess    |       |
+| cohorts                   | CohortAccess    |       |
+| students                  | CohortAccess    |       |
+| student_cohort_membership | CohortAccess    |       |
+| roles                     | CohortAccess    |       |
+| enrollments               | CohortAccess    |       |
 | coupons                   | Billing/Sponsor | P1    |
 | coupon_redemptions        | Billing/Sponsor | P1    |
 | ei_idempotency_keys       | EI Event Ledger | Implemented (migrate.ts) |

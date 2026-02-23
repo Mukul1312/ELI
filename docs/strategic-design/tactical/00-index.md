@@ -20,6 +20,7 @@
 | StudentPolicy | Strategic Adjustment | Hybrid | [student-policy-tactical-spec.md](student-policy-tactical-spec.md) | Next-cycle policy: tightness level, dials, constraints; written by SA; read by protocols |
 | StudentAggregates | EI Projections | Projection | [student-aggregates-tactical-spec.md](student-aggregates-tactical-spec.md) | Rolled-up student-level metrics (openLoops, verificationRate7d, silenceDays, etc.) over 7d windows |
 | StudentMembership | CohortAccess | Command Handler | [student-membership-tactical-spec.md](student-membership-tactical-spec.md) | Exactly-one-cohort invariant; admin enroll; redemption-triggered membership change |
+| CohortAccess (context) | CohortAccess | Bounded Context | [cohort-access-tactical-spec.md](cohort-access-tactical-spec.md) | Full context spec: auth resolution (ACL), GetCohortScope, StudentMembership, ports, file structure |
 | Coupon | BillingEntitlements | Command Handler | [coupon-tactical-spec.md](coupon-tactical-spec.md) | Coupon eligibility, limit enforcement, expiry, atomic check-and-increment |
 | Redemption | BillingEntitlements | Command Handler | [redemption-tactical-spec.md](redemption-tactical-spec.md) | Idempotent redemption audit record; triggers StudentMembership on valid coupon use |
 | LoopHealth | LoopHealthAssessment | Domain Service | [loop-health-assessment-tactical-spec.md](loop-health-assessment-tactical-spec.md) | Interpret signals to labels + evidence; single source for "what is healthy" |

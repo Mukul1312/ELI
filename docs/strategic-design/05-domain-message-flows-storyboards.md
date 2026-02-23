@@ -21,6 +21,7 @@ It follows the DMF guidance in [../domain-modelling-flow.md](../domain-modelling
 ### Participants used
 
 - `Student` - user actor.
+- `CohortAccess` - CohortAccess bounded context (auth, identity, cohort scope); resolves session → studentId before any EI processing.
 - `Runtime` - EI Runtime bounded context (gate orchestration and protocol outputs).
 - `Projections` - EI Projections bounded context (aggregates/state/policy reads).
 - `LoopHealth` - LoopHealthAssessment bounded context (labels and evidence synthesis).
@@ -40,12 +41,16 @@ Scenario intent: pressure is high despite decent energy, so Runtime must negotia
 sequenceDiagram
     autonumber
     participant Student
+    participant CohortAccess
     participant Runtime
     participant Projections
     participant LoopHealth
     participant Ledger
 
     Note over Student,Runtime: Day1 trigger - bad mock result, high pressure
+    Student->>CohortAccess: (request with session)
+    CohortAccess->>CohortAccess: Q/ResolveAuthSession
+    CohortAccess-->>Runtime: R/AuthSession {studentId, cohortId, role}
     Student->>Runtime: C/AppOpen {energy=4, pressure=5}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {startLatency, openLoops, verificationRate7d}
@@ -161,6 +166,7 @@ sequenceDiagram
 
 ## Cross-scenario invariants reflected in DMFs
 
+- **Server-derived identity:** All EI flows resolve identity via CohortAccess (ResolveAuthSession) before Runtime processes any command. `studentId` in GetStudentSignals, AppOpen, etc. comes from AuthSession, never from client body.
 - **Risk over mood:** high energy alone does not permit Boost when adherence risk is high (`openLoops`, `scheduleMisses`, silence).
 - **Tiny proof-of-learning:** every `SessionEnd` path preserves integrity through `VerifyNow`, bounded `ScheduleVerify`, or explicit `SkipWithReason`.
 - **Ledger is source-of-truth:** protocol outputs and retrieval outcomes are appended as domain events.
