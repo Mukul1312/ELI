@@ -28,7 +28,7 @@ The 9 bounded contexts from [03-context-map.md](../03-context-map.md) map to mod
 | EI Event Ledger | `ei/db/` (queries), `mastra/tools/event-store.ts` (append) |
 | EI Projections | `ei/domain/`, `ei/application/`, `ei/infrastructure/`, `mastra/tools/signal-compute.ts` |
 | EI Runtime | `ei/engine/` (plays, protocol-runner), `app/api/ei/` |
-| LoopHealthAssessment | `ei/engine/` (classify, score) |
+| LoopHealthAssessment | `ei/domain/loop-health/`, `ei/application/assess-loop-health/` |
 | Strategic Adjustment | `ei/engine/strategic-adjustment.ts`, `mastra/workflows/strategic-adjustment.ts`, `ei/application/apply-strategic-adjustment-decision/` |
 
 **Folder structure (EI module):**
@@ -38,7 +38,7 @@ src/ei/
 ├── domain/         # Projections aggregates (TopicLoop, StudentAggregates, ...)
 ├── application/    # Projections use cases + SA apply-policy
 ├── infrastructure/ # Ledger read + Projections persistence
-├── engine/         # Runtime + LHA + SA logic (existing)
+├── engine/         # Runtime + SA logic (LHA moved to domain/application)
 ├── db/             # Ledger + Projections tables/queries (existing)
 └── schemas/        # Shared contracts (existing)
 ```
@@ -63,6 +63,10 @@ src/ei/
 │   │   └── errors.ts                # Aggregate-specific errors
 │   ├── student-policy/
 │   ├── student-aggregates/
+│   ├── loop-health/                 # Domain service (stateless)
+│   │   ├── loop-health-snapshot.ts  # LoopHealthSnapshot, LoopHealthEvidence types
+│   │   ├── assess-loop-health.ts    # Pure classification logic (or wraps engine/classify during migration)
+│   │   └── errors.ts                # Domain errors if any
 │   └── ...
 ├── application/                     # Use cases — orchestrates domain + ports
 │   ├── shared/
@@ -71,6 +75,11 @@ src/ei/
 │   │   ├── command.ts               # Input DTO
 │   │   ├── handler.ts               # Use case implementation
 │   │   └── port.ts                  # Driver port interface
+│   ├── apply-strategic-adjustment-decision/
+│   ├── assess-loop-health/         # LHA use case
+│   │   ├── command.ts               # AssessLoopHealthCommand
+│   │   ├── handler.ts               # AssessLoopHealthHandler
+│   │   └── port.ts                  # IAssessLoopHealthUseCase (driver), IGetStudentSignalsPort (driven)
 │   └── ...
 └── infrastructure/                  # Adapters — DB, framework, external
     ├── persistence/
@@ -104,16 +113,26 @@ Infrastructure → Application → Domain
 
 ## 5) Port Placement Rules
 
-| Port type | Location | Naming convention | Who defines | Who implements |
-|-----------|----------|-------------------|-------------|----------------|
-| Repository (driven) | `domain/{aggregate}/repository.ts` | `I{Aggregate}Repository` | Domain | Infrastructure |
-| Use-case (driver) | `application/{use-case}/port.ts` | `I{Action}UseCase` | Application | Application (handler) |
-| Event stream reader | `application/` or `infrastructure/` depending on purity needs | `I{Aggregate}EventStreamReader` | Application | Infrastructure |
+**Driver vs Driven (Hexagonal terminology):**
+
+- **Driver (inbound):** How the outside world invokes the application. Interface in `application/{use-case}/port.ts` as `I{Action}UseCase`. Implemented by the handler.
+- **Driven (outbound):** What the use case needs from external systems. Implemented by infrastructure. Application *calls* these interfaces.
+
+| Port type | Direction | Location | Naming | Who implements |
+|-----------|-----------|----------|--------|----------------|
+| Use-case | Driver | `application/{use-case}/port.ts` | `I{Action}UseCase` | Application (handler) |
+| AssessLoopHealth (LHA) | Driver | `application/assess-loop-health/port.ts` | `IAssessLoopHealthUseCase` | Application (handler) |
+| Repository | Driven | `domain/{aggregate}/repository.ts` | `I{Aggregate}Repository` | Infrastructure |
+| Event stream reader | Driven | `application/shared/` or `infrastructure/` | `I{Aggregate}EventStreamReader` | Infrastructure |
+| GetStudentSignalsPort (LHA) | Driven | `application/assess-loop-health/port.ts` or `application/shared/` | `IGetStudentSignalsPort` | Infrastructure |
+
+**AssessLoopHealth driver port:** Callers (Runtime, SA, Radar) invoke AssessLoopHealth by depending on `IAssessLoopHealthUseCase`, defined in `application/assess-loop-health/port.ts`. The interface exposes the single entry point for loop health assessment; the handler implements it and uses `IGetStudentSignalsPort` (driven) to fetch signals.
 
 **Key rules:**
 - One repository per aggregate — not per table.
 - Repository interfaces contain only domain concepts (`TopicLoop`, `TopicLoopId`), never DB row types.
 - Do not add query methods that expose raw DB concerns (SQL, ORMs) to the repository interface.
+- A use-case folder may define both a driver port (how it is invoked) and driven ports (what it needs). Driver port is primary; driven ports are dependencies.
 
 ---
 
@@ -126,6 +145,14 @@ EI aggregates fall into three types. The type determines command vs. event appli
 | **Projection** | Reacts to Ledger events; state derived; idempotent recompute | TopicLoop, StudentAggregates |
 | **Command Handler** | Receives commands; enforces business rules; writes state; may invoke downstream | StudentMembership, Coupon, Redemption |
 | **Hybrid** | Projection-derived state + command interpretation from SA | StudentPolicy |
+
+| Type | Event semantics | Idempotency | Typical driven ports |
+|------|-----------------|-------------|----------------------|
+| **Projection** | Consumes Ledger only; no emitted events | GREATEST / recompute; naturally idempotent | Repository, EventStreamReader, Clock |
+| **Command Handler** | Receives commands; may emit events | Idempotency key or natural uniqueness | Repository |
+| **Hybrid** | Consumes SA events from Ledger; SA appends; Projections persist | Last-write-wins; projector can replay from Ledger | Repository, EventStreamReader (for replay) |
+
+StudentPolicy is Hybrid: Strategic Adjustment appends StrategicAdjustmentDecision to Ledger; Projections consume and persist to ei_student_policy. StudentAggregates is Projection: state derived from Ledger; no commands.
 
 ---
 
@@ -149,6 +176,14 @@ EI aggregates fall into three types. The type determines command vs. event appli
 
 ---
 
+## 7b) Error placement — Domain vs Application
+
+- **Domain errors:** Thrown by domain layer (aggregates, value objects, domain services). Extend `DomainError` from `domain/shared/errors.ts`. Examples: `MissingStudentIdError`, `InvalidTightnessLevelError`, `UnknownEventTypeError`. Use for invariants and invalid domain state.
+- **Application errors:** Thrown when orchestration fails (invalid command shape, preconditions before domain is invoked). Place in `application/shared/errors.ts` (add `ApplicationError` base when needed). Use for use-case boundary validation that does not belong in domain.
+- **Rule:** Domain validates its own concepts; application validates command/input shape and passes validated data to domain. Handlers may catch domain errors and rethrow or map to API responses.
+
+---
+
 ## 8) Time Semantics and Monotonic Update Policy
 
 - All timestamps are **ISO 8601 strings** at the API/port boundary; converted to `Date` objects inside domain logic.
@@ -164,6 +199,7 @@ EI aggregates fall into three types. The type determines command vs. event appli
 - For **projections**: idempotent by design (GREATEST semantics, same event applied twice → same state).
 - For **command handlers**: idempotency key or natural uniqueness constraint (`couponId + userId`, `redemptionId`) must be enforced at the aggregate boundary.
 - Idempotency keys are checked in the application use-case handler before invoking domain logic.
+- **Ledger append:** When the application appends events (e.g. StrategicAdjustmentDecision), use an idempotency key to prevent duplicate rows on retries. See [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) Event ledger invariants.
 
 ---
 

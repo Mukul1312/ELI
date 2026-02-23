@@ -22,6 +22,7 @@
 | StudentMembership | CohortAccess | Command Handler | [student-membership-tactical-spec.md](student-membership-tactical-spec.md) | Exactly-one-cohort invariant; admin enroll; redemption-triggered membership change |
 | Coupon | BillingEntitlements | Command Handler | [coupon-tactical-spec.md](coupon-tactical-spec.md) | Coupon eligibility, limit enforcement, expiry, atomic check-and-increment |
 | Redemption | BillingEntitlements | Command Handler | [redemption-tactical-spec.md](redemption-tactical-spec.md) | Idempotent redemption audit record; triggers StudentMembership on valid coupon use |
+| LoopHealth | LoopHealthAssessment | Domain Service | [loop-health-assessment-tactical-spec.md](loop-health-assessment-tactical-spec.md) | Interpret signals to labels + evidence; single source for "what is healthy" |
 
 ---
 
@@ -29,5 +30,6 @@
 
 - Strategic index: [00-index.md](../00-index.md)
 - Aggregate canvases: [aggregates/00-index.md](../aggregates/00-index.md)
+- Domain service canvases: [domainService/00-index.md](../domainService/00-index.md)
 - Cross-cutting concerns: [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md)
 - Clean DDD skill: `.agents/skills/clean-ddd-hexagonal/SKILL.md`

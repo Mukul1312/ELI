@@ -4,7 +4,7 @@
 
 **Subdomain(s):** LoopHealthAssessment  
 **Context Map reference:** [03-context-map.md](03-context-map.md)  
-**Sources:** [02-subdomains.md](02-subdomains.md), [05-domain-message-flows-storyboards.md](05-domain-message-flows-storyboards.md)
+**Sources:** [02-subdomains.md](02-subdomains.md), [05-domain-message-flows-storyboards.md](05-domain-message-flows-storyboards.md), [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactical/loop-health-assessment-tactical-spec.md](tactical/loop-health-assessment-tactical-spec.md)
 **See also (cross-cutting):** [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md) — invariants, event catalog, data ownership, ACLs
 
 ---
@@ -79,7 +79,10 @@ Source: EI_Engine_Taxonomy §3
 
 | Collaborator | Message type | Message name | Key data | Integration style | Relationship (from context map) |
 |--------------|--------------|--------------|----------|-------------------|-----------------------------------|
-| EI Projections | Query | GetStudentSignals (or equivalent) | openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d, policy dials, topic state | Sync query | Customer-Supplier |
+| EI Runtime | Query | AssessLoopHealth | studentId, gatePhase (P1/P2/P3), signals (or fetched via port) | Sync call | Customer-Supplier |
+| Strategic Adjustment | Query | AssessLoopHealth | studentId, signals | Sync call | Customer-Supplier |
+| Institute Radar | Query | AssessLoopHealth | studentId, signals | Sync call | Customer-Supplier |
+| EI Projections | Query response | R/GetStudentSignals | aggregates, topic state, policy | Sync query (LHA fetches) | Customer-Supplier |
 
 ---
 
@@ -88,7 +91,7 @@ Source: EI_Engine_Taxonomy §3
 | Message type | Message name | Collaborator | Key data | Integration style | Relationship |
 |--------------|---------------|--------------|----------|-------------------|--------------|
 | Query response | AssessLoopHealth → R/LoopHealthSnapshot | EI Runtime | labels (p1, p2, p3) + key evidence | Sync call | Published Language |
-| Query response | LoopHealthSnapshot (labels + aggregated evidence) | Institute Radar | No raw events; privacy-safe | Sync / feed | Published Language |
+| Query response | LoopHealthSnapshot (labels + aggregated evidence) | Institute Radar | No raw events; privacy-safe | Sync call | Published Language |
 | Query response | LoopHealthSnapshot (labels + key evidence) | Strategic Adjustment | Same contract as LHA→Runtime | Sync call | Published Language |
 
 ---
@@ -106,7 +109,7 @@ Source: EI_Engine_Taxonomy §3
 
 - Numeric evidence from Projections is sufficient for label computation; no need for raw events.
 - Threshold tuning cadence is independent of gate logic; we can iterate thresholds without Runtime changes.
-- LoopHealthSnapshot contract is stable; breaking changes require coordination with Runtime, SA, Radar.
+- LoopHealthSnapshot contract is stable; breaking changes require coordination with Runtime, SA, Radar. When exposed as API or event, use schemaVersion (e.g. v1); version bumps require consumer coordination.
 
 ---
 
@@ -120,4 +123,4 @@ Source: EI_Engine_Taxonomy §3
 
 ## Open Questions
 
-- Formal versioning of LoopHealthSnapshot if exposed as API or event.
+- (Resolved: versioning moved to Assumptions — schemaVersion when exposed; coordination on breaking changes.)

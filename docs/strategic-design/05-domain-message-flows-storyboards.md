@@ -74,7 +74,7 @@ sequenceDiagram
 
 ## S5 DMF - Burnout runway plus silence
 
-Scenario intent: re-entry and dignity preservation are primary. DMF emphasizes low-pressure rescue, silence handling, and minimal compliance asks.
+Scenario intent: re-entry and dignity preservation are primary. DMF emphasizes low-pressure rescue, silence handling, and minimal compliance asks. Radar obtains LoopHealthSnapshot via Q/AssessLoopHealth when building daily triage; no push event.
 
 ```mermaid
 sequenceDiagram
@@ -94,10 +94,6 @@ sequenceDiagram
     LoopHealth-->>Runtime: R/LoopHealthSnapshot {p1=lowEnergy, p3=avoidant}
     Runtime-->>Student: C/NegotiatedIntentIssued {mode=rescue, plan=fiveMinuteWin}
     Runtime->>Ledger: E/NegotiatedIntentIssued {mode=rescue, intent=tiny}
-
-    opt SilenceDays >= 2
-        LoopHealth->>Radar: E/LoopHealthSnapshotPublished {risk=disengagement, privacySafeEvidence}
-    end
 
     Note over Student,Runtime: Re-entry day flow
     Student->>Runtime: C/SessionEnd {tinyEffortDone}

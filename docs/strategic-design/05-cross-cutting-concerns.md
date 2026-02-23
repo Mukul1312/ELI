@@ -18,6 +18,13 @@ Single source for invariants, event contracts, data ownership, and ACLs. Canvase
 | **Idempotency** | Retries must not create duplicate events. Every write endpoint supports idempotency key or deterministic event id. |
 | **Schema strictness** | Every event payload validates against strict schema per event type. Unknown keys rejected. |
 
+**Idempotency implementation guidance:**
+- **Ledger append:** Producers (SA, setPolicyTool, event-store) should pass an idempotency key when appending events. The Ledger or adapter checks `idempotency_keys` before insert; duplicate key returns existing event id (no new row).
+- **Projections:** Idempotent by design (GREATEST / recompute). No Ledger idempotency key needed for consumed events; projection logic is deterministic.
+- **Command-style Ledger appends (e.g. StrategicAdjustmentDecision):** Require idempotency key for retry safety. Recommended key format: `{context}:{eventType}:{studentId}:{issuedAt}` or client-provided.
+
+Implementation: `ei_idempotency_keys` table (key, event_id, created_at) and optional `idempotencyKey` parameter on `insertEvent` — see Future tables. Until implemented, document as target; SA workflow is single-writer per student.
+
 ---
 
 ### Projection invariants
@@ -36,6 +43,8 @@ Single source for invariants, event contracts, data ownership, and ACLs. Canvase
 | **Determinism** | Same inputs + same projections → same protocol output. No randomness in gate decisions. |
 | **Integrity-first** | At SessionEnd, no retrieval + no schedule → AVOIDANT → Rescue. (Precedence rule 1.) |
 | **Risk overrides ambition** | OpenLoops high or SilenceDays elevated → no Boost even if state taps look strong. |
+| **Single interpretation** | Thresholds and labels live in LoopHealthAssessment; EI Runtime, SA, Radar consume LoopHealthSnapshot only. |
+| **Privacy-safe evidence** | LoopHealthSnapshot exposes only aggregated numbers and labels; never raw events or private content. |
 
 ---
 
@@ -45,6 +54,10 @@ Single source for invariants, event contracts, data ownership, and ACLs. Canvase
 |-----------|-------------|
 | **Privacy boundary** | Institute APIs never expose raw events, journaling, or private content. Only aggregated signals + alert types. |
 | **Server-derived identity** | Server derives `student_id` from auth session. Never trust client-provided `studentId` for authorization. |
+
+### Error conventions
+
+Domain errors for invariants; Application errors for use-case boundary validation. See [tactical/01-ei-tactical-conventions.md](tactical/01-ei-tactical-conventions.md) Section 7b.
 
 ---
 
@@ -111,6 +124,20 @@ Schema for alerts consumed by Institute dashboard. Privacy-safe: no raw events, 
   }
 }
 ```
+
+#### LoopHealthSnapshot (cross-context)
+
+Schema for loop health interpretation consumed by EI Runtime, Strategic Adjustment, Institute Radar. Producer: LoopHealthAssessment. Privacy-safe: labels (p1, p2, p3) + aggregated evidence only.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| studentId | string | |
+| p1, p2, p3 | P1Label, P2Label, P3Label | Labels |
+| mode | Rescue \| Neutral \| Boost | |
+| evidence | LoopHealthEvidence | openLoops, verificationRate7d, silenceDays, etc. (aggregated only) |
+| computedAt | ISO8601 | |
+
+See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactical/loop-health-assessment-tactical-spec.md](tactical/loop-health-assessment-tactical-spec.md).
 
 <!-- Fill: Add other integration events (e.g. cohort enrollment, coupon redemption) as needed. -->
 

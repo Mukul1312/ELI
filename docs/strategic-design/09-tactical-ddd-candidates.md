@@ -4,7 +4,8 @@
 >
 > **Source:** [DDD-TACTICAL.md](.agents/skills/clean-ddd-hexagonal/references/DDD-TACTICAL.md)
 >
-> **Aggregate canvases:** [aggregates/00-index.md](aggregates/00-index.md)
+> **Aggregate canvases:** [aggregates/00-index.md](aggregates/00-index.md)  
+**Domain service canvases:** [domainService/00-index.md](domainService/00-index.md)
 
 ---
 
@@ -21,12 +22,22 @@
 
 ---
 
+## Domain services (candidates)
+
+| Domain Service | Responsibility | Dependencies | Code location (current) | Canvas |
+|----------------|----------------|--------------|-------------------------|--------|
+| LoopHealth | Interpret metrics to labels + LoopHealthSnapshot | GetStudentSignals (Projections) | ei/engine/classify.ts, tunables | [canvas-loop-health-assessment.md](canvas-loop-health-assessment.md), [ds-loop-health.md](domainService/ds-loop-health.md) |
+
+---
+
 ## Value objects (candidates)
 
 | Value object | Purpose | Current |
 |--------------|---------|---------|
 | StudentId | Identity wrapper; avoid stringly-typed IDs | string |
 | TopicId | Same | string |
+| LoopHealthSnapshot | Labels + evidence output contract; consumed by Runtime, SA, Radar | (to be implemented) |
+| LoopHealthEvidence | Privacy-safe subset of evidence numbers | (to be implemented) |
 | SleepBucket | Valid enum; used in score, classify | enum |
 | Mode | Rescue / Neutral / Boost | enum |
 | TightnessLevel | Loose / Normal / Tight | enum |
@@ -37,16 +48,26 @@
 ## Where they would live (future refactor)
 
 ```
-src/domain/
-├── topic-loop/           # TopicLoop aggregate
-│   ├── topic-loop.ts
-│   ├── value-objects.ts
-│   └── events.ts
-├── student-policy/       # StudentPolicy aggregate
-│   ├── student-policy.ts
-│   └── value-objects.ts
-└── shared/
-    └── ids.ts            # StudentId, TopicId value objects
+src/ei/
+├── domain/
+│   ├── topic-loop/           # TopicLoop aggregate
+│   │   ├── topic-loop.ts
+│   │   ├── value-objects.ts
+│   │   └── events.ts
+│   ├── student-policy/       # StudentPolicy aggregate
+│   │   ├── student-policy.ts
+│   │   └── value-objects.ts
+│   ├── loop-health/          # LoopHealth domain service (stateless)
+│   │   ├── loop-health-snapshot.ts
+│   │   ├── assess-loop-health.ts
+│   │   └── errors.ts
+│   └── shared/
+│       └── ids.ts            # StudentId, TopicId value objects
+└── application/
+    └── assess-loop-health/    # LHA use case
+        ├── command.ts
+        ├── handler.ts
+        └── port.ts           # IAssessLoopHealthUseCase (driver), IGetStudentSignalsPort (driven)
 ```
 
-<!-- Fill: Refine when you start tactical implementation. Keep DDD-lite: minimal ceremony. -->
+<!-- Fill: Refine when you start tactical implementation. Keep DDD-lite: minimal ceremony. Full EI layout: see tactical/01-ei-tactical-conventions.md -->

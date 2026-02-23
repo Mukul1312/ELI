@@ -61,8 +61,8 @@ All of these feed the modeling. Reference them explicitly when filling each sect
 | [02-subdomains.md](02-subdomains.md)                           | Subdomain list; Core/Supporting/Generic; Now/Next/Later             |
 | [03-context-map.md](03-context-map.md)                         | Bounded contexts, boundaries, relationships, Mermaid diagram        |
 | [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md)   | Invariants, event catalog, data ownership, ACLs                    |
-| [09-tactical-ddd-candidates.md](09-tactical-ddd-candidates.md) | Proposed aggregates and value objects                               |
-| [tactical/00-index.md](tactical/00-index.md)                   | Tactical DDD specs (TopicLoop, …)                                   |
+| [09-tactical-ddd-candidates.md](09-tactical-ddd-candidates.md) | Proposed aggregates, domain services, and value objects             |
+| [tactical/00-index.md](tactical/00-index.md)                   | Tactical DDD specs (TopicLoop, LoopHealth, …)                        |
 
 
 ### Bounded context canvases (core)
@@ -93,6 +93,10 @@ Detailed canvases per [bounded-context-canvas-template.md](bounded-context-canva
 ### Aggregate design canvases
 
 Per [aggregate-design-canvas.md](../aggregate-design-canvas.md), see [aggregates/00-index.md](aggregates/00-index.md).
+
+### Domain service design
+
+Per [domainService/domain-service-template.md](domainService/domain-service-template.md), see [domainService/00-index.md](domainService/00-index.md).
 
 
 ---
