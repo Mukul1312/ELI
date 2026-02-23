@@ -13,7 +13,7 @@ export abstract class ValueObject<Props extends Record<string, any>> {
     return keys.every((key) => {
       const a = this.props[key];
       const b = other.props[key];
-      if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+      if ((a as unknown) instanceof Date && (b as unknown) instanceof Date) return (a as Date).getTime() === (b as Date).getTime();
       return a === b;
     });
   }

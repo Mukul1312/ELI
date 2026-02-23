@@ -7,8 +7,13 @@
  * Auth: Bearer <PILOT_SECRET>
  */
 
-import { runProtocol3 } from '@/ei/protocol-runner';
-import { getEiRequestContext } from '@/ei/runtime/db';
+import { eiStore } from '@/ei/runtime/db';
+import { PostgresGetStudentSignalsAdapter } from '@/ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresAppendEventAdapter } from '@/ei/infrastructure/persistence/append-event.pg';
+import { PostgresQueryEventsAdapter } from '@/ei/infrastructure/persistence/query-events.pg';
+import { AssessLoopHealthHandler } from '@/ei/application/assess-loop-health/handler';
+import { RunP3GateHandler } from '@/ei/application/run-p3-gate/handler';
+import { ProtocolEngine } from '@/ei/domain/study-session/protocol-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +42,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    const ctx = getEiRequestContext();
-    const result = await runProtocol3({ studentId, topic, endedAt }, ctx as any);
+    const db = eiStore.db;
+    const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+    const appendEvent = new PostgresAppendEventAdapter(db);
+    const queryEvents = new PostgresQueryEventsAdapter(db);
+    const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
+    const protocolEngine = new ProtocolEngine();
+
+    const handler = new RunP3GateHandler(signalsPort, assessLoopHealth, appendEvent, queryEvents, protocolEngine);
+    const result = await handler.execute({
+      studentId,
+      topicId: topic,
+      sessionId: crypto.randomUUID(),
+      endedAt,
+    });
+
     return Response.json(result);
   } catch (err: any) {
     console.error('[POST /api/ei/protocol3]', err);

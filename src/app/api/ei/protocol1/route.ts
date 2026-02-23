@@ -2,15 +2,18 @@
  * POST /api/ei/protocol1
  *
  * Runs Protocol 1 (Ignition): takes student check-in data, returns NegotiatedIntentIssued.
- * Emits AppOpen event first, then delegates to runProtocol1.
+ * Emits AppOpen event first, then delegates to RunP1GateHandler.
  *
  * Body: { studentId, topic, energy, sleepBucket?, pressure?, backlogPressure? }
  * Auth: Bearer <PILOT_SECRET>
  */
 
-import { runProtocol1 } from '@/ei/protocol-runner';
-import { appendEventTool } from '@/mastra/tools/event-store';
-import { getEiRequestContext } from '@/ei/runtime/db';
+import { eiStore } from '@/ei/runtime/db';
+import { PostgresGetStudentSignalsAdapter } from '@/ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresAppendEventAdapter } from '@/ei/infrastructure/persistence/append-event.pg';
+import { AssessLoopHealthHandler } from '@/ei/application/assess-loop-health/handler';
+import { RunP1GateHandler } from '@/ei/application/run-p1-gate/handler';
+import { ProtocolEngine } from '@/ei/domain/study-session/protocol-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,22 +42,30 @@ export async function POST(req: Request) {
   }
 
   try {
-    const ctx = getEiRequestContext();
+    const db = eiStore.db;
+    const appendEvent = new PostgresAppendEventAdapter(db);
+    const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+    const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
+    const protocolEngine = new ProtocolEngine();
 
-    // Emit AppOpen event first so the event log includes the trigger
-    await appendEventTool.execute!(
-      {
-        studentId,
-        eventType: 'AppOpen' as const,
-        payload: { energy, sleepBucket, pressure, backlogPressure, openedAt: new Date().toISOString() },
-      },
-      { requestContext: ctx as any },
-    );
+    // Emit AppOpen event so the event log includes the trigger
+    await appendEvent.append({
+      studentId,
+      eventType: 'AppOpen',
+      topicId: topic,
+      payload: { energy, sleepBucket, pressure, backlogPressure, openedAt: new Date().toISOString() },
+    });
 
-    const result = await runProtocol1(
-      { studentId, topic, energy, sleepBucket, pressure, backlogPressure },
-      ctx as any,
-    );
+    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine);
+    const result = await handler.execute({
+      studentId,
+      topicId: topic,
+      sessionId: crypto.randomUUID(),
+      energy,
+      sleepBucket,
+      pressure,
+      backlogPressure,
+    });
 
     return Response.json(result);
   } catch (err: any) {

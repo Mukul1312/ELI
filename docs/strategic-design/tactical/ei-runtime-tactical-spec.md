@@ -1,0 +1,516 @@
+# EI Runtime — Tactical DDD Spec
+
+> Sources: [canvas-ei-runtime.md](../canvas-ei-runtime.md), [05-domain-message-flows-storyboards.md](../05-domain-message-flows-storyboards.md), [01-ei-tactical-conventions.md](01-ei-tactical-conventions.md), [src/ei/engine/plays.ts](../../../src/ei/engine/plays.ts), [src/ei/engine/play-executor.ts](../../../src/ei/engine/play-executor.ts), [DDD-TACTICAL.md](../../../.agents/skills/clean-ddd-hexagonal/references/DDD-TACTICAL.md), [HEXAGONAL.md](../../../.agents/skills/clean-ddd-hexagonal/references/HEXAGONAL.md), [LAYERS.md](../../../.agents/skills/clean-ddd-hexagonal/references/LAYERS.md).
+
+---
+
+## 1) Why an Aggregate (not just Domain Services)
+
+Before listing the design, it is important to address why **EI Runtime needs an aggregate root**, not just domain services.
+
+Per CHEATSHEET.md "Aggregate boundary?" decision tree:
+> "Must these objects change together atomically? YES → Same aggregate"
+
+A study session's NegotiatedIntent, ActivationPlan, and VerificationDecision:
+- All belong to ONE session lifecycle
+- Cannot be activated before negotiating (ordering invariant)
+- The P1 verification floor from NegotiatedIntent MUST reach VerificationDecision (cross-protocol invariant)
+- All three change as part of the same student session — they must be consistent together
+
+The SKILL.md anemic anti-pattern is: *"Entities are data bags, logic in services."* The previous draft was anemic because `NegotiatedIntentIssued`, `ActivationPlanIssued`, `VerificationDecisionIssued` were plain TypeScript interfaces (data bags), with execution logic in free functions (`executeP1Play`, etc.). The fix is to have a proper aggregate root (`StudySession`) that owns these value objects, with behavior living in the aggregate's command methods.
+
+The `ProtocolEngine` domain service is still legitimate (per DDD-TACTICAL.md "Domain Service: When to Use") for **play selection** because:
+- Play selection spans the entire 24-play catalog (multiple modes, multiple protocols)
+- It requires multiple inputs (aggregates data, escalation patterns)
+- It is stateless — does not need to belong to one entity
+
+---
+
+## 2) Aggregate Root: StudySession
+
+- **Identity:** `sessionId` (string; matches the `AppOpen` event's idempotency key for traceability)
+- **Aggregate type:** Command Handler (per `01-ei-tactical-conventions.md` §6)
+- **Consistency boundary:** One student's entire study session — from AppOpen to retrieval decision
+- **Owns (child value objects):** `NegotiatedIntent`, `ActivationPlan`, `VerificationDecision`
+
+### Why NOT just domain services
+
+From CHEATSHEET.md "Domain Service or Entity method?":
+```
+Does it naturally belong to one entity?
+├── YES → Entity method  ← issueNegotiatedIntent, issueActivationPlan, issueVerificationDecision
+```
+
+The gate decision methods naturally belong to the `StudySession` entity. A domain service should only be used "when logic doesn't fit an entity" — and here it does fit.
+
+---
+
+## 3) Ubiquitous Language (Tactical)
+
+| Term | Definition |
+|------|-----------|
+| StudySession | Aggregate: one student study session from AppOpen to retrieval decision |
+| SessionId | Aggregate identity: string UUID, matches AppOpen idempotency key |
+| SessionStatus | Lifecycle: `negotiating → activating → active → verifying → closed` |
+| Gate | Decision point: P1 (state→intent), P2 (intent→effort), P3 (effort→retrieval) |
+| Protocol | Named gate logic: P1 Ignition, P2 Activation, P3 Verification |
+| Mode | Rescue / Neutral / Boost — coaching posture for the gate |
+| Play | Named coaching move within a protocol + mode (24 total) |
+| PlaySelection | Value Object: selected play id, mode, protocol, name |
+| NegotiatedIntent | P1 output Value Object: scope, verification plan, constraints (child of StudySession) |
+| ActivationPlan | P2 output Value Object: firstAction, replanCap, constraints (child of StudySession) |
+| VerificationDecision | P3 output Value Object: decision type + parameters (child of StudySession) |
+| ProtocolEngine | Domain Service: selects a play from the 24-play catalog |
+| VerificationFloor | P1 minQuestions commitment; P3 must honor it — aggregate enforces this |
+| WatchOnlyConstraint | P2-R3 cross-protocol flag; P3 overrides Skip to VerifyNow |
+| RiskOverride | openLoops ≥ maxOpenLoops → closeLoopFirst=true regardless of energy |
+
+---
+
+## 4) State Model
+
+| Field | Type | Semantics |
+|-------|------|-----------|
+| sessionId | string | Aggregate identity |
+| studentId | string | Student this session belongs to |
+| topicId | string | Topic for this session |
+| status | SessionStatus | Current lifecycle stage |
+| negotiatedIntent | NegotiatedIntent \| null | Set by `issueNegotiatedIntent()`; null until called |
+| activationPlan | ActivationPlan \| null | Set by `issueActivationPlan()`; null until called |
+| verificationDecision | VerificationDecision \| null | Set by `issueVerificationDecision()`; null until called |
+
+### Lifecycle state machine
+
+```
+StudySession.open(studentId, topicId, sessionId)
+         │
+         ▼
+   [negotiating]
+         │
+         │ issueNegotiatedIntent(play, ctx, policy)
+         ▼
+   [activating]
+         │
+         │ issueActivationPlan(play, ctx, policy)
+         ▼
+    [active]
+         │
+         │ issueVerificationDecision(play, ctx, policy)
+         ▼
+   [verifying]
+         │
+         │ close()
+         ▼
+    [closed]
+```
+
+`close()` is callable from any non-closed state (e.g. student abandons session).
+
+---
+
+## 5) Commands and Decisions (Aggregate Methods)
+
+Following the `Order.confirm()` / `Order.ship()` pattern from DDD-TACTICAL.md:
+
+| Command | Guard (precondition) | State change | Domain events emitted |
+|---------|---------------------|-------------|----------------------|
+| `open(studentId, topicId, sessionId)` | Factory; no precondition | `→ negotiating` | (none; AppOpen already in Ledger) |
+| `issueNegotiatedIntent(play, ctx, policy)` | `status === 'negotiating'` | sets `negotiatedIntent`; `→ activating` | `NegotiatedIntentIssued` |
+| `issueActivationPlan(play, ctx, policy)` | `status === 'activating'` | sets `activationPlan`; `→ active` | `ActivationPlanIssued` |
+| `issueVerificationDecision(play, ctx, policy)` | `status === 'active'` | sets `verificationDecision`; `→ verifying` | `VerificationDecisionIssued` |
+| `close()` | not already `'closed'` | `→ closed` | (none) |
+
+---
+
+## 6) Invariants (Must Hold Atomically at Aggregate Boundary)
+
+1. **Lifecycle ordering:** `issueActivationPlan` guards `status === 'activating'` — NegotiatedIntent must exist first. `issueVerificationDecision` guards `status === 'active'` — ActivationPlan must exist first.
+2. **No commands after closed:** Any command on a closed session throws `SessionAlreadyClosedError`.
+3. **P1 Verification Floor:** When `issueVerificationDecision()` is called, if `negotiatedIntent.verificationPlan.minQuestions > 0`, the VerificationDecision `verifyNow.minQuestions` must be ≥ that floor.
+4. **Watch-Only P3 Override:** If `activationPlan.constraints.enforceWatchOnlyVerification === true` AND the resulting VerificationDecision decision would be `Skip`, override to `VerifyNow(minQ=1)`.
+5. **Risk Override on NegotiatedIntent:** If `ctx.openLoops ≥ policy.maxOpenLoops`, set `negotiatedIntent.constraints.closeOpenLoopFirst = true`.
+6. **Rescue Scope Floor:** If `mode === Rescue`, `negotiatedIntent.scope.timeboxMin` must be ≤ 30.
+7. **minQuestions ≥ 1:** All VerifyNow plans must have `minQuestions ≥ 1`.
+8. **ScheduleVerify floor:** `dueInHours` must be ≥ 24.
+
+---
+
+## 7) Value Objects
+
+Following the `Money` / `Email` pattern from DDD-TACTICAL.md and CHEATSHEET.md (private constructor, static `create()`, validation on construction, side-effect-free behavior methods).
+
+### 7a) PlaySelection
+
+```typescript
+class PlaySelection {
+  private constructor(
+    private readonly _playId: string,
+    private readonly _mode: Mode,
+    private readonly _protocol: 1 | 2 | 3,
+    private readonly _name: string,
+    private readonly _description: string
+  ) {}
+
+  static create(playId: string, mode: Mode, protocol: 1|2|3, name: string, description: string): PlaySelection
+
+  get playId(): string
+  get mode(): Mode
+  get protocol(): 1 | 2 | 3
+  get name(): string
+  equals(other: PlaySelection): boolean  // by all attributes
+}
+```
+
+### 7b) P1GateContext
+
+Validated gate input for P1. Exposes domain predicates.
+
+```typescript
+class P1GateContext {
+  private constructor(private readonly props: P1GateContextProps) {}
+
+  static create(props: {
+    studentId: string;        energy: number;       pressure: number
+    backlogPressure: number;  sleepDebt: boolean;   openLoops: number
+    verificationRate7d: number; scheduleMisses7d: number; silenceDays: number
+    startLatencyMedian7d: number | null;   tightnessLevel: TightnessLevel
+    loopLatencyTrend: 'improving' | 'stable' | 'worsening'
+  }): P1GateContext
+  // Validates: energy 1-5, pressure 1-5, openLoops >= 0, verificationRate7d 0-1
+
+  isLowEnergy(): boolean           // energy <= 2
+  isHighPressure(): boolean        // pressure >= 4
+  hasOpenLoopRisk(): boolean       // openLoops >= 3
+  hasSilenceRisk(): boolean        // silenceDays >= 3
+  isRevengePlanningRisk(): boolean // pressure >= 4 AND energy >= 3 (S2 scenario)
+}
+```
+
+Similarly for `P2GateContext` and `P3GateContext`:
+
+**P2GateContext** validates: `topic`, `replanCount ≥ 0`, `verificationRate7d 0–1`; exposes: `isStalled()`, `isFlowing()`, `allowsWatchOnly()`
+
+**P3GateContext** validates inputs; exposes: `isAvoidant()`, `hasConfusion()`, `p1VerificationFloor`, `p2WatchOnlyFlag`
+
+### 7c) NegotiatedIntent
+
+P1 output VO. Enforces all P1 business invariants on `create()`.
+
+```typescript
+class NegotiatedIntent {
+  private constructor(private readonly props: NegotiatedIntentProps) {}
+
+  static create(play: PlaySelection, ctx: P1GateContext, policy: StudentPolicy): NegotiatedIntent
+  // Enforces:
+  //   scope.timeboxMin >= 10
+  //   verificationPlan.minQuestions >= 1
+  //   if mode === Rescue: scope.timeboxMin <= 30
+  //   if play.playId === 'P1-R2': constraints.closeOpenLoopFirst = true
+  //   if ctx.openLoops >= policy.maxOpenLoops: constraints.closeOpenLoopFirst = true
+
+  get playId(): string
+  get mode(): Mode
+  get scope(): { timeboxMin: number; questionCount: number; difficultyTier: DifficultyTier }
+  get verificationPlan(): { minQuestions: number; preferVerifyNow: boolean }
+  get constraints(): { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | undefined
+
+  isRescueMode(): boolean
+  requiresVerificationNow(): boolean   // verificationPlan.preferVerifyNow === true
+  closeLoopFirst(): boolean            // constraints?.closeOpenLoopFirst === true
+  toEventPayload(studentId: string, topicId: string): NegotiatedIntentIssuedPayload
+  equals(other: NegotiatedIntent): boolean
+}
+```
+
+### 7d) ActivationPlan
+
+P2 output VO. Enforces P2 business invariants on `create()`.
+
+```typescript
+class ActivationPlan {
+  private constructor(private readonly props: ActivationPlanProps) {}
+
+  static create(play: PlaySelection, ctx: P2GateContext, policy: StudentPolicy): ActivationPlan
+  // Enforces:
+  //   if firstAction.type === 'watch_only': constraints.enforceWatchOnlyVerification = true
+  //   replanCap, if set, >= 1
+
+  get playId(): string
+  get mode(): Mode
+  get firstAction(): { type: FirstActionType; timeboxMin?: number; timeboxSec?: number; description?: string }
+  get replanCap(): number | undefined
+  get constraints(): { noSwitchingUntil?: number; enforceWatchOnlyVerification?: boolean } | undefined
+
+  isWatchOnly(): boolean
+  enforcesWatchOnlyVerification(): boolean
+  toEventPayload(studentId: string, topicId: string): ActivationPlanIssuedPayload
+  equals(other: ActivationPlan): boolean
+}
+```
+
+### 7e) VerificationDecision
+
+P3 output VO. Enforces all P3 invariants — including the cross-protocol ones (P1 floor, P2 watchOnly) — on `create()`. Cross-protocol context is received via `P3GateContext.p1VerificationFloor` and `P3GateContext.p2WatchOnlyFlag`.
+
+```typescript
+class VerificationDecision {
+  private constructor(private readonly props: VerificationDecisionProps) {}
+
+  static create(play: PlaySelection, ctx: P3GateContext, policy: StudentPolicy): VerificationDecision
+  // Enforces:
+  //   if decision === 'VerifyNow': verifyNow defined and minQuestions >= 1
+  //   if decision === 'ScheduleVerify': scheduleVerify defined and dueInHours >= 24
+  //   P1 floor: if ctx.p1VerificationFloor set and verifyNow.minQuestions < floor → raise to floor
+  //   WatchOnly: if ctx.p2WatchOnlyFlag and decision === 'Skip' → override to VerifyNow(minQ=1)
+  //   P3 escalation: if preferVerifyNow and ScheduleVerify → convert to VerifyNow
+
+  get decision(): 'VerifyNow' | 'ScheduleVerify' | 'Skip'
+  get verifyNow(): { minQuestions: number; timeboxSec: number; difficultyTier: DifficultyTier; format?: string } | undefined
+  get scheduleVerify(): { dueInHours: number; graceHours: number; minQuestions: number } | undefined
+
+  isImmediate(): boolean
+  isScheduled(): boolean
+  minimumQuestions(): number   // returns minQ regardless of decision type
+  toEventPayload(studentId: string, topicId: string): VerificationDecisionIssuedPayload
+  equals(other: VerificationDecision): boolean
+}
+```
+
+---
+
+## 8) Domain Service: ProtocolEngine
+
+**Justification (CHEATSHEET.md "Domain Service or Entity method?" tree):**
+```
+Does it naturally belong to one entity?
+└── NO (spans 24 plays across 3 protocols)
+
+Does it require multiple aggregates?
+└── YES (reads from StudentAggregates data via PlayContext)
+
+Is it stateless business logic?
+└── YES → Domain Service ✓
+```
+
+```typescript
+// domain/study-session/protocol-engine.ts
+
+interface IProtocolEngine {
+  selectPlay(protocol: 1 | 2 | 3, mode: Mode, context: PlayContext): PlaySelection
+}
+
+class ProtocolEngine implements IProtocolEngine {
+  selectPlay(protocol: 1 | 2 | 3, mode: Mode, context: PlayContext): PlaySelection {
+    // Delegates to selectPlay() from plays.ts catalog
+    // Returns highest-priority matching play for (protocol, mode, context)
+  }
+}
+```
+
+The aggregate's command methods (e.g. `issueNegotiatedIntent`) accept a pre-selected `PlaySelection` value object. The application use case handler is responsible for:
+1. Resolving `Mode` from `LoopHealthSnapshot`
+2. Calling `ProtocolEngine.selectPlay()` → `PlaySelection`
+3. Passing `PlaySelection` to the aggregate command
+
+This keeps the aggregate focused on lifecycle + invariants, and the domain service focused on play selection.
+
+---
+
+## 9) Domain Events Emitted
+
+Following LAYERS.md pattern: aggregate collects events via `addDomainEvent()`, use case handler calls `pullDomainEvents()` then publishes via `IAppendEventPort`.
+
+| Domain Event | Emitted when | Key payload fields |
+|-------------|-------------|-------------------|
+| `NegotiatedIntentIssued` | `issueNegotiatedIntent()` completes | studentId, topicId, playId, scope, verificationPlan, constraints, mode |
+| `ActivationPlanIssued` | `issueActivationPlan()` completes | studentId, topicId, playId, firstAction, replanCap, constraints, mode |
+| `VerificationDecisionIssued` | `issueVerificationDecision()` completes | studentId, topicId, playId, decision, verifyNow/scheduleVerify, mode |
+
+Event type names from `EventTypeEnum` in `src/ei/schemas/events.ts`. Events are appended to EI Event Ledger by the application handler, not by the aggregate directly.
+
+---
+
+## 10) Repository Interface (Domain Port)
+
+Per DDD-TACTICAL.md: "One repository per aggregate, domain interface in domain layer."
+
+```typescript
+// domain/study-session/repository.ts
+
+export interface IStudySessionRepository {
+  findById(sessionId: string): Promise<StudySession | null>
+  save(session: StudySession): Promise<void>
+}
+```
+
+**Persistence note for MVP:** Since StudySession state is derivable from Ledger events, a dedicated `ei_study_sessions` table is deferred. For MVP:
+- `RunP1GateHandler` creates a fresh `StudySession.open()` — no repository load needed
+- `RunP3GateHandler` reconstructs partial state by querying the last `NegotiatedIntentIssued` event from the Ledger (via `IStudentEventStreamReader`), extracts `p1VerificationFloor`, and passes it via `P3GateContext`
+- The `IStudySessionRepository` interface is defined now but implemented as a no-op / Ledger-based adapter
+
+---
+
+## 11) Ports (Hexagonal Architecture)
+
+Per HEXAGONAL.md: Driver ports = "how the world uses your app"; Driven ports = "how your app uses external systems."
+
+### Driver Ports (Application layer)
+
+| Port Interface | Pattern | Implemented by |
+|---------------|---------|----------------|
+| `IRunP1GateUseCase` | `I{Action}UseCase` | `RunP1GateHandler` |
+| `IRunP2GateUseCase` | `I{Action}UseCase` | `RunP2GateHandler` |
+| `IRunP3GateUseCase` | `I{Action}UseCase` | `RunP3GateHandler` |
+
+### Driven Ports (called by use case handlers)
+
+| Port Interface | Pattern | Location | Implemented by |
+|---------------|---------|----------|----------------|
+| `IGetStudentSignalsPort` | `I{Resource}Port` | `application/assess-loop-health/port.ts` (reuse) | `PostgresGetStudentSignalsAdapter` |
+| `IAssessLoopHealthUseCase` | `I{Action}UseCase` | `application/assess-loop-health/port.ts` (reuse) | `AssessLoopHealthHandler` |
+| `IAppendEventPort` | `I{Action}Port` | `application/shared/port-append-event.ts` (new) | `PostgresAppendEventAdapter` (new) |
+| `IStudentEventStreamReader` | `I{Resource}Reader` | `application/shared/port-student-event-stream-reader.ts` (existing) | `PostgresStudentEventStreamReader` |
+
+---
+
+## 12) Application Use Cases
+
+Three handlers following the `PlaceOrderHandler` template from LAYERS.md:
+
+```typescript
+export class RunP1GateHandler implements IRunP1GateUseCase {
+  constructor(
+    private readonly getStudentSignals: IGetStudentSignalsPort,
+    private readonly assessLoopHealth: IAssessLoopHealthUseCase,
+    private readonly appendEvent: IAppendEventPort,
+    private readonly protocolEngine: IProtocolEngine,
+  ) {}
+
+  async execute(command: RunP1GateCommand): Promise<RunP1GateResult> {
+    // 1. Load student signals
+    const signals = await this.getStudentSignals.get(command.studentId)
+
+    // 2. Assess loop health → LoopHealthSnapshot
+    const loopHealth = await this.assessLoopHealth.execute({
+      studentId: command.studentId,
+      p1StateInput: { energy: command.energy, pressure: command.pressure, ... }
+    })
+
+    // 3. Build P1GateContext value object (throws DomainError on invalid input)
+    const ctx = P1GateContext.create({ ...signals, ...command })
+
+    // 4. Resolve mode + select play
+    const mode = resolveMode(loopHealth)
+    const play = this.protocolEngine.selectPlay(1, mode, buildPlayContext(ctx, signals))
+
+    // 5. Construct + command aggregate
+    const session = StudySession.open(command.studentId, command.topicId, command.sessionId)
+    session.issueNegotiatedIntent(play, ctx, signals.policy)
+
+    // 6. Publish domain events to Ledger
+    for (const event of session.pullDomainEvents()) {
+      await this.appendEvent.append(command.studentId, event)
+    }
+
+    return { negotiatedIntent: session.negotiatedIntent! }
+  }
+}
+```
+
+Same pattern for `RunP2GateHandler` and `RunP3GateHandler`. P3 handler additionally reads last `NegotiatedIntentIssued` event to populate `P3GateContext.p1VerificationFloor`.
+
+---
+
+## 13) File Structure
+
+```
+src/ei/
+├── domain/
+│   └── study-session/               # StudySession aggregate (NEW)
+│       ├── study-session.ts         # Aggregate root
+│       ├── value-objects/
+│       │   ├── play-selection.ts    # PlaySelection VO
+│       │   ├── gate-context.ts      # P1/P2/P3GateContext VOs
+│       │   ├── negotiated-intent.ts # NegotiatedIntent VO
+│       │   ├── activation-plan.ts   # ActivationPlan VO
+│       │   └── verification-decision.ts # VerificationDecision VO
+│       ├── protocol-engine.ts       # ProtocolEngine domain service
+│       ├── repository.ts            # IStudySessionRepository (driven port)
+│       └── errors.ts                # SessionLifecycleError, etc.
+├── application/
+│   ├── run-p1-gate/                 # NEW
+│   │   ├── command.ts               # RunP1GateCommand
+│   │   ├── handler.ts               # RunP1GateHandler
+│   │   └── port.ts                  # IRunP1GateUseCase (driver port)
+│   ├── run-p2-gate/                 # NEW
+│   │   ├── command.ts
+│   │   ├── handler.ts
+│   │   └── port.ts
+│   ├── run-p3-gate/                 # NEW
+│   │   ├── command.ts
+│   │   ├── handler.ts
+│   │   └── port.ts
+│   └── shared/
+│       └── port-append-event.ts     # IAppendEventPort (new driven port)
+└── infrastructure/
+    └── persistence/
+        └── append-event.pg.ts       # PostgresAppendEventAdapter (new)
+```
+
+---
+
+## 14) Migration from Existing Engine Files
+
+| Existing file | Action | Notes |
+|---------------|--------|-------|
+| `src/ei/engine/plays.ts` | Keep; becomes internal | `selectPlay()` called by `ProtocolEngine` |
+| `src/ei/engine/play-executor.ts` | Replace | Logic moves into VO `create()` factories (NegotiatedIntent, ActivationPlan, VerificationDecision) |
+| `src/ei/engine/classify.ts` | Already migrated | Re-export bridge stays |
+| `src/ei/engine/escalation.ts` | Move to study-session | Escalation patterns populate P1/P2/P3 GateContext fields |
+| `src/ei/engine/score.ts` | Move to study-session | Used inside NegotiatedIntent.create() |
+| `src/ei/engine/cross-protocol.ts` | Delete | Cross-protocol invariants enforced in StudySession.issueVerificationDecision() |
+| `src/ei/protocol-runner.ts` | Replace | God Orchestrator → RunP1/P2/P3GateHandler |
+
+---
+
+## 15) Test Strategy
+
+Per `01-ei-tactical-conventions.md` §13: domain unit tests use no mocks; application unit tests use in-memory (fake) adapters.
+
+| Scenario | Layer | Test type |
+|----------|-------|-----------|
+| `issueActivationPlan` before `issueNegotiatedIntent` | Domain | Unit — throws `SessionLifecycleError` |
+| Command on closed session | Domain | Unit — throws `SessionAlreadyClosedError` |
+| P1 openLoops=5, policy.maxOpenLoops=3 → closeLoopFirst | Domain | Unit — NegotiatedIntent.constraints.closeOpenLoopFirst === true |
+| Rescue mode → timeboxMin ≤ 30 | Domain | Unit — NegotiatedIntent.scope.timeboxMin ≤ 30 |
+| P1GateContext energy=0 → throws DomainError | Domain | Unit — DomainError thrown |
+| VerificationDecision: p1Floor=3, play gives 1Q → raised to 3 | Domain | Unit — verifyNow.minQuestions === 3 |
+| VerificationDecision: p2WatchOnly + Skip → VerifyNow | Domain | Unit — decision === 'VerifyNow' |
+| Full S2: energy=4 pressure=5 → Rescue play P1-R3 | Domain | Unit — issueNegotiatedIntent succeeds |
+| Full S7: energy=5 openLoops=4 → RiskOverride, closeLoopFirst | Domain | Unit — NegotiatedIntent.closeLoopFirst() === true |
+| RunP1GateHandler: happy path with fake ports | Application | Unit — events appended, output returned |
+| RunP3GateHandler: P1 floor threading via P3GateContext | Application | Unit — VerificationDecision respects floor |
+
+---
+
+## 16) Open Questions
+
+- **sessionId sourcing:** Should it match the AppOpen event idempotency key (linking events to session) or be independently generated? Deferred — for MVP, sessionId is passed in command from the API layer.
+- **StudySession persistence:** `ei_study_sessions` table deferred post-MVP. Cross-protocol state threaded via P3GateContext.
+- **Replan flow:** `C/Replan` triggers P2 re-run with incremented `replanCount` — handled by `RunP2GateHandler` with `replanCount` in command; session transitions back to `activating` if needed.
+- **ScheduleMissed derivation:** Outside StudySession; handled by TopicLoop cron / projector.
+
+---
+
+## References
+
+- [canvas-ei-runtime.md](../canvas-ei-runtime.md)
+- [05-domain-message-flows-storyboards.md](../05-domain-message-flows-storyboards.md)
+- [01-ei-tactical-conventions.md](01-ei-tactical-conventions.md)
+- [loop-health-assessment-tactical-spec.md](loop-health-assessment-tactical-spec.md)
+- [src/ei/engine/plays.ts](../../../src/ei/engine/plays.ts)
+- [src/ei/engine/play-executor.ts](../../../src/ei/engine/play-executor.ts)
+- [src/ei/domain/loop-health/](../../../src/ei/domain/loop-health/)
+- [.agents/skills/clean-ddd-hexagonal/references/DDD-TACTICAL.md](../../../.agents/skills/clean-ddd-hexagonal/references/DDD-TACTICAL.md)
+- [.agents/skills/clean-ddd-hexagonal/references/HEXAGONAL.md](../../../.agents/skills/clean-ddd-hexagonal/references/HEXAGONAL.md)
+- [.agents/skills/clean-ddd-hexagonal/references/LAYERS.md](../../../.agents/skills/clean-ddd-hexagonal/references/LAYERS.md)
