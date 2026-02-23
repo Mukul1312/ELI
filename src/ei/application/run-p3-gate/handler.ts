@@ -26,8 +26,8 @@ import {
 import {
   findP1VerificationFloorFromEvents,
   findP2WatchOnlyFlagFromEvents,
-} from '../../engine/cross-protocol';
-import type { StoredEvent } from '../../engine/cross-protocol';
+} from './cross-protocol-read';
+import type { StoredEvent } from './cross-protocol-read';
 import type { PlayContext } from '../../engine/plays';
 
 export class RunP3GateHandler implements IRunP3GateUseCase {
