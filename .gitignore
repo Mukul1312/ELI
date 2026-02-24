@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .cline
+skills-lock.json
 
 .vscode/*
 !.vscode/launch.json
