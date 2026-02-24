@@ -35,8 +35,8 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 ## Domain Roles
 
-- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs
-- **Gateway context:** Student-facing orchestration; maps protocol outputs to UI steps and collects taps/inputs
+- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs. Code: `src/ei/domain/study-session/`, `src/ei/application/run-p{1,2,3}-gate/`
+- **Gateway context:** Student-facing orchestration; maps protocol outputs to UI steps and collects taps/inputs. Implemented as the **ViewComposer** (`src/ei/sdui/`) — a pure presenter chained as a Mastra workflow step after each gate handler. Returns `SduiResponse` (slot-based component tree + microcopy + action registry). Zero DB calls; derives `PresentationContext` entirely from domain output fields already resolved by the gate handler.
 
 ---
 
@@ -137,5 +137,5 @@ Source: [EI_UX_Scales.md](../../EI_UX_Scales.md)
 
 ## Open Questions
 
-- When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic.
+- When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic. **Note:** The ViewComposer (`src/ei/sdui/`) is the first concrete instance of this divergence — it is module-separated but still co-located in EI Runtime. If UX experimentation velocity outpaces gate logic changes, extract to a separate context with an ACL consuming Published Language events from EI Runtime.
 

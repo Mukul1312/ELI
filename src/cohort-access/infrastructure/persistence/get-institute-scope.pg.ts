@@ -31,6 +31,9 @@ export class GetInstituteScopePg implements IGetInstituteScopePort {
       };
     }
     const role = Role.create(roleRow.role);
+    // roles.scope stores a comma-separated list of cohortIds (TEXT column).
+    // e.g. "uuid-1,uuid-2". NULL or empty → no cohort restriction (global for institute).
+    // Schema: src/ei/db/migrate.ts `roles` table definition.
     const cohortIds = roleRow.scope ? roleRow.scope.split(',').map((s) => s.trim()).filter(Boolean) : [];
     const accessScope = AccessScope.create({
       cohortIds,

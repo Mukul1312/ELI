@@ -203,11 +203,11 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 
 ### Identity → EI Runtime
 
-| Aspect           | Current                     | Target (launch)                                                           |
-| ---------------- | --------------------------- | ------------------------------------------------------------------------- |
-| Auth             | PILOT_SECRET (Bearer token) | Neon Auth SDK (Google OAuth)                                              |
-| Student identity | Client-provided studentId   | Server-derived from auth session (auth_user_id → student_id mapping)      |
-| ACL needed?      | No (pilot)                  | Yes: translate Neon Auth session to EI StudentId; never trust client body |
+| Aspect           | Production                                                                |
+| ---------------- | ------------------------------------------------------------------------- |
+| Auth             | Neon Auth SDK (Google OAuth) — session cookie required                    |
+| Student identity | Server-derived from auth session (auth_user_id → student_id mapping)     |
+| ACL              | CohortAccess ResolveAuthSession translates Neon Auth session to AuthSession; studentId never trusted from client body |
 
 ---
 

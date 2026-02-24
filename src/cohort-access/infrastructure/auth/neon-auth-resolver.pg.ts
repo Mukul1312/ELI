@@ -49,10 +49,15 @@ export class NeonAuthResolverPg implements IResolveAuthSessionPort {
     const role = Role.create(roleRow?.role ?? 'student');
 
     const cohortIds = cohortId ? [cohortId] : [];
-    const accessScope = AccessScope.create({
-      cohortIds,
-      scope: cohortIds.length > 0 ? 'cohort' : 'global',
-    });
+    // Scope is role-aware:
+    // - student: always 'cohort' (empty cohortIds = no access; never global)
+    // - institute: always 'global' (cross-cohort visibility by design)
+    // - admin: 'cohort' if assigned to specific cohorts, else 'global'
+    const scopeValue: 'cohort' | 'global' =
+      role.value === 'student'   ? 'cohort' :
+      role.value === 'institute' ? 'global' :
+      cohortIds.length > 0       ? 'cohort' : 'global'; // admin
+    const accessScope = AccessScope.create({ cohortIds, scope: scopeValue });
 
     return AuthSessionVO.create({
       studentId,

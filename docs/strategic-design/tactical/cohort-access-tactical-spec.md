@@ -17,10 +17,9 @@ Before implementation, the following alignment was verified:
 | [agg-student-membership.md](../aggregates/agg-student-membership.md) | Aligned — Aggregate canvas |
 | [student-membership-tactical-spec.md](student-membership-tactical-spec.md) | Aligned — Tactical spec for StudentMembership |
 
-**Gaps (to address separately):**
+**Remaining gaps (docs only):**
 1. **05-domain-message-flows-storyboards.md** — CohortAccess absent from sequence diagrams; add ResolveAuthSession before Runtime in at least one flow.
 2. **05-cross-cutting-concerns** data ownership — Tables listed under "Identity"; should be "CohortAccess" for consistency.
-3. **Current implementation** — Uses PILOT_SECRET + client-provided studentId; target is server-derived identity via CohortAccess.
 
 ---
 
@@ -275,17 +274,19 @@ Next.js route handlers or a server-side setup (e.g. `lib/cohort-access.ts` or ro
 
 ---
 
-## 11) Migration from Current Auth
+## 11) Auth — Production State
 
-| Current | Target |
-|---------|--------|
-| PILOT_SECRET Bearer token | Neon Auth (Google OAuth) |
-| Client-provided studentId in body | Server-derived from ResolveAuthSession |
-| No CohortAccess module | `src/cohort-access/` with ResolveAuthSession, GetCohortScope, ChangeStudentMembership |
+Migration complete. The system runs on Neon Auth (Google OAuth) only.
 
-**EI integration:** Middleware or wrapper calls `ResolveAuthSessionHandler.execute(sessionCookie)` before EI gate handlers. Pass `authSession.studentId` to RunP1Gate, RunP2Gate, RunP3Gate. Body must NOT contain studentId for authorization.
+| Aspect | Production |
+|--------|-----------|
+| Auth | Neon Auth session cookie (required) |
+| Student identity | Server-derived from ResolveAuthSession; never trusted from client body |
+| CohortAccess module | `src/cohort-access/` — ResolveAuthSession, GetCohortScope, ChangeStudentMembership |
 
-**EI import boundaries:** EI imports `IResolveAuthSessionUseCase` from `src/cohort-access/application/resolve-auth-session/port.ts` and `AuthSession` from `src/cohort-access/domain/shared/auth-session.ts` (or re-exported from application). EI must never import from `src/cohort-access/infrastructure/`.
+**EI integration:** `src/app/api/ei/with-session.ts` calls `ResolveAuthSessionHandler.execute(req)` before EI gate handlers. `authSession.studentId` is passed to RunP1Gate, RunP2Gate, RunP3Gate. Request body must NOT include studentId for authorization purposes.
+
+**EI import boundaries:** EI imports `IResolveAuthSessionUseCase` from `src/cohort-access/application/resolve-auth-session/port.ts` and `AuthSession` from `src/cohort-access/domain/shared/auth-session.ts`. EI must never import from `src/cohort-access/infrastructure/`.
 
 ---
 

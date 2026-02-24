@@ -1,3 +1,4 @@
+import { StudentId, CohortId } from '../shared/ids';
 import {
   membershipStateFromCohortId,
   type MembershipState,
@@ -6,28 +7,28 @@ import {
 /**
  * StudentMembership aggregate — Command Handler.
  * Enforces "exactly one active cohort or unassigned" invariant.
- * Identity: studentId (internal UUID string).
+ * Identity: studentId (StudentId VO wrapping internal UUID).
  */
 export class StudentMembership {
   private constructor(
-    private readonly _studentId: string,
-    private _cohortId: string | null,
+    private readonly _studentId: StudentId,
+    private _cohortId: CohortId | null,
     private _updatedAt: Date,
   ) {}
 
-  static create(studentId: string, cohortId: string | null, updatedAt: Date): StudentMembership {
-    return new StudentMembership(studentId, cohortId ?? null, updatedAt);
+  static create(studentId: StudentId, cohortId: CohortId | null, updatedAt: Date): StudentMembership {
+    return new StudentMembership(studentId, cohortId, updatedAt);
   }
 
-  static unassigned(studentId: string, updatedAt: Date): StudentMembership {
+  static unassigned(studentId: StudentId, updatedAt: Date): StudentMembership {
     return new StudentMembership(studentId, null, updatedAt);
   }
 
-  get studentId(): string {
+  get studentId(): StudentId {
     return this._studentId;
   }
 
-  get cohortId(): string | null {
+  get cohortId(): CohortId | null {
     return this._cohortId;
   }
 
@@ -39,12 +40,12 @@ export class StudentMembership {
     return this._updatedAt;
   }
 
-  handleAdminEnroll(cohortId: string, updatedAt: Date): void {
+  handleAdminEnroll(cohortId: CohortId, updatedAt: Date): void {
     this._cohortId = cohortId;
     this._updatedAt = updatedAt;
   }
 
-  handleMembershipChangeOnRedemption(targetCohortId: string, updatedAt: Date): void {
+  handleMembershipChangeOnRedemption(targetCohortId: CohortId, updatedAt: Date): void {
     this._cohortId = targetCohortId;
     this._updatedAt = updatedAt;
   }

@@ -1,11 +1,7 @@
 import type { StudentMembership } from '../../domain/student-membership/student-membership';
+import type { ChangeStudentMembershipCommand } from './command';
 
-export interface ChangeStudentMembershipCommand {
-  studentId: string;
-  targetCohortId: string;
-  source: 'admin' | 'redemption';
-  idempotencyKey?: string;
-}
+export type { ChangeStudentMembershipCommand };
 
 export interface IChangeStudentMembershipUseCase {
   execute(command: ChangeStudentMembershipCommand): Promise<StudentMembership>;

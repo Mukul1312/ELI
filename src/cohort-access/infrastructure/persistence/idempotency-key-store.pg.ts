@@ -4,6 +4,15 @@ import { IdempotencyKeyConflictError } from '../../domain/student-membership/err
 
 const KEY_PREFIX = 'cohort-access:MembershipChangeOnRedemption:';
 
+/**
+ * Stores cohort-access membership idempotency keys in the shared ei_idempotency_keys table.
+ *
+ * NOTE: The `event_id` column (originally named for EI ledger event IDs) is reused here to
+ * store the targetCohortId string. Collision with EI entries is prevented by the namespaced
+ * key prefix `cohort-access:MembershipChangeOnRedemption:` — EI keys never use this prefix.
+ *
+ * Schema: src/ei/db/migrate.ts — `ei_idempotency_keys` table.
+ */
 export class IdempotencyKeyStorePg implements IIdempotencyKeyStore {
   constructor(private readonly db: CohortAccessDb) {}
 

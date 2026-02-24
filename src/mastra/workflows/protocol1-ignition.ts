@@ -17,6 +17,8 @@ import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health
 import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { NegotiatedIntentIssuedSchema } from '../../ei/schemas/outputs';
+import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { composeP1ViewStep } from './steps/compose-p1-view';
 
 // ============================================================================
 // Input / output schemas
@@ -81,7 +83,18 @@ const runP1Gate = createStep({
 export const protocol1IgnitionWorkflow = createWorkflow({
   id: 'ei-protocol1-ignition',
   inputSchema: P1Input,
-  outputSchema: NegotiatedIntentIssuedSchema,
+  outputSchema: SduiResponseSchema,
 })
   .then(runP1Gate)
+  .map(async ({ inputData, getInitData }) => {
+    const workflowInput = getInitData() as z.infer<typeof P1Input>;
+    return {
+      domainOutput: inputData,
+      workflowInput: {
+        energy: workflowInput.energy,
+        pressure: workflowInput.pressure,
+      },
+    };
+  })
+  .then(composeP1ViewStep)
   .commit();

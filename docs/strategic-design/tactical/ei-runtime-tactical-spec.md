@@ -426,7 +426,7 @@ Same pattern for `RunP2GateHandler` and `RunP3GateHandler`. P3 handler additiona
 ```
 src/ei/
 ├── domain/
-│   └── study-session/               # StudySession aggregate (NEW)
+│   └── study-session/               # StudySession aggregate
 │       ├── study-session.ts         # Aggregate root
 │       ├── value-objects/
 │       │   ├── play-selection.ts    # PlaySelection VO
@@ -437,24 +437,42 @@ src/ei/
 │       ├── protocol-engine.ts       # ProtocolEngine domain service
 │       ├── repository.ts            # IStudySessionRepository (driven port)
 │       └── errors.ts                # SessionLifecycleError, etc.
+├── sdui/                            # StudySessionOrchestration — presentation layer
+│   ├── types/
+│   │   ├── sdui-contract.ts         # SduiResponse, SduiViewTree, SduiPhase, SduiAction
+│   │   └── components.ts            # SduiComponent discriminated union (16 types)
+│   ├── view-composer.ts             # Pure presenter: VO output + PresentationContext → SduiResponse
+│   ├── presentation-context.ts      # PresentationContext VO + builder (zero DB calls)
+│   ├── microcopy/
+│   │   ├── catalog.ts               # All student-facing text by gate/slot/mode/play
+│   │   └── resolver.ts              # Priority chain: play-specific → mode-specific → default
+│   └── __tests__/
+│       └── view-composer.test.ts    # Unit tests (pure function — no mocks needed)
 ├── application/
-│   ├── run-p1-gate/                 # NEW
+│   ├── run-p1-gate/
 │   │   ├── command.ts               # RunP1GateCommand
 │   │   ├── handler.ts               # RunP1GateHandler
 │   │   └── port.ts                  # IRunP1GateUseCase (driver port)
-│   ├── run-p2-gate/                 # NEW
+│   ├── run-p2-gate/
 │   │   ├── command.ts
 │   │   ├── handler.ts
 │   │   └── port.ts
-│   ├── run-p3-gate/                 # NEW
+│   ├── run-p3-gate/
 │   │   ├── command.ts
 │   │   ├── handler.ts
 │   │   └── port.ts
 │   └── shared/
-│       └── port-append-event.ts     # IAppendEventPort (new driven port)
+│       └── port-append-event.ts     # IAppendEventPort (driven port)
 └── infrastructure/
     └── persistence/
-        └── append-event.pg.ts       # PostgresAppendEventAdapter (new)
+        └── append-event.pg.ts       # PostgresAppendEventAdapter
+
+src/mastra/workflows/
+├── protocol1-ignition.ts            # .then(runP1Gate).map(...).then(composeP1ViewStep)
+├── protocol2-activation.ts          # .then(runP2Gate).map(...).then(composeP2ViewStep) [planned]
+├── protocol3-verification.ts        # .then(runP3Gate).map(...).then(composeP3ViewStep) [planned]
+└── steps/
+    └── compose-p1-view.ts           # Mastra createStep wrapping composeP1View
 ```
 
 ---
@@ -493,7 +511,73 @@ Per `01-ei-tactical-conventions.md` §13: domain unit tests use no mocks; applic
 
 ---
 
-## 16) Open Questions
+## 16) StudySessionOrchestration: ViewComposer
+
+The **ViewComposer** (`src/ei/sdui/view-composer.ts`) is the "gateway context" role of EI Runtime — it translates protocol VO outputs into a client-renderable UI description (`SduiResponse`) following the Server-Driven UI pattern.
+
+### Design constraints
+
+| Constraint | Enforced by |
+|---|---|
+| Pure function — no DB, no side effects | `view-composer.ts` has no imports from infrastructure layer |
+| Zero DB calls for presentation | `PresentationContext` is derived entirely from domain output fields already in the Mastra step result |
+| Does not modify aggregate or emit events | ViewComposer runs after `pullDomainEvents()` — it is read-only |
+| Does not compute metrics or interpret labels | Receives already-resolved `mode`, `playId`, `stateScore` from gate handler; does not re-interpret them |
+| Decoupled from API route | Lives inside the Mastra workflow as a chained step, not in `src/app/api/` |
+
+### Key types
+
+| Type | File | Purpose |
+|------|------|---------|
+| `SduiResponse` | `sdui/types/sdui-contract.ts` | Top-level contract returned by each protocol workflow |
+| `SduiViewTree` | same | Slot-based layout: `header`, `body`, `actions`, `footer` arrays |
+| `SduiComponent` | `sdui/types/components.ts` | Discriminated union of 16 component types (message, scale-input, scope-card, deal-card, etc.) |
+| `PresentationContext` | `sdui/presentation-context.ts` | Derived VO: mode, playId, pendingChecks, silenceDays, isFirstOfDay, etc. |
+| `MicrocopyKey` | `sdui/microcopy/resolver.ts` | `{ gate, slot, mode, playId }` — lookup key for microcopy |
+
+### Microcopy resolution
+
+Priority chain (most specific → least):
+1. **Play-specific** — e.g. `P1-R1` + `scope_message` → "No speeches. Let's keep it tiny."
+2. **Mode-specific** — e.g. `Rescue` + `scope_message` → "Today's energy is low — shorter scope keeps the loop moving."
+3. **Default** — "Here's your plan for today."
+
+Variables interpolated via `{{count}}`, `{{topic}}` in template strings.
+
+### Mastra integration
+
+The compose step receives the gate handler output merged with original workflow input via `.map()` + `getInitData()`:
+
+```
+.then(runP1Gate)           ← AdaptiveCoaching: domain decisions
+.map(mergeWithInitData)    ← merge NegotiatedIntentIssued + energy/pressure
+.then(composeP1ViewStep)   ← StudySessionOrchestration: SduiResponse
+```
+
+Workflow `outputSchema` is `SduiResponseSchema` (not the raw VO schema). The `domain` field of `SduiResponse` carries the full typed VO output for client-side state (e.g. timer configuration).
+
+### Conditional rendering decisions
+
+| Condition | Component shown |
+|---|---|
+| `ctx.silenceDays >= 2` | `welcome-back-card` (S5 archetype) |
+| `ctx.closeOpenLoopFirst === true` | `deal-card` with pending check count (S7 archetype) |
+| `ctx.pendingChecks > 0` | `pending-checks` indicator in footer |
+| `ctx.isFirstOfDay === true` | Sleep + backlog scales in checkin view |
+
+### Boundary compliance
+
+| DDD Rule | Status |
+|---|---|
+| StudySessionOrchestration consumes AdaptiveCoaching outputs | ✓ — ViewComposer reads VO output, does not modify aggregate |
+| Does not compute metrics or interpret labels | ✓ — receives pre-resolved mode/playId from gate handler |
+| Does not own gate decision logic | ✓ — play selection stays in ProtocolEngine domain service |
+| Append-only ledger not touched | ✓ — ViewComposer has zero Ledger access |
+| StudySession aggregate invariants not touched | ✓ — ViewComposer runs after domain events are already emitted |
+
+---
+
+## 17) Open Questions
 
 - **sessionId sourcing:** Should it match the AppOpen event idempotency key (linking events to session) or be independently generated? Deferred — for MVP, sessionId is passed in command from the API layer.
 - **StudySession persistence:** `ei_study_sessions` table deferred post-MVP. Cross-protocol state threaded via P3GateContext.

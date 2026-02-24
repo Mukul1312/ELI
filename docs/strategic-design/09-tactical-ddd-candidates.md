@@ -48,7 +48,7 @@
 
 ## Where they would live
 
-**Implemented:** StudySession (`domain/study-session/`, `application/run-p1-gate/`, `run-p2-gate/`, `run-p3-gate/`), StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`), **TopicLoop** (`domain/topic-loop/`, `application/apply-event-to-topic-loop/`), **StudentAggregates** (`domain/student-aggregates/`, `application/recompute-student-aggregates/`).
+**Implemented:** StudySession (`domain/study-session/`, `application/run-p1-gate/`, `run-p2-gate/`, `run-p3-gate/`), ViewComposer/SDUI (`sdui/` — StudySessionOrchestration presentation layer), StudentPolicy (`domain/student-policy/`, `application/apply-strategic-adjustment-decision/`), LoopHealth (`domain/loop-health/`, `application/assess-loop-health/`), **TopicLoop** (`domain/topic-loop/`, `application/apply-event-to-topic-loop/`), **StudentAggregates** (`domain/student-aggregates/`, `application/recompute-student-aggregates/`).
 
 **Layout (implemented aggregates and use cases):**
 
@@ -73,6 +73,17 @@ src/ei/
 │   │   └── errors.ts
 │   └── shared/
 │       └── ids.ts            # StudentId, TopicId value objects
+├── sdui/                     # StudySessionOrchestration presentation layer (implemented)
+│   ├── types/
+│   │   ├── sdui-contract.ts  # SduiResponse, SduiViewTree, SduiPhase, SduiAction
+│   │   └── components.ts     # SduiComponent union (16 component types)
+│   ├── view-composer.ts      # Pure function: VO output + PresentationContext → SduiResponse
+│   ├── presentation-context.ts  # PresentationContext VO (derived from domain output, zero DB)
+│   ├── microcopy/
+│   │   ├── catalog.ts        # Microcopy by gate/slot/mode/play (Elder Brother tone)
+│   │   └── resolver.ts       # Priority chain: play-specific → mode-specific → default
+│   └── __tests__/
+│       └── view-composer.test.ts  # 22 unit tests
 └── application/
     ├── run-p1-gate/                    # StudySession P1 use case (implemented)
     ├── run-p2-gate/                    # StudySession P2 use case (implemented)

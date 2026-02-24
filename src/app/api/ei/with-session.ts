@@ -1,8 +1,8 @@
 /**
- * EI auth wrapper: resolves session via CohortAccess ResolveAuthSession,
- * with PILOT_SECRET fallback when session is null (for dev/pilot).
+ * EI auth wrapper: resolves session via CohortAccess ResolveAuthSession.
  *
  * Returns either { authorized: true, studentId } or { authorized: false, response }.
+ * studentId is always server-derived from the Neon Auth session — never trusted from client body.
  */
 
 import { eiStore } from '@/ei/runtime/db';
@@ -14,17 +14,6 @@ export type WithSessionResult =
   | { authorized: true; studentId: string }
   | { authorized: false; response: Response };
 
-function isPilotAuthorized(req: Request): boolean {
-  const secret = process.env.PILOT_SECRET;
-  if (!secret) return false;
-  const header = req.headers.get('Authorization') ?? '';
-  return header === `Bearer ${secret}`;
-}
-
-/**
- * Resolve EI auth: try ResolveAuthSession, fall back to PILOT_SECRET + body.studentId when null.
- * Caller must parse body before calling if PILOT fallback is needed.
- */
 /** Adapt EI db to CohortAccessDb (none returns void instead of null). */
 function adaptDb(db: typeof eiStore.db): CohortAccessDb {
   return {
@@ -37,10 +26,7 @@ function adaptDb(db: typeof eiStore.db): CohortAccessDb {
   };
 }
 
-export async function withEiSession(
-  req: Request,
-  bodyStudentId?: string | null,
-): Promise<WithSessionResult> {
+export async function withEiSession(req: Request): Promise<WithSessionResult> {
   const db = adaptDb(eiStore.db);
   const getSession = createServerGetSession();
   const resolveAuth = createResolveAuthSessionUseCase(db, getSession);
@@ -48,10 +34,6 @@ export async function withEiSession(
 
   if (authSession) {
     return { authorized: true, studentId: authSession.studentId };
-  }
-
-  if (isPilotAuthorized(req) && bodyStudentId) {
-    return { authorized: true, studentId: bodyStudentId };
   }
 
   return {

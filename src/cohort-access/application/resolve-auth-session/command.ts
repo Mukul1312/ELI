@@ -1,3 +1,3 @@
-import type { ResolveAuthSessionCommand } from './port';
-
-export type { ResolveAuthSessionCommand };
+export interface ResolveAuthSessionCommand {
+  sessionContext: unknown;
+}

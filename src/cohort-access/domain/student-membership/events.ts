@@ -3,7 +3,7 @@
  * Optional for v1; state table is source of truth.
  */
 
-export interface MembershipChangedPayload {
+export interface MembershipChanged {
   studentId: string;
   cohortId: string | null;
   changedAt: string;

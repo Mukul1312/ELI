@@ -4,10 +4,12 @@ import type {
   ChangeStudentMembershipCommand,
 } from './port';
 import type { IStudentMembershipRepository } from '../../domain/student-membership/repository';
+import { StudentMembership } from '../../domain/student-membership/student-membership';
+import { StudentId, CohortId } from '../../domain/shared/ids';
 import {
-  StudentMembership,
-} from '../../domain/student-membership/student-membership';
-import { MissingStudentIdError } from '../../domain/student-membership/errors';
+  InvalidCohortIdError,
+  UnauthorizedMembershipChangeError,
+} from '../../domain/student-membership/errors';
 
 export class ChangeStudentMembershipHandler implements IChangeStudentMembershipUseCase {
   constructor(
@@ -16,20 +18,33 @@ export class ChangeStudentMembershipHandler implements IChangeStudentMembershipU
   ) {}
 
   async execute(command: ChangeStudentMembershipCommand): Promise<StudentMembership> {
-    const { studentId, targetCohortId, source, idempotencyKey } = command;
-    if (!studentId?.trim()) {
-      throw new MissingStudentIdError();
+    const { studentId, targetCohortId, source, callerRole, idempotencyKey } = command;
+
+    // Privilege check: AdminEnroll requires admin role
+    if (source === 'admin' && callerRole.value !== 'admin') {
+      throw new UnauthorizedMembershipChangeError('admin');
     }
-    if (!targetCohortId?.trim()) {
-      throw new Error('targetCohortId is required');
+
+    // Belt-and-suspenders boundary guard (StudentId.create validates non-empty)
+    StudentId.create(studentId.value);
+
+    if (!targetCohortId) {
+      throw new InvalidCohortIdError('targetCohortId is required');
     }
 
     if (source === 'redemption' && idempotencyKey) {
-      const result = await this.idempotencyStore.checkAndRecord(idempotencyKey, targetCohortId);
+      const result = await this.idempotencyStore.checkAndRecord(
+        idempotencyKey,
+        targetCohortId.value,
+      );
       if (result.exists) {
         const existing = await this.membershipRepo.findByStudentId(studentId);
         if (existing) return existing;
-        const membership = StudentMembership.create(studentId, result.cohortId, new Date());
+        const membership = StudentMembership.create(
+          studentId,
+          CohortId.create(result.cohortId),
+          new Date(),
+        );
         await this.membershipRepo.save(membership);
         return membership;
       }

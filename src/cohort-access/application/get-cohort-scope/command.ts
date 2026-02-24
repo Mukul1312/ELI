@@ -1,3 +1,3 @@
-import type { GetCohortScopeCommand } from './port';
-
-export type { GetCohortScopeCommand };
+export interface GetCohortScopeCommand {
+  instituteUserId: string;
+}

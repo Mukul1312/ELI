@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.cline
 
 .vscode/*
 !.vscode/launch.json

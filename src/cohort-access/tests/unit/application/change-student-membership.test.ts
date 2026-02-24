@@ -1,67 +1,92 @@
 import { describe, it, expect } from 'vitest';
 import { ChangeStudentMembershipHandler } from '../../../application/change-student-membership/handler';
 import { StudentMembership } from '../../../domain/student-membership/student-membership';
-import { MissingStudentIdError } from '../../../domain/student-membership/errors';
-import { IdempotencyKeyConflictError } from '../../../domain/student-membership/errors';
+import { StudentId, CohortId } from '../../../domain/shared/ids';
+import { Role } from '../../../domain/shared/role';
+import { IdempotencyKeyConflictError, UnauthorizedMembershipChangeError } from '../../../domain/student-membership/errors';
+import type { IStudentMembershipRepository } from '../../../domain/student-membership/repository';
+import type { IIdempotencyKeyStore } from '../../../application/change-student-membership/port';
 
 describe('ChangeStudentMembershipHandler', () => {
-  const studentId = 'student-123';
-  const cohortId = 'cohort-456';
+  const studentId = StudentId.create('student-123');
+  const cohortId = CohortId.create('cohort-456');
+  const adminRole = Role.create('admin');
+  const studentRole = Role.create('student');
 
-  it('rejects when studentId is missing', async () => {
-    const membershipRepo = {
-      findByStudentId: async () => null,
-      save: async () => {},
-    };
-    const idempotencyStore = {
-      checkAndRecord: async () => ({ exists: false as const }),
-    };
-    const handler = new ChangeStudentMembershipHandler(membershipRepo as any, idempotencyStore as any);
+  const makeRepo = (existing: StudentMembership | null): IStudentMembershipRepository => ({
+    findByStudentId: async () => existing,
+    save: async () => {},
+  });
+
+  const makeIdempStore = (
+    result: Awaited<ReturnType<IIdempotencyKeyStore['checkAndRecord']>> | 'throw',
+  ): IIdempotencyKeyStore => ({
+    checkAndRecord: async () => {
+      if (result === 'throw') {
+        throw new IdempotencyKeyConflictError('key', 'old-cohort', cohortId.value);
+      }
+      return result;
+    },
+  });
+
+  it('rejects admin enrollment when callerRole is not admin', async () => {
+    const handler = new ChangeStudentMembershipHandler(
+      makeRepo(null),
+      makeIdempStore({ exists: false }),
+    );
     await expect(
       handler.execute({
-        studentId: '',
+        studentId,
         targetCohortId: cohortId,
         source: 'admin',
+        callerRole: studentRole,
       }),
-    ).rejects.toThrow(MissingStudentIdError);
+    ).rejects.toThrow(UnauthorizedMembershipChangeError);
+  });
+
+  it('admin source with admin role: enrolls successfully', async () => {
+    const handler = new ChangeStudentMembershipHandler(
+      makeRepo(null),
+      makeIdempStore({ exists: false }),
+    );
+    const result = await handler.execute({
+      studentId,
+      targetCohortId: cohortId,
+      source: 'admin',
+      callerRole: adminRole,
+    });
+    expect(result.cohortId?.value).toBe(cohortId.value);
+    expect(result.membershipState).toBe('active');
   });
 
   it('duplicate idempotency key + same cohort: no-op, returns existing state', async () => {
     const existingMembership = StudentMembership.create(studentId, cohortId, new Date());
-    const membershipRepo = {
-      findByStudentId: async () => existingMembership,
-      save: async () => {},
-    };
-    const idempotencyStore = {
-      checkAndRecord: async () => ({ exists: true as const, cohortId }),
-    };
-    const handler = new ChangeStudentMembershipHandler(membershipRepo as any, idempotencyStore as any);
+    const handler = new ChangeStudentMembershipHandler(
+      makeRepo(existingMembership),
+      makeIdempStore({ exists: true, cohortId: cohortId.value }),
+    );
     const result = await handler.execute({
       studentId,
       targetCohortId: cohortId,
       source: 'redemption',
+      callerRole: studentRole,
       idempotencyKey: 'redemption-1',
     });
-    expect(result.cohortId).toBe(cohortId);
+    expect(result.cohortId?.value).toBe(cohortId.value);
     expect(result.membershipState).toBe('active');
   });
 
-  it('conflicting idempotency key: rejects', async () => {
-    const membershipRepo = {
-      findByStudentId: async () => null,
-      save: async () => {},
-    };
-    const idempotencyStore = {
-      checkAndRecord: async () => {
-        throw new IdempotencyKeyConflictError('key', 'old-cohort', cohortId);
-      },
-    };
-    const handler = new ChangeStudentMembershipHandler(membershipRepo as any, idempotencyStore as any);
+  it('conflicting idempotency key: rejects with IdempotencyKeyConflictError', async () => {
+    const handler = new ChangeStudentMembershipHandler(
+      makeRepo(null),
+      makeIdempStore('throw'),
+    );
     await expect(
       handler.execute({
         studentId,
         targetCohortId: cohortId,
         source: 'redemption',
+        callerRole: studentRole,
         idempotencyKey: 'redemption-1',
       }),
     ).rejects.toThrow(IdempotencyKeyConflictError);

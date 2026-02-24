@@ -17,3 +17,9 @@ export class IdempotencyKeyConflictError extends DomainError {
     super(`Idempotency key ${key} already used with cohort ${existingCohortId}; cannot use with different cohort ${requestedCohortId}`);
   }
 }
+
+export class UnauthorizedMembershipChangeError extends DomainError {
+  constructor(requiredRole: string) {
+    super(`This membership change requires ${requiredRole} role`);
+  }
+}

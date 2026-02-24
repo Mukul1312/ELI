@@ -107,10 +107,12 @@ Use these when reconciling spec vs reality:
 
 - **LoopHealth (domain):** [src/ei/domain/loop-health/](../../src/ei/domain/loop-health/)
 - **StudentPolicy (domain):** [src/ei/domain/student-policy/](../../src/ei/domain/student-policy/)
+- **StudySession aggregate + gate use cases (AdaptiveCoaching):** [src/ei/domain/study-session/](../../src/ei/domain/study-session/), [src/ei/application/run-p1-gate/](../../src/ei/application/run-p1-gate/), [src/ei/application/run-p2-gate/](../../src/ei/application/run-p2-gate/), [src/ei/application/run-p3-gate/](../../src/ei/application/run-p3-gate/)
+- **ViewComposer + SDUI module (StudySessionOrchestration):** [src/ei/sdui/](../../src/ei/sdui/) — pure presenter; maps protocol VO outputs to `SduiResponse` component tree; zero DB calls
 - **AssessLoopHealth (use case):** [src/ei/application/assess-loop-health/](../../src/ei/application/assess-loop-health/)
 - **ApplyStrategicAdjustmentDecision (use case):** [src/ei/application/apply-strategic-adjustment-decision/](../../src/ei/application/apply-strategic-adjustment-decision/)
-- **Protocol runtime:** [src/ei/protocol-runner.ts](../../src/ei/protocol-runner.ts)
 - **Engine (pure logic):** [src/ei/engine/](../../src/ei/engine/)
+- **Mastra workflows:** [src/mastra/workflows/](../../src/mastra/workflows/) — protocol1/2/3, each ending in a `composeView` SDUI step
 - **Tools (DB boundary):** [src/mastra/tools/](../../src/mastra/tools/)
 - **DB layer:** [src/ei/db/](../../src/ei/db/)
 - **API routes:** [src/app/api/ei/](../../src/app/api/ei/)

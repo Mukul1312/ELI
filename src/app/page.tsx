@@ -273,18 +273,28 @@ export default function Home() {
     localStorage.setItem('ei_lastCheckinDate', new Date().toISOString().slice(0, 10));
 
     try {
-      const result: IntentData = await api('/api/ei/protocol1', {
-        studentId,
-        topic,
-        energy,
-        sleepBucket: sleepBucket ?? undefined,
-        pressure: pressure ?? undefined,
-        backlogPressure: backlogPressure ?? undefined,
+      const result = await api('/api/ei/command', {
+        commandType: 'AppOpen',
+        payload: {
+          topic,
+          energy,
+          sleepBucket: sleepBucket ?? undefined,
+          pressure: pressure ?? undefined,
+          backlogPressure: backlogPressure ?? undefined,
+        },
       });
-      setIntentData(result);
-      setEditTopic(result.topic);
-      setEditTaskType(result.taskType ?? 'Learn');
-      setPhase('intent');
+      // Server may return P1 (NegotiatedIntent) or P2 (ActivationPlan) per S2 Day 2-21
+      if ('firstAction' in result) {
+        setActivationData(result as ActivationData);
+        setTopic(topic);
+        setReplanCount(0);
+        setPhase('activation');
+      } else {
+        setIntentData(result as IntentData);
+        setEditTopic(result.topic);
+        setEditTaskType(result.taskType ?? 'Learn');
+        setPhase('intent');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -324,12 +334,10 @@ export default function Home() {
         payload: { topic: finalTopic, taskType: finalTaskType, setAt },
       });
 
-      // Call Protocol 2
-      const result: ActivationData = await api('/api/ei/protocol2', {
-        studentId,
-        topic: finalTopic,
-        taskType: finalTaskType,
-        setAt,
+      // Call command endpoint (server decides P1 vs P2)
+      const result: ActivationData = await api('/api/ei/command', {
+        commandType: 'IntentSet',
+        payload: { topic: finalTopic, taskType: finalTaskType, setAt },
       });
       setActivationData(result);
       setTopic(finalTopic);
@@ -387,10 +395,9 @@ export default function Home() {
         payload: { endedAt },
       });
 
-      const result: VerificationData = await api('/api/ei/protocol3', {
-        studentId,
-        topic,
-        endedAt,
+      const result: VerificationData = await api('/api/ei/command', {
+        commandType: 'SessionEnd',
+        payload: { topic, endedAt },
       });
       setVerificationData(result);
       setPhase('verification');
