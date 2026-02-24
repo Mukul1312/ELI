@@ -15,6 +15,7 @@ const RetrievalSkipInput = z.object({
   topic: z.string(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   reason: z.string(),
+  idempotencyKey: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({
@@ -22,7 +23,7 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalSkipInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', reason } = inputData;
+    const { studentId, topic, mode = 'Neutral', reason, idempotencyKey } = inputData;
     const skippedAt = new Date().toISOString();
 
     const payload = validateEventPayload('RetrievalSkipped', {
@@ -38,6 +39,7 @@ const appendAndComposeStep = createStep({
       eventType: 'RetrievalSkipped',
       topicId: topic,
       payload,
+      idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalSkipped` : undefined,
     });
 
     const sdui = composeDoneView({ topic, mode });

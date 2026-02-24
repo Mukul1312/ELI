@@ -9,6 +9,8 @@ export interface AppendEventPayload {
   eventType: string;
   topicId: string;
   payload: Record<string, unknown>;
+  /** Optional idempotency key — stored in ei_idempotency_keys; prevents duplicate events on retry. */
+  idempotencyKey?: string;
 }
 
 export interface IAppendEventPort {

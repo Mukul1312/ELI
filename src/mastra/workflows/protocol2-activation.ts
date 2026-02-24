@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { eiStore } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
-import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
+import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
@@ -30,6 +30,7 @@ const P2Input = z.object({
   topic: z.string(),
   taskType: z.string().optional(),
   setAt: z.string().datetime(),
+  idempotencyKey: z.string().optional(),
 });
 
 // ============================================================================
@@ -41,10 +42,12 @@ const runP2Gate = createStep({
   inputSchema: P2Input,
   outputSchema: ActivationPlanIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof ActivationPlanIssuedSchema>> => {
-    const { studentId, topic, setAt, taskType } = inputData;
+    const { studentId, topic, setAt, taskType, idempotencyKey } = inputData;
     const db = eiStore.db;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
-    const appendEvent = new PostgresAppendEventAdapter(db);
+    const baseAdapter = new PostgresAppendEventAdapter(db);
+    // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
+    const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const queryEvents = new PostgresQueryEventsAdapter(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();

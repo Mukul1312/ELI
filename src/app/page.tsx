@@ -5,12 +5,6 @@ import { SduiView, resolvePayload } from '@/app/sdui/renderer';
 import type { SduiResponse } from '@/app/sdui/types';
 
 // ============================================================================
-// Types
-// ============================================================================
-
-type Phase = 'checkin' | 'intent' | 'activation' | 'session' | 'verification' | 'done';
-
-// ============================================================================
 // Styles
 // ============================================================================
 
@@ -20,12 +14,6 @@ const s = {
     background: '#1a1b23', borderRadius: 12, padding: '24px 20px', marginBottom: 16,
     border: '1px solid #2a2b35',
   } as const,
-  label: { display: 'block', fontSize: 13, fontWeight: 500, color: '#a1a1aa', marginBottom: 6 } as const,
-  input: {
-    width: '100%', padding: '10px 12px', background: '#0f1117', border: '1px solid #2a2b35',
-    borderRadius: 8, color: '#e4e4e7', fontSize: 14, outline: 'none', boxSizing: 'border-box' as const,
-  } as const,
-  field: { marginBottom: 16 } as const,
   muted: { color: '#71717a', fontSize: 13 } as const,
   error: { color: '#f87171', fontSize: 13, marginTop: 8 } as const,
   btn: (variant: 'primary' | 'secondary' = 'secondary') => ({
@@ -36,102 +24,72 @@ const s = {
 };
 
 // ============================================================================
-// Main Page Component
+// Main Page Component — pure SDUI renderer
 // ============================================================================
 
 export default function Home() {
-  const [phase, setPhase] = useState<Phase>('checkin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [studentId, setStudentId] = useState('');
-  const [secret, setSecret] = useState('');
-  const [isFirstOfDay, setIsFirstOfDay] = useState(true);
-  const [currentSduiResponse, setCurrentSduiResponse] = useState<SduiResponse | Record<string, unknown> | null>(null);
+  const [currentSduiResponse, setCurrentSduiResponse] = useState<SduiResponse | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
 
-  useEffect(() => {
-    const stored = {
-      studentId: localStorage.getItem('ei_studentId') ?? '',
-      secret: localStorage.getItem('ei_secret') ?? '',
-      lastDate: localStorage.getItem('ei_lastCheckinDate'),
-    };
-    setStudentId(stored.studentId);
-    setSecret(stored.secret);
-    setIsFirstOfDay(stored.lastDate !== new Date().toISOString().slice(0, 10));
-  }, []);
-
-  const api = useCallback(async (path: string, body: unknown) => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (secret) headers['Authorization'] = `Bearer ${secret}`;
-    const res = await fetch(path, { method: 'POST', headers, body: JSON.stringify(body) });
+  // POST helper — identity via Neon Auth session cookie (credentials: 'include')
+  const api = useCallback(async (path: string, body: unknown, idempotencyKey?: string) => {
+    const payload = typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? { ...(body as Record<string, unknown>), ...(idempotencyKey ? { idempotencyKey } : {}) }
+      : body;
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
     if (!res.ok) {
       const text = await res.text();
       let msg: string;
       try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch { msg = text; }
       throw new Error(msg);
     }
-    return res.json();
-  }, [secret]);
+    return res.json() as Promise<SduiResponse>;
+  }, []);
 
+  // On mount: POST AppOpen to get initial checkin view (fires once)
   useEffect(() => {
-    if (phase !== 'checkin' || currentSduiResponse !== null) return;
     let cancelled = false;
     setLoading(true);
-    (async () => {
-      try {
-        const res = await api('/api/ei/command', {
-          commandType: 'AppOpen',
-          payload: { initial: true, isFirstOfDay },
-        });
-        if (!cancelled) {
-          setCurrentSduiResponse(res);
-          setPhase((res as { phase?: Phase }).phase ?? 'checkin');
-        }
-      } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    const idempotencyKey = crypto.randomUUID();
+    api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey)
+      .then(res => { if (!cancelled) setCurrentSduiResponse(res); })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [phase, isFirstOfDay, currentSduiResponse, api]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
     async (actionId: string) => {
-      const resp = currentSduiResponse as { actions?: Record<string, { id: string; endpoint: { path: string }; payload: Record<string, unknown> }> } | null;
-      if (!resp?.actions) return;
-      const action = resp.actions[actionId];
+      const action = currentSduiResponse?.actions?.[actionId];
       if (!action) return;
       const resolved = resolvePayload(action.payload, formValues);
       setError(null);
       setLoading(true);
+      const idempotencyKey = crypto.randomUUID();
       try {
-        const result = await api(action.endpoint.path, resolved);
+        const result = await api(action.endpoint.path, resolved, idempotencyKey);
         setCurrentSduiResponse(result);
-        const phaseFromServer = (result as { phase?: Phase }).phase;
-        const resultTopic = (result as { topic?: string }).topic;
-        if (phaseFromServer) setPhase(phaseFromServer);
-        if (resultTopic) localStorage.setItem('ei_topic', resultTopic);
-        if (phaseFromServer === 'checkin') setFormValues({});
-        if (actionId === 'submit_checkin' && resultTopic) {
-          localStorage.setItem('ei_studentId', studentId);
-          localStorage.setItem('ei_secret', secret);
-          localStorage.setItem('ei_lastCheckinDate', new Date().toISOString().slice(0, 10));
-        }
+        setFormValues({});
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Request failed');
       } finally {
         setLoading(false);
       }
     },
-    [currentSduiResponse, formValues, api, studentId, secret]
+    [currentSduiResponse, formValues, api],
   );
 
   const handleFormChange = useCallback((id: string, value: string | number) => {
-    setFormValues((prev) => ({ ...prev, [id]: value }));
+    setFormValues(prev => ({ ...prev, [id]: value }));
   }, []);
-
-  const hasView = currentSduiResponse && 'view' in currentSduiResponse && 'actions' in currentSduiResponse;
 
   return (
     <div style={s.page}>
@@ -147,23 +105,12 @@ export default function Home() {
       )}
 
       <div style={s.card}>
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label style={s.label}>Student ID</label>
-            <input style={s.input} value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="your-id" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={s.label}>Pilot Secret (optional)</label>
-            <input style={s.input} type="password" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="secret" />
-          </div>
-        </div>
-
-        {!hasView && loading && <p style={s.muted}>Loading…</p>}
-        {hasView && (
+        {!currentSduiResponse && loading && <p style={s.muted}>Loading…</p>}
+        {currentSduiResponse && (
           <>
             <SduiView
-              view={(currentSduiResponse as SduiResponse).view}
-              actions={(currentSduiResponse as SduiResponse).actions}
+              view={currentSduiResponse.view}
+              actions={currentSduiResponse.actions}
               formValues={formValues}
               onFormChange={handleFormChange}
               onAction={handleSduiAction}

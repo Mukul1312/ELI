@@ -17,6 +17,7 @@ const VerificationCompleteInput = z.object({
   questionsAttempted: z.union([z.number(), z.string()]),
   correct: z.union([z.number(), z.string()]),
   completedAt: z.string().datetime(),
+  idempotencyKey: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({
@@ -24,7 +25,7 @@ const appendAndComposeStep = createStep({
   inputSchema: VerificationCompleteInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', questionsAttempted, correct, completedAt } = inputData;
+    const { studentId, topic, mode = 'Neutral', questionsAttempted, correct, completedAt, idempotencyKey } = inputData;
     const q = typeof questionsAttempted === 'string' ? parseInt(questionsAttempted, 10) : questionsAttempted;
     const c = typeof correct === 'string' ? parseInt(correct, 10) : correct;
     const score = q > 0 ? c / q : 0;
@@ -42,6 +43,7 @@ const appendAndComposeStep = createStep({
       eventType: 'VerificationCompleted',
       topicId: topic,
       payload,
+      idempotencyKey: idempotencyKey ? `${idempotencyKey}:VerificationCompleted` : undefined,
     });
 
     const sdui = composeDoneView({ topic, mode });

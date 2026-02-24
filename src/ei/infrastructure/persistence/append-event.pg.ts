@@ -18,6 +18,24 @@ export class PostgresAppendEventAdapter implements IAppendEventPort {
       event.eventType,
       event.topicId,
       event.payload,
+      undefined,
+      event.idempotencyKey,
     );
   }
+}
+
+/**
+ * Wraps an IAppendEventPort so every append derives a per-event idempotency key
+ * as `${baseKey}:${eventType}`. Used by gate workflow steps to thread a command-level
+ * idempotency key through to the Ledger without modifying gate handler logic.
+ */
+export function withIdempotencyKey(inner: IAppendEventPort, baseKey: string): IAppendEventPort {
+  return {
+    async append(event: AppendEventPayload): Promise<void> {
+      return inner.append({
+        ...event,
+        idempotencyKey: `${baseKey}:${event.eventType}`,
+      });
+    },
+  };
 }

@@ -16,6 +16,7 @@ const RetrievalScheduleInput = z.object({
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   dueInHours: z.number(),
   minQuestions: z.number().int(),
+  idempotencyKey: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({
@@ -23,7 +24,7 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalScheduleInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', dueInHours, minQuestions } = inputData;
+    const { studentId, topic, mode = 'Neutral', dueInHours, minQuestions, idempotencyKey } = inputData;
     const now = new Date();
     const dueAt = new Date(now.getTime() + dueInHours * 60 * 60 * 1000).toISOString();
     const scheduledAt = now.toISOString();
@@ -44,6 +45,7 @@ const appendAndComposeStep = createStep({
       eventType: 'RetrievalScheduled',
       topicId: topic,
       payload,
+      idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalScheduled` : undefined,
     });
 
     const sdui = composeDoneView({ topic, mode });

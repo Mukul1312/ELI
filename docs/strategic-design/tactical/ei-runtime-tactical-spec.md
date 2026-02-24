@@ -348,6 +348,68 @@ export interface IStudySessionRepository {
 - `RunP3GateHandler` reconstructs partial state by querying the last `NegotiatedIntentIssued` event from the Ledger (via `IStudentEventStreamReader`), extracts `p1VerificationFloor`, and passes it via `P3GateContext`
 - The `IStudySessionRepository` interface is defined now but implemented as a no-op / Ledger-based adapter
 
+### Session state derivation
+
+**Goal:** Define how Runtime derives StudySession lifecycle phase from system-of-record facts (Ledger and Projections).
+
+**Inputs (authoritative):**
+
+- **Ledger events** (per [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) event catalog):
+  - `NegotiatedIntentIssued` — P1 output; establishes intent
+  - `ActivationPlanIssued` — P2 output; establishes plan
+  - `VerificationDecisionIssued` — P3 output; establishes decision
+  - Command events (as needed for routing): `AppOpen` (session start), `IntentSet`, `SessionEnd`, `Replan`
+- **Projections** as supporting read model only where explicitly the source (e.g. `ei_topic_state` for recency, `ei_student_aggregates` for signals). Protocol phase derivation is Ledger-driven; projections support context (loop health, policy).
+
+**Derived evidence flags (per topicId):**
+
+| Flag | Source event(s) | Meaning |
+|------|------------------|---------|
+| `hasIntent` | `NegotiatedIntentIssued` | P1 has completed for this topic |
+| `hasActivationPlan` | `ActivationPlanIssued` | P2 has completed for this topic |
+| `hasVerificationDecision` | `VerificationDecisionIssued` | P3 has completed for this topic |
+| `lastIssuedAt` | Most recent protocol output event | Used for recency and ordering |
+
+**Mapping to lifecycle (normative):**
+
+| Derived state | Lifecycle phase |
+|---------------|-----------------|
+| No intent | `negotiating` |
+| Intent but no plan | `activating` |
+| Plan but no decision | `active` |
+| Decision exists | `verifying` (optionally `closed` when retrieval is resolved, if modeled) |
+
+**Recency rule:** "Recent" = within last 7 days (per S2 Day 2-21 scenario in domain message flows). Used for AppOpen routing: if a recent `NegotiatedIntentIssued` exists for the topic, route to P2 (resume); otherwise route to P1 (fresh session). Code reference: `ProtocolRouter.decideForAppOpen` uses `RECENT_DAYS_MS = 7 * 24 * 60 * 60 * 1000`.
+
+**SessionId note:** `sessionId` matches the AppOpen event's idempotency key for traceability and linking events to a session. Without an explicit stored session record (deferred), we derive phase from Ledger events only; cross-protocol state (P1 floor, P2 watchOnly) is threaded via gate contexts. See Open Questions (§17) for sessionId sourcing.
+
+### Routing matrix
+
+Command × derived phase → next protocol or flow. Aligns with [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) event catalog and current [POST /api/ei/command](../../../src/app/api/ei/command/route.ts) route types.
+
+**Command types (strategic + route):**
+
+- **Strategic canvas:** `AppOpen`, `IntentSet`, `SessionEnd`, `VerifyNow`, `ScheduleVerify`, `SkipWithReason`
+- **Current route (EiCommandSchema):** `AppOpen`, `IntentSet`, `SessionEnd`, `SessionStart`, `Replan`, `VerificationComplete`, `RetrievalSchedule`, `RetrievalSkip` — `VerificationComplete` / `RetrievalSchedule` / `RetrievalSkip` correspond to VerifyNow / ScheduleVerify / SkipWithReason outcomes (emitted as events after P3).
+
+**Command × derived state → protocol/flow:**
+
+| Command | Derived state (per topic) | Protocol/flow |
+|---------|---------------------------|---------------|
+| `AppOpen` | No recent NegotiatedIntent | P1 (Ignition) |
+| `AppOpen` | Recent NegotiatedIntent | P2 (Activation) — resume flow |
+| `IntentSet` | (any; client accepted intent) | P2 (Activation) |
+| `SessionEnd` | (any; client ended session) | P3 (Verification) |
+| `SessionStart` | — | SessionStart workflow (no protocol routing) |
+| `Replan` | — | Replan workflow → P2 re-run with incremented replanCount |
+| `VerificationComplete` | — | VerificationComplete workflow (emits VerificationCompleted event) |
+| `RetrievalSchedule` | — | RetrievalSchedule workflow (emits RetrievalScheduled event) |
+| `RetrievalSkip` | — | RetrievalSkip workflow (emits RetrievalSkipped event) |
+
+**Invalid transitions:** If the routing logic receives an unexpected command (e.g. IntentSet when derived state is negotiating and no prior P1 completed), the route returns 400 or 500 with an error message. Example: ProtocolRouter throws for unknown commandType; route returns `{ error: "Protocol routing failed" }` (500) or workflow-specific validation errors (400).
+
+**Replan flow:** `Replan` triggers P2 re-run with incremented `replanCount`. Session conceptually transitions back to `activating`. Handled by Replan workflow → RunP2GateHandler. Cross-protocol floor (P1 minQuestions) remains in P3GateContext when P3 runs later.
+
 ---
 
 ## 11) Ports (Hexagonal Architecture)
@@ -374,6 +436,101 @@ Per HEXAGONAL.md: Driver ports = "how the world uses your app"; Driven ports = "
 ---
 
 ## 12) Application Use Cases
+
+### RunEiCommand (orchestrator use case)
+
+**Driver port:** `IRunEiCommandUseCase` with `execute(command: EiCommandDTO): Promise<RunEiCommandResult>` — the umbrella use case that receives all EI commands and routes them to the appropriate protocol or workflow.
+
+**Command DTO:** Discriminated union aligned with `EiCommandSchema` in the route (AppOpen, IntentSet, SessionEnd, SessionStart, Replan, VerificationComplete, RetrievalSchedule, RetrievalSkip), plus explicit `idempotencyKey?: string` field. Schema validation is strict; unknown keys rejected. See [command-schema.ts](../../../src/ei/application/ei-protocol-router/command-schema.ts).
+
+**Driven ports (tie to strategic relationship patterns):**
+
+| Port | Purpose |
+|------|---------|
+| **CohortAccess ACL** | Resolve auth/session → `studentId` (server-derived; never trust client body) |
+| **Ledger read** | Query events / stream reader (IQueryEventsPort, IStudentEventStreamReader) — derive session phase |
+| **Ledger append** | Append command events + protocol output events (IAppendEventPort) |
+| **Projections read** | GetStudentSignals, LoopHealth (IGetStudentSignalsPort, IAssessLoopHealthUseCase) |
+| **Gate executors** | RunP1/RunP2/RunP3 use cases (or Mastra workflows as adapter implementation detail) |
+
+**Algorithm (step-by-step):**
+
+1. Resolve auth (CohortAccess upstream) → obtain `studentId`; reject if unauthenticated
+2. Validate command schema (strict; unknown keys rejected)
+3. Derive phase/state from ledger and projections
+4. Choose next protocol or workflow via routing matrix
+5. Invoke the protocol workflow or handler
+6. Append required events (command events + output events)
+7. Return response (SDUI + domain fields)
+
+**Error taxonomy:** unauthenticated, forbidden (role/cohort scope), invalid command schema, invalid transition, idempotency conflict.
+
+**Adapter mapping:** The Next.js route `POST /api/ei/command` is a driver adapter (translates HTTP → EiCommandDTO); Mastra workflows (eiAppOpenWorkflow, protocol2ActivationWorkflow, etc.) are the execution mechanism. The orchestrator is the application service. Per LAYERS/HEXAGONAL: route = driver adapter; workflows = execution mechanism; RunEiCommand = application service.
+
+```mermaid
+flowchart TB
+  Client[Client]
+  CommandRoute[POST_api_ei_command]
+  CohortAccess[CohortAccess_ACL]
+  Orchestrator[RunEiCommandUseCase]
+  Ledger[EIEventLedger]
+  Projections[EIProjections]
+  LHA[LoopHealthAssessment]
+  P1[RunP1Gate]
+  P2[RunP2Gate]
+  P3[RunP3Gate]
+  SDUI[ViewComposer_Sdui]
+
+  Client --> CommandRoute
+  CommandRoute --> CohortAccess
+  CohortAccess --> Orchestrator
+  Orchestrator --> Projections
+  Orchestrator --> LHA
+  Orchestrator --> Ledger
+  Orchestrator --> P1
+  Orchestrator --> P2
+  Orchestrator --> P3
+  P1 --> Ledger
+  P2 --> Ledger
+  P3 --> Ledger
+  P1 --> SDUI
+  P2 --> SDUI
+  P3 --> SDUI
+```
+
+### Idempotency + event completeness at the command boundary
+
+Per [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) invariants:
+
+- **Immutability:** Events are append-only.
+- **Idempotency:** Retries must not create duplicate events; every write supports idempotency key or deterministic event id.
+- **Schema strictness:** Every event validates against strict schema; unknown keys rejected.
+
+**Command-boundary idempotency policy:**
+
+- **Which commands must be idempotent:** AppOpen, IntentSet, SessionEnd, and any command that triggers event appends — for retry safety (P0 launch requirement).
+- **Recommended key formats:** `{context}:{eventType}:{studentId}:{topicId}:{occurredAt}` or client-generated UUID. Example: `ei:AppOpen:{studentId}:{topicId}:{openedAt}`.
+- **Enforcement:** Ledger adapter uses `ei_idempotency_keys` table (key, event_id, created_at); duplicate key returns existing event id. See [05-cross-cutting-concerns.md § Idempotency implementation guidance](../05-cross-cutting-concerns.md) and `src/ei/db/migrate.ts`, `src/ei/db/queries.ts`.
+
+**Minimum viable event set enforcement:**
+
+Per [docs/launch-requirements-checklist.md](../../launch-requirements-checklist.md):
+
+> UI emits: `AppOpen`, `IntentSet`, `IntentResponse`, `FirstActionStarted`, `Replan`, `SessionEnd`, `VerificationCompleted`. Engine consumes these to compute: pending checks, verification rate, start latency, replan loops, silence days.
+
+The `/api/ei/command` route is the choke point that ensures the minimum event set is appended. Responsibility split:
+
+| Owner | Events |
+|-------|--------|
+| **UI-only (client emits)** | AppOpen, IntentSet, IntentResponse, FirstActionStarted, Replan, SessionEnd, VerificationCompleted — client sends commands; route validates and routes to workflows that append |
+| **Runtime-appended (command boundary)** | Command events recorded when workflow runs; protocol output events (NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued) appended by gate handlers |
+| **Workflow-appended (post-P3 outcomes)** | VerificationCompleted, RetrievalScheduled, RetrievalSkipped — appended by VerificationComplete, RetrievalSchedule, RetrievalSkip workflows |
+
+The orchestrator ensures each command path results in the correct event emissions; validation and schema strictness prevent malformed writes.
+
+---
+
+### RunP1/RunP2/RunP3 handlers
 
 Three handlers following the `PlaceOrderHandler` template from LAYERS.md:
 

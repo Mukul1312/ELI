@@ -108,6 +108,12 @@ export const EiCommandSchema = z.discriminatedUnion('commandType', [
   }),
 ]);
 
+/** Command envelope: EiCommand + optional idempotencyKey for retry safety. */
+export const EiCommandEnvelopeSchema = EiCommandSchema.and(
+  z.object({ idempotencyKey: z.string().optional() }),
+);
+export type EiCommandEnvelope = z.infer<typeof EiCommandEnvelopeSchema>;
+
 export type AppOpenPayload = z.infer<typeof AppOpenPayloadSchema>;
 export type AppOpenFirstTouchPayload = z.infer<typeof AppOpenFirstTouchSchema>;
 export type AppOpenFullPayload = z.infer<typeof AppOpenFullPayloadSchema>;

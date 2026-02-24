@@ -29,6 +29,7 @@ const AppOpenWorkflowInput = z.object({
     payload: z.record(z.unknown()),
   }),
   studentId: z.string(),
+  idempotencyKey: z.string().optional(),
 });
 
 /** Output: either SduiResponse (checkin) or P1/P2 result */
@@ -42,12 +43,13 @@ const appOpenBranchStep = createStep({
   inputSchema: AppOpenWorkflowInput,
   outputSchema: AppOpenWorkflowOutput,
   execute: async ({ inputData }): Promise<z.infer<typeof AppOpenWorkflowOutput>> => {
-    const { command, studentId } = inputData;
+    const { command, studentId, idempotencyKey } = inputData;
     const payload = command.payload;
 
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
+      // checkin view is read-only — no events appended, no idempotency needed
       return checkinRun.start({ inputData: { studentId, isFirstOfDay } });
     }
 
@@ -71,7 +73,7 @@ const appOpenBranchStep = createStep({
     const protocol = await router.decideProtocol(commandWithStudent);
 
     if (protocol === 1) {
-      const inputData = {
+      const p1InputData = {
         studentId,
         topic: fullPayload.topic,
         energy: fullPayload.energy,
@@ -79,20 +81,22 @@ const appOpenBranchStep = createStep({
         pressure: fullPayload.pressure ?? 1,
         backlogPressure: fullPayload.backlogPressure ?? 1,
         openedAt: fullPayload.openedAt,
+        idempotencyKey,
       };
       const run = await protocol1IgnitionWorkflow.createRun();
-      return run.start({ inputData });
+      return run.start({ inputData: p1InputData });
     }
 
     if (protocol === 2) {
-      const inputData = {
+      const p2InputData = {
         studentId,
         topic: fullPayload.topic,
         setAt: new Date().toISOString(),
         taskType: undefined,
+        idempotencyKey,
       };
       const run = await protocol2ActivationWorkflow.createRun();
-      return run.start({ inputData });
+      return run.start({ inputData: p2InputData });
     }
 
     throw new Error(`AppOpen should not route to protocol ${protocol}`);

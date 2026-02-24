@@ -199,6 +199,14 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 >
 > **Checklist item #5:** Design anti-corruption layers for external systems.
 
+### Where contracts live (no dedicated contracts folder)
+
+Cross-context contracts are documented in existing DDD artifacts rather than a dedicated `contracts/` folder. This avoids the shared-kernel-by-copy-paste anti-pattern. Contracts live in three places:
+
+- **Relationship semantics:** [03-context-map.md](03-context-map.md) — integration semantics, ACL vs Published Language
+- **Constitutional invariants + event catalog + ACL intent:** this file — invariants, event catalog, data ownership
+- **Port-level contracts + algorithms:** tactical specs — e.g. [tactical/ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md) (Session state derivation, Routing matrix, RunEiCommand orchestrator, Idempotency + event completeness at command boundary)
+
 ---
 
 ### Identity → EI Runtime

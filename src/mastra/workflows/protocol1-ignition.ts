@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { eiStore } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
-import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
+import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
@@ -32,6 +32,7 @@ const P1Input = z.object({
   pressure: z.number().min(1).max(5),
   backlogPressure: z.number().min(1).max(5),
   openedAt: z.string().datetime().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 // ============================================================================
@@ -43,9 +44,12 @@ const runP1Gate = createStep({
   inputSchema: P1Input,
   outputSchema: NegotiatedIntentIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
-    const { studentId, topic, energy, sleepBucket, pressure, backlogPressure } = inputData;
+    const { studentId, topic, energy, sleepBucket, pressure, backlogPressure, idempotencyKey } = inputData;
     const db = eiStore.db;
-    const appendEvent = new PostgresAppendEventAdapter(db);
+    const baseAdapter = new PostgresAppendEventAdapter(db);
+    // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
+    // This deduplicates both the AppOpen event and the NegotiatedIntentIssued event on retry.
+    const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();

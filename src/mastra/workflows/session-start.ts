@@ -16,6 +16,7 @@ const SessionStartInput = z.object({
   studentId: z.string(),
   topic: z.string(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({
@@ -23,7 +24,7 @@ const appendAndComposeStep = createStep({
   inputSchema: SessionStartInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral' } = inputData;
+    const { studentId, topic, mode = 'Neutral', idempotencyKey } = inputData;
     const startedAt = new Date().toISOString();
 
     const payload = validateEventPayload('FirstActionStarted', {
@@ -38,6 +39,7 @@ const appendAndComposeStep = createStep({
       eventType: 'FirstActionStarted',
       topicId: topic,
       payload,
+      idempotencyKey: idempotencyKey ? `${idempotencyKey}:FirstActionStarted` : undefined,
     });
 
     const sdui = composeSessionView({
