@@ -34,4 +34,13 @@ describe('EiCommandEnvelopeSchema', () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  it('rejects unknown keys in envelope (returns 400, not silently stripped)', () => {
+    const parsed = EiCommandEnvelopeSchema.safeParse({
+      commandType: 'AppOpen',
+      payload: { initial: true },
+      unknownKey: 'x',
+    });
+    expect(parsed.success).toBe(false);
+  });
 });

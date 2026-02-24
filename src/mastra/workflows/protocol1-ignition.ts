@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { eiStore } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
+import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
@@ -51,8 +52,12 @@ const runP1Gate = createStep({
     // This deduplicates both the AppOpen event and the NegotiatedIntentIssued event on retry.
     const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+    const sessionRepo = new StudySessionRepositoryPg(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
+
+    // Resolve stable session identity via repository (Option A: server owns sessionId).
+    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
 
     await appendEvent.append({
       studentId,
@@ -67,11 +72,11 @@ const runP1Gate = createStep({
       },
     });
 
-    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine);
+    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine, sessionRepo);
     return handler.execute({
       studentId,
       topicId: topic,
-      sessionId: crypto.randomUUID(),
+      sessionId: session.sessionId,
       energy,
       sleepBucket,
       pressure,

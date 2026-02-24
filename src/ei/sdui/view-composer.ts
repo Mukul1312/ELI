@@ -235,6 +235,7 @@ export function composeP1View(
 
   // ── Build SduiResponse ──────────────────────────────────────────────────
 
+  const respondedAt = new Date().toISOString();
   return {
     schemaVersion: 1,
     phase: 'intent',
@@ -245,12 +246,15 @@ export function composeP1View(
         id: 'accept_intent',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
-          commandType: 'IntentSet',
+          commandType: 'IntentResponse',
           payload: {
+            negotiatedIntentId: output.negotiatedIntentId,
+            decision: 'accepted',
+            respondedAt,
             topic: output.topic,
             taskType: '{{taskType}}',
             difficultyTier: '{{difficultyTier}}',
-            setAt: new Date().toISOString(),
+            setAt: respondedAt,
           },
         },
       },
@@ -258,12 +262,15 @@ export function composeP1View(
         id: 'edit_intent',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
-          commandType: 'IntentSet',
+          commandType: 'IntentResponse',
           payload: {
+            negotiatedIntentId: output.negotiatedIntentId,
+            decision: 'edited',
+            respondedAt,
             topic: output.topic,
             taskType: '{{taskType}}',
             difficultyTier: '{{difficultyTier}}',
-            setAt: new Date().toISOString(),
+            setAt: respondedAt,
           },
         },
       },
@@ -271,10 +278,11 @@ export function composeP1View(
         id: 'reject_intent',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
-          commandType: 'AppOpen',
+          commandType: 'IntentResponse',
           payload: {
-            topic: '{{topic}}',
-            energy: '{{energy}}',
+            negotiatedIntentId: output.negotiatedIntentId,
+            decision: 'rejected',
+            respondedAt,
           },
         },
       },

@@ -4,4 +4,5 @@ export interface RunEiCommandInput {
   command: EiCommand;
   studentId: string;
   idempotencyKey?: string;
+  correlationId?: string;
 }

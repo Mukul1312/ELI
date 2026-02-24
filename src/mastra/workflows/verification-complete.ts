@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { eiStore } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
+import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composeDoneView } from '../../ei/sdui/view-composer';
 
@@ -37,7 +38,8 @@ const appendAndComposeStep = createStep({
       result: { questionsAttempted: q, score },
     });
 
-    const appendEvent = new PostgresAppendEventAdapter(eiStore.db);
+    const db = eiStore.db;
+    const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
       studentId,
       eventType: 'VerificationCompleted',
@@ -45,6 +47,14 @@ const appendAndComposeStep = createStep({
       payload,
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:VerificationCompleted` : undefined,
     });
+
+    // Close the active session for this topic — terminal outcome.
+    const sessionRepo = new StudySessionRepositoryPg(db);
+    const activeSession = await sessionRepo.findActiveByStudentTopic(studentId, topic);
+    if (activeSession) {
+      activeSession.close();
+      await sessionRepo.save(activeSession);
+    }
 
     const sdui = composeDoneView({ topic, mode });
 

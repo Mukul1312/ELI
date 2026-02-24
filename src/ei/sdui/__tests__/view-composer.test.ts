@@ -12,11 +12,12 @@ function baseDomainOutput(
   overrides: Partial<NegotiatedIntentIssuedOutput> = {},
 ): NegotiatedIntentIssuedOutput {
   return {
+    negotiatedIntentId: 'ni-test-123',
     studentId: 'student-1',
     mode: 'Neutral',
     playId: 'P1-N1',
     topic: 'Thermodynamics',
-    scope: { timeboxMin: 25, questionCount: 5, difficultyTier: 'medium' },
+    scope: { timeboxMin: 25, questionCount: 5, difficultyTier: 'med' },
     verificationPlan: { minQuestions: 2, preferVerifyNow: false },
     stateScore: 50,
     issuedAt: '2025-06-01T12:00:00Z',

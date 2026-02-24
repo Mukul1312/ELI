@@ -9,109 +9,171 @@
 import { z } from 'zod';
 
 /** First-touch: client requests checkin view before filling form. No topic/energy. */
-export const AppOpenFirstTouchSchema = z.object({
-  initial: z.literal(true),
-  isFirstOfDay: z.boolean().optional(),
-});
+export const AppOpenFirstTouchSchema = z
+  .object({
+    initial: z.literal(true),
+    isFirstOfDay: z.boolean().optional(),
+  })
+  .strict();
 
 /** Checkin-submitted: client sends topic, energy, etc. to run P1. */
-export const AppOpenFullPayloadSchema = z.object({
-  topic: z.string(),
-  energy: z.number().min(1).max(5),
-  sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
-  pressure: z.number().min(1).max(5).optional(),
-  backlogPressure: z.number().min(1).max(5).optional(),
-  openedAt: z.string().datetime().optional(),
-});
+export const AppOpenFullPayloadSchema = z
+  .object({
+    topic: z.string(),
+    energy: z.number().min(1).max(5),
+    sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
+    pressure: z.number().min(1).max(5).optional(),
+    backlogPressure: z.number().min(1).max(5).optional(),
+    openedAt: z.string().datetime().optional(),
+  })
+  .strict();
 
 export const AppOpenPayloadSchema = z.union([
   AppOpenFirstTouchSchema,
   AppOpenFullPayloadSchema,
 ]);
 
-export const IntentSetPayloadSchema = z.object({
-  topic: z.string(),
-  taskType: z.string().optional(),
-  setAt: z.string().datetime(),
-});
+export const IntentSetPayloadSchema = z
+  .object({
+    topic: z.string(),
+    taskType: z.string().optional(),
+    setAt: z.string().datetime(),
+  })
+  .strict();
 
-export const SessionEndPayloadSchema = z.object({
-  topic: z.string(),
-  endedAt: z.string().datetime(),
-  effortSummary: z.record(z.unknown()).optional(),
-});
+export const SessionEndPayloadSchema = z
+  .object({
+    topic: z.string(),
+    endedAt: z.string().datetime(),
+    effortSummary: z.record(z.unknown()).optional(),
+  })
+  .strict();
 
-export const SessionStartPayloadSchema = z.object({
-  topic: z.string(),
-  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-});
+export const SessionStartPayloadSchema = z
+  .object({
+    topic: z.string(),
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  })
+  .strict();
 
-export const ReplanPayloadSchema = z.object({
-  topic: z.string(),
-  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  reason: z.string().optional(),
-});
+export const ReplanPayloadSchema = z
+  .object({
+    topic: z.string(),
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    reason: z.string().optional(),
+  })
+  .strict();
 
-export const VerificationCompletePayloadSchema = z.object({
-  topic: z.string(),
-  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  questionsAttempted: z.union([z.number(), z.string()]),
-  correct: z.union([z.number(), z.string()]),
-  completedAt: z.string().datetime(),
-});
+export const VerificationCompletePayloadSchema = z
+  .object({
+    topic: z.string(),
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    questionsAttempted: z.union([z.number(), z.string()]),
+    correct: z.union([z.number(), z.string()]),
+    completedAt: z.string().datetime(),
+  })
+  .strict();
 
-export const RetrievalSchedulePayloadSchema = z.object({
-  topic: z.string(),
-  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  dueInHours: z.number(),
-  minQuestions: z.number().int(),
-});
+export const RetrievalSchedulePayloadSchema = z
+  .object({
+    topic: z.string(),
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    dueInHours: z.number(),
+    minQuestions: z.number().int(),
+  })
+  .strict();
 
-export const RetrievalSkipPayloadSchema = z.object({
-  topic: z.string(),
-  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  reason: z.string(),
-});
+export const RetrievalSkipPayloadSchema = z
+  .object({
+    topic: z.string(),
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    reason: z.string(),
+  })
+  .strict();
+
+export const IntentResponsePayloadSchema = z
+  .object({
+    negotiatedIntentId: z.string(),
+    decision: z.enum(['accepted', 'rejected', 'edited', 'ignored']),
+    respondedAt: z.string().datetime(),
+    topic: z.string().optional(),
+    taskType: z.string().optional(),
+    difficultyTier: z.union([z.number(), z.string()]).optional(),
+    setAt: z.string().datetime().optional(),
+  })
+  .strict();
+
+/** Allowed envelope keys: commandType, payload, idempotencyKey. Strict rejects any other key. */
+const idempotencyEnvelope = { idempotencyKey: z.string().optional() };
 
 export const EiCommandSchema = z.discriminatedUnion('commandType', [
-  z.object({
-    commandType: z.literal('AppOpen'),
-    payload: AppOpenPayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('IntentSet'),
-    payload: IntentSetPayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('SessionEnd'),
-    payload: SessionEndPayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('SessionStart'),
-    payload: SessionStartPayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('Replan'),
-    payload: ReplanPayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('VerificationComplete'),
-    payload: VerificationCompletePayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('RetrievalSchedule'),
-    payload: RetrievalSchedulePayloadSchema,
-  }),
-  z.object({
-    commandType: z.literal('RetrievalSkip'),
-    payload: RetrievalSkipPayloadSchema,
-  }),
+  z
+    .object({
+      commandType: z.literal('AppOpen'),
+      payload: AppOpenPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('IntentSet'),
+      payload: IntentSetPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('SessionEnd'),
+      payload: SessionEndPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('SessionStart'),
+      payload: SessionStartPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('Replan'),
+      payload: ReplanPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('VerificationComplete'),
+      payload: VerificationCompletePayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('RetrievalSchedule'),
+      payload: RetrievalSchedulePayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('RetrievalSkip'),
+      payload: RetrievalSkipPayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
+  z
+    .object({
+      commandType: z.literal('IntentResponse'),
+      payload: IntentResponsePayloadSchema,
+      ...idempotencyEnvelope,
+    })
+    .strict(),
 ]);
 
-/** Command envelope: EiCommand + optional idempotencyKey for retry safety. */
-export const EiCommandEnvelopeSchema = EiCommandSchema.and(
-  z.object({ idempotencyKey: z.string().optional() }),
-);
+/** Command envelope: EiCommand + optional idempotencyKey for retry safety. Strict schema rejects unknown keys. */
+export const EiCommandEnvelopeSchema = EiCommandSchema;
 export type EiCommandEnvelope = z.infer<typeof EiCommandEnvelopeSchema>;
 
 export type AppOpenPayload = z.infer<typeof AppOpenPayloadSchema>;
@@ -131,4 +193,5 @@ export type ReplanPayload = z.infer<typeof ReplanPayloadSchema>;
 export type VerificationCompletePayload = z.infer<typeof VerificationCompletePayloadSchema>;
 export type RetrievalSchedulePayload = z.infer<typeof RetrievalSchedulePayloadSchema>;
 export type RetrievalSkipPayload = z.infer<typeof RetrievalSkipPayloadSchema>;
+export type IntentResponsePayload = z.infer<typeof IntentResponsePayloadSchema>;
 export type EiCommand = z.infer<typeof EiCommandSchema>;

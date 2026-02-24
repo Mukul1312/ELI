@@ -131,6 +131,22 @@ const SQL_STATEMENTS = [
    ON ei_radar_alerts (student_id, alert_type)`,
 
   // ================================================================
+  // 5b. ei_study_sessions (concurrency safety, phase derivation)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS ei_study_sessions (
+    id                    TEXT PRIMARY KEY,
+    student_id            TEXT NOT NULL,
+    topic_id              TEXT NOT NULL,
+    status                TEXT NOT NULL CHECK (status IN ('negotiating','activating','active','verifying','closed')),
+    negotiated_intent_id  TEXT,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_study_sessions_active_per_topic
+   ON ei_study_sessions (student_id, topic_id) WHERE status IN ('negotiating','activating','active')`,
+
+  // ================================================================
   // 6. CohortAccess tables (institutes, cohorts, students, membership, roles)
   // ================================================================
   `CREATE TABLE IF NOT EXISTS institutes (

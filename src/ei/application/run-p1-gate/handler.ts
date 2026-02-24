@@ -15,6 +15,7 @@ import type { IAssessLoopHealthUseCase } from '../assess-loop-health/port';
 import type { IAppendEventPort } from '../shared/port-append-event';
 import type { IProtocolEngine } from '../../domain/study-session/protocol-engine';
 import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
+import type { IStudySessionRepository } from '../../domain/study-session/repository';
 
 import { StudySession } from '../../domain/study-session/study-session';
 import { P1GateContext } from '../../domain/study-session/value-objects/gate-context';
@@ -33,6 +34,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     private readonly assessLoopHealth: IAssessLoopHealthUseCase,
     private readonly appendEvent: IAppendEventPort,
     private readonly protocolEngine: IProtocolEngine,
+    private readonly sessionRepo?: IStudySessionRepository,
   ) {}
 
   async execute(command: RunP1GateCommand): Promise<NegotiatedIntentIssuedOutput> {
@@ -117,8 +119,11 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     // ── 9. Pull domain events + build output ─────────────────────────────────
     const domainEvents = session.pullDomainEvents();
     const negotiatedIntent = session.negotiatedIntent!;
+    const negotiatedIntentId = crypto.randomUUID();
+    const issuedAt = new Date().toISOString();
 
     const output: NegotiatedIntentIssuedOutput = {
+      negotiatedIntentId,
       studentId,
       mode: negotiatedIntent.mode,
       playId: negotiatedIntent.playId,
@@ -127,17 +132,26 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
       verificationPlan: negotiatedIntent.verificationPlan,
       constraints: negotiatedIntent.constraints,
       stateScore: negotiatedIntent.stateScore,
-      issuedAt: new Date().toISOString(),
+      issuedAt,
     };
 
     // ── 10. Persist to Ledger ─────────────────────────────────────────────────
     for (const event of domainEvents) {
+      const payload =
+        event.eventType === 'NegotiatedIntentIssued'
+          ? { ...event.payload, negotiatedIntentId }
+          : event.payload;
       await this.appendEvent.append({
         studentId,
         eventType: event.eventType,
         topicId,
-        payload: event.payload,
+        payload,
       });
+    }
+
+    // ── 11. Persist session status transition (negotiating → activating) ──────
+    if (this.sessionRepo) {
+      await this.sessionRepo.save(session);
     }
 
     return output;

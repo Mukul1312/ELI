@@ -14,6 +14,7 @@ import { eiStore } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
+import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
@@ -49,20 +50,25 @@ const runP2Gate = createStep({
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
     const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const queryEvents = new PostgresQueryEventsAdapter(db);
+    const sessionRepo = new StudySessionRepositoryPg(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
+
+    // Resolve stable session identity via repository (Option A: server owns sessionId).
+    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
 
     const handler = new RunP2GateHandler(
       signalsPort,
       assessLoopHealth,
       appendEvent,
       queryEvents,
-      protocolEngine
+      protocolEngine,
+      sessionRepo,
     );
     return handler.execute({
       studentId,
       topicId: topic,
-      sessionId: crypto.randomUUID(),
+      sessionId: session.sessionId,
       setAt,
       taskType,
     });

@@ -16,6 +16,7 @@ import type { IAppendEventPort } from '../shared/port-append-event';
 import type { IQueryEventsPort } from '../shared/port-query-events';
 import type { IProtocolEngine } from '../../domain/study-session/protocol-engine';
 import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
+import type { IStudySessionRepository } from '../../domain/study-session/repository';
 
 import { StudySession } from '../../domain/study-session/study-session';
 import { P3GateContext } from '../../domain/study-session/value-objects/gate-context';
@@ -37,6 +38,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
     private readonly appendEvent: IAppendEventPort,
     private readonly queryEvents: IQueryEventsPort,
     private readonly protocolEngine: IProtocolEngine,
+    private readonly sessionRepo?: IStudySessionRepository,
   ) {}
 
   async execute(command: RunP3GateCommand): Promise<VerificationDecisionIssuedOutput> {
@@ -169,6 +171,11 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
         topicId,
         payload: event.payload,
       });
+    }
+
+    // ── 11. Persist session status transition (active → verifying) ────────────
+    if (this.sessionRepo) {
+      await this.sessionRepo.save(session);
     }
 
     return output;

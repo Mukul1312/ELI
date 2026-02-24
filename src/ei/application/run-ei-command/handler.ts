@@ -15,13 +15,20 @@ import { replanWorkflow } from '../../../mastra/workflows/replan';
 import { verificationCompleteWorkflow } from '../../../mastra/workflows/verification-complete';
 import { retrievalScheduleWorkflow } from '../../../mastra/workflows/retrieval-schedule';
 import { retrievalSkipWorkflow } from '../../../mastra/workflows/retrieval-skip';
+import { intentResponseWorkflow } from '../../../mastra/workflows/intent-response';
 
-import { InvalidCommandError } from './errors';
+import { InvalidCommandError, InvalidTransitionError } from './errors';
 import type { IRunEiCommandUseCase } from './port';
 import type { RunEiCommandInput } from './command';
+import type { IQueryEventsPort } from '../shared/port-query-events';
+import { PhaseDeriver } from './phase-deriver';
 
 export class RunEiCommandHandler implements IRunEiCommandUseCase {
+  constructor(private readonly queryEvents?: IQueryEventsPort) {}
+
   async execute({ command, studentId, idempotencyKey }: RunEiCommandInput): Promise<unknown> {
+    const deriver = this.queryEvents ? new PhaseDeriver(this.queryEvents) : null;
+
     switch (command.commandType) {
       case 'AppOpen': {
         // eiAppOpenWorkflow handles initial:true (checkin view) vs full-payload (P1/P2) internally
@@ -37,18 +44,36 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
 
       case 'IntentSet': {
         const { topic, setAt, taskType } = command.payload;
+        if (deriver) {
+          const phase = await deriver.derivePhase(studentId, topic);
+          if (!phase.hasIntent) {
+            throw new InvalidTransitionError('IntentSet requires a recent NegotiatedIntentIssued for this topic');
+          }
+        }
         const run = await protocol2ActivationWorkflow.createRun();
         return run.start({ inputData: { studentId, topic, setAt, taskType, idempotencyKey } });
       }
 
       case 'SessionEnd': {
         const { topic, endedAt } = command.payload;
+        if (deriver) {
+          const phase = await deriver.derivePhase(studentId, topic);
+          if (!phase.hasActivationPlan) {
+            throw new InvalidTransitionError('SessionEnd requires a recent ActivationPlanIssued for this topic');
+          }
+        }
         const run = await protocol3VerificationWorkflow.createRun();
         return run.start({ inputData: { studentId, topic, endedAt, idempotencyKey } });
       }
 
       case 'SessionStart': {
         const { topic, mode } = command.payload;
+        if (deriver) {
+          const phase = await deriver.derivePhase(studentId, topic);
+          if (!phase.hasActivationPlan) {
+            throw new InvalidTransitionError('SessionStart requires a recent ActivationPlanIssued for this topic');
+          }
+        }
         const run = await sessionStartWorkflow.createRun();
         return run.start({ inputData: { studentId, topic, mode, idempotencyKey } });
       }
@@ -75,6 +100,24 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
         const { topic, mode, reason } = command.payload;
         const run = await retrievalSkipWorkflow.createRun();
         return run.start({ inputData: { studentId, topic, mode, reason, idempotencyKey } });
+      }
+
+      case 'IntentResponse': {
+        const { negotiatedIntentId, decision, respondedAt, topic, taskType, difficultyTier, setAt } = command.payload;
+        const run = await intentResponseWorkflow.createRun();
+        return run.start({
+          inputData: {
+            studentId,
+            negotiatedIntentId,
+            decision,
+            respondedAt,
+            topic,
+            taskType,
+            difficultyTier,
+            setAt,
+            idempotencyKey,
+          },
+        });
       }
 
       default: {

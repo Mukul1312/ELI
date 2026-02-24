@@ -110,6 +110,107 @@ export async function queryEvents(
   );
 }
 
+// ============================================================================
+// ei_study_sessions queries
+// ============================================================================
+
+export interface StudySessionRow {
+  id: string;
+  student_id: string;
+  topic_id: string;
+  status: string;
+  negotiated_intent_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export async function getStudySession(
+  db: DbClient,
+  sessionId: string,
+): Promise<StudySessionRow | null> {
+  return db.oneOrNone('SELECT * FROM ei_study_sessions WHERE id = $1', [sessionId]);
+}
+
+export async function upsertStudySession(
+  db: DbClient,
+  id: string,
+  studentId: string,
+  topicId: string,
+  status: string,
+  negotiatedIntentId?: string | null,
+): Promise<StudySessionRow> {
+  const now = new Date();
+  return db.one(
+    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, negotiated_intent_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET status = $4, negotiated_intent_id = COALESCE($5, ei_study_sessions.negotiated_intent_id), updated_at = $6
+     RETURNING *`,
+    [id, studentId, topicId, status, negotiatedIntentId ?? null, now],
+  );
+}
+
+/**
+ * Find the active session for (studentId, topicId) — status in the partial-index set.
+ */
+export async function findActiveStudySession(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<StudySessionRow | null> {
+  return db.oneOrNone(
+    `SELECT * FROM ei_study_sessions
+     WHERE student_id = $1
+       AND topic_id   = $2
+       AND status IN ('negotiating', 'activating', 'active', 'verifying')
+     LIMIT 1`,
+    [studentId, topicId],
+  );
+}
+
+/**
+ * Insert a new session row. Callers must handle the unique-violation from the
+ * partial index on (student_id, topic_id) for active-set statuses.
+ */
+export async function insertStudySession(
+  db: DbClient,
+  id: string,
+  studentId: string,
+  topicId: string,
+  status: string,
+): Promise<StudySessionRow> {
+  const now = new Date();
+  return db.one(
+    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, updated_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [id, studentId, topicId, status, now],
+  );
+}
+
+/**
+ * Update session status (and optionally negotiated_intent_id) by primary key.
+ */
+export async function updateStudySessionStatus(
+  db: DbClient,
+  id: string,
+  status: string,
+  negotiatedIntentId?: string | null,
+): Promise<void> {
+  const now = new Date();
+  await db.none(
+    `UPDATE ei_study_sessions
+        SET status = $2,
+            negotiated_intent_id = COALESCE($3, negotiated_intent_id),
+            updated_at = $4
+      WHERE id = $1`,
+    [id, status, negotiatedIntentId ?? null, now],
+  );
+}
+
+// ============================================================================
+// ei_events (continued)
+// ============================================================================
+
 /** Per-topic event counts in the last 7 days for SA efficiency diagnosis. */
 export interface TopicEventCounts7d {
   topicId: string;
@@ -177,6 +278,20 @@ export async function getAllTopicStates(
   return db.any(
     'SELECT * FROM ei_topic_state WHERE student_id = $1 ORDER BY updated_at DESC',
     [studentId],
+  );
+}
+
+/** Rows where scheduled verification is past due and not completed (no retrieval after due). */
+export async function getPastDueScheduledTopicStates(
+  db: DbClient,
+  before: Date,
+): Promise<TopicStateRow[]> {
+  return db.any(
+    `SELECT * FROM ei_topic_state
+     WHERE last_scheduled_due_at IS NOT NULL
+       AND last_scheduled_due_at < $1
+       AND (last_retrieval_at IS NULL OR last_retrieval_at < last_scheduled_due_at)`,
+    [before],
   );
 }
 

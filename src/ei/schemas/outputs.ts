@@ -19,6 +19,7 @@ export type Mode = z.infer<typeof ModeEnum>;
 // ============================================================================
 
 export const NegotiatedIntentIssuedSchema = z.object({
+  negotiatedIntentId: z.string(),
   studentId: z.string(),
   mode: ModeEnum,
   playId: z.string(),

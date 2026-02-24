@@ -7,7 +7,7 @@
 export interface AppendEventPayload {
   studentId: string;
   eventType: string;
-  topicId: string;
+  topicId: string | null;
   payload: Record<string, unknown>;
   /** Optional idempotency key — stored in ei_idempotency_keys; prevents duplicate events on retry. */
   idempotencyKey?: string;

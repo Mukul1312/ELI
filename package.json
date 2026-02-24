@@ -12,6 +12,8 @@
     "test:integration": "vitest run --testPathPattern=topic-loop-repository.pg.test"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.0",
+    "@upstash/redis": "^1.34.0",
     "@mastra/core": "latest",
     "@mastra/deployer-vercel": "^1.0.5",
     "@mastra/pg": "latest",
