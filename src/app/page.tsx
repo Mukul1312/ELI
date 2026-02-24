@@ -53,15 +53,32 @@ export default function Home() {
     return res.json() as Promise<SduiResponse>;
   }, []);
 
-  // On mount: POST AppOpen to get initial checkin view (fires once)
+  // On mount: ensure session exists, then POST AppOpen (avoids 401 race when cookie not yet set)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const idempotencyKey = crypto.randomUUID();
-    api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey)
-      .then(res => { if (!cancelled) setCurrentSduiResponse(res); })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    setError(null);
+    const run = async () => {
+      try {
+        const sessionRes = await fetch('/api/auth/get-session', { credentials: 'include' });
+        const sessionData = sessionRes.ok ? await sessionRes.json() : null;
+        const hasSession = !!sessionData?.user?.id || !!sessionData?.session;
+        if (cancelled) return;
+        if (!hasSession) {
+          setError('Please sign in');
+          setLoading(false);
+          return;
+        }
+        const idempotencyKey = crypto.randomUUID();
+        const res = await api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey);
+        if (!cancelled) setCurrentSduiResponse(res);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
