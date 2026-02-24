@@ -226,9 +226,8 @@ export interface SADials {
   scheduleAllowed: boolean; // can P3 use ScheduleVerify?
   dueInHoursDefault?: number; // default scheduling window
   constraints: {
-    closeLoopsFirst?: boolean; // must close 1 loop before new topic
     noNewTopicUntil?: string; // e.g., "1LoopClosed"
-    closeOldestOpenLoopFirst?: boolean;
+    closeOldestOpenLoopFirst?: boolean; // must close oldest open loop before new topic
     maxOpenLoops?: number;
     forceQualityVerification?: boolean; // error-log/recall format
   };
@@ -302,7 +301,6 @@ export function computeDials(
       dials.difficultyTierDelta = 0; // maintain difficulty
       dials.minQuestionsDefault = 2;
       dials.scheduleAllowed = aggregates.scheduleMisses7d < 2; // disallow if misses >= 2
-      dials.constraints.closeLoopsFirst = true;
       dials.constraints.noNewTopicUntil = '1LoopClosed';
       dials.constraints.closeOldestOpenLoopFirst = true;
       dials.constraints.maxOpenLoops = SA_INTEGRITY_MAX_OPEN_LOOPS;
@@ -313,7 +311,6 @@ export function computeDials(
       dials.difficultyTierDelta = 0;
       dials.minQuestionsDefault = 1; // absolute minimum
       dials.scheduleAllowed = false; // force VerifyNow only
-      dials.constraints.closeLoopsFirst = true;
       dials.constraints.noNewTopicUntil = '1LoopClosed';
       dials.constraints.closeOldestOpenLoopFirst = true;
       dials.constraints.maxOpenLoops = 2;

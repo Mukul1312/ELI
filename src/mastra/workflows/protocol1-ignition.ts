@@ -1,214 +1,87 @@
 /**
- * Protocol 1: Ignition Workflow (thin orchestrator)
+ * Protocol 1: Ignition Workflow (structured documentation)
  *
- * Trigger: AppOpen event (student opens the app)
- * Output:  NegotiatedIntentIssued event
- *
- * Flow:
- *   loadStudentContext  -> tools: computeAggregates, getPolicy, getAllTopicStates, queryEvents
- *   computeScores       -> pure: computeStateScore, computeIntentScore, computeAmbitionDelta
- *   classifyAndSelect   -> pure: assignP1Label -> resolveMode -> escalation (PatternA/B/C) -> selectPlay
- *   executeAndEmit      -> pure: executePlay -> tool: appendEvent(NegotiatedIntentIssued)
- *
- * After the client receives NegotiatedIntentIssued, it MUST send an IntentResponse
- * event when the student accepts / edits / rejects / ignores the intent.
+ * Orchestration delegates to RunP1GateHandler (same as POST /api/ei/protocol1).
  *
  * @see EI_Protocol_1_Ignition.md
  * @see EI_Engine_Taxonomy.md sections 3.1, 4
  */
 
-import { createStep } from '@mastra/core/workflows';
-import { createWorkflow } from '@mastra/core/workflows';
+import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-// Engine layers (pure functions)
-import { computeStateScore, computeIntentScore, computeAmbitionDelta } from '../../ei/engine/score';
-import { assignP1Label, resolveMode } from '../../ei/engine/classify';
-import type { StudentAggregates, StudentPolicy, P1Context } from '../../ei/engine/classify';
-import { computeEscalationContext } from '../../ei/engine/escalation';
-import type { IntentResponseEvent, NegotiatedIntentEvent } from '../../ei/engine/escalation';
-import { selectPlay } from '../../ei/engine/plays';
-import type { PlayContext } from '../../ei/engine/plays';
-import { executeP1Play } from '../../ei/engine/play-executor';
-import { applyDoNoHarmGuardrail } from '../../ei/engine/escalation';
+import { eiStore } from '../../ei/runtime/db';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
+import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
+import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
+import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
+import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
+import { NegotiatedIntentIssuedSchema } from '../../ei/schemas/outputs';
+import { P1WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { composeP1ViewStep } from './steps/compose-p1-view';
 
 // ============================================================================
-// Step 1: Load student context via tools
+// Input / output schemas
 // ============================================================================
 
-const loadStudentContext = createStep({
-  id: 'load-student-context',
-  inputSchema: z.object({
-    studentId: z.string(),
-    energy: z.number().min(1).max(5),
-    sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']),
-    pressure: z.number().min(1).max(5),
-    backlogPressure: z.number().min(1).max(5),
-    openedAt: z.string().datetime(),
-  }),
-  outputSchema: z.object({
-    studentId: z.string(),
-    energy: z.number(),
-    sleepBucket: z.string(),
-    pressure: z.number(),
-    backlogPressure: z.number(),
-    aggregates: z.any(),
-    policy: z.any(),
-    topicStates: z.any(),
-    recentIntents: z.any(),
-    recentResponses: z.any(),
-  }),
-  execute: async ({ inputData }) => {
-    const { studentId, energy, sleepBucket, pressure, backlogPressure } = inputData;
-
-    // Call tools to load context
-    // NOTE: In actual implementation, these would be calls to the Mastra tool runner
-    // e.g., const aggregates = await mapiClient.runTool('computeAggregates', { studentId });
-    // For now, these are placeholders showing the shape of tool calls.
-
-    const aggregates = {} as StudentAggregates; // tool: computeAggregates({ studentId })
-    const policy = {} as StudentPolicy; // tool: getPolicy({ studentId })
-    const topicStates: unknown[] = []; // tool: getAllTopicStates({ studentId })
-    const recentIntents = [] as NegotiatedIntentEvent[]; // tool: queryEvents({ studentId, filters: { eventTypes: ['NegotiatedIntentIssued'] } })
-    const recentResponses = [] as IntentResponseEvent[]; // tool: queryEvents({ studentId, filters: { eventTypes: ['IntentResponse'] } })
-
-    return {
-      studentId,
-      energy,
-      sleepBucket,
-      pressure,
-      backlogPressure,
-      aggregates,
-      policy,
-      topicStates,
-      recentIntents,
-      recentResponses,
-    };
-  },
+const P1Input = z.object({
+  studentId: z.string(),
+  topic: z.string(),
+  energy: z.number().min(1).max(5),
+  sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']),
+  pressure: z.number().min(1).max(5),
+  backlogPressure: z.number().min(1).max(5),
+  openedAt: z.string().datetime().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 // ============================================================================
-// Step 2: Compute scores (pure)
+// Steps
 // ============================================================================
 
-const computeScores = createStep({
-  id: 'compute-scores',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { energy, sleepBucket, pressure, backlogPressure } = inputData;
+const runP1Gate = createStep({
+  id: 'run-p1-gate',
+  inputSchema: P1Input,
+  outputSchema: NegotiatedIntentIssuedSchema,
+  execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
+    const { studentId, topic, energy, sleepBucket, pressure, backlogPressure, idempotencyKey } = inputData;
+    const db = eiStore.db;
+    const baseAdapter = new PostgresAppendEventAdapter(db);
+    // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
+    // This deduplicates both the AppOpen event and the NegotiatedIntentIssued event on retry.
+    const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
+    const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+    const sessionRepo = new StudySessionRepositoryPg(db);
+    const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
+    const protocolEngine = new ProtocolEngine();
 
-    const stateScore = computeStateScore({
+    // Resolve stable session identity via repository (Option A: server owns sessionId).
+    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
+
+    await appendEvent.append({
+      studentId,
+      eventType: 'AppOpen',
+      topicId: topic,
+      payload: {
+        energy,
+        sleepBucket,
+        pressure,
+        backlogPressure,
+        openedAt: new Date().toISOString(),
+      },
+    });
+
+    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine, sessionRepo);
+    return handler.execute({
+      studentId,
+      topicId: topic,
+      sessionId: session.sessionId,
       energy,
-      sleepBucket: sleepBucket as '<6' | '6-7' | '7-8' | '>=8',
+      sleepBucket,
       pressure,
       backlogPressure,
     });
-
-    return {
-      ...inputData,
-      stateScore,
-    };
-  },
-});
-
-// ============================================================================
-// Step 3: Classify, check escalation, select play (pure)
-// ============================================================================
-
-const classifyAndSelectPlay = createStep({
-  id: 'classify-and-select-play',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const {
-      energy,
-      sleepBucket,
-      pressure,
-      backlogPressure,
-      aggregates,
-      policy,
-      recentIntents,
-      recentResponses,
-      stateScore,
-    } = inputData;
-
-    const p1Context: P1Context = { energy, sleepBucket, pressure, backlogPressure };
-
-    // 1. Assign label
-    const label = assignP1Label(p1Context, aggregates);
-
-    // 2. Resolve mode (applies 6 precedence rules)
-    let mode = resolveMode(label, aggregates, policy);
-
-    // 3. Check escalation (failure patterns A/B/C)
-    const escalation = computeEscalationContext(
-      aggregates,
-      energy,
-      pressure,
-      backlogPressure,
-      sleepBucket as '<6' | '6-7' | '7-8' | '>=8',
-      recentIntents,
-      recentResponses,
-    );
-
-    // 4. Apply do-no-harm guardrail
-    mode = applyDoNoHarmGuardrail(
-      mode,
-      aggregates,
-      energy,
-      pressure,
-      sleepBucket as '<6' | '6-7' | '7-8' | '>=8',
-    );
-
-    // 5. Build play context and select play
-    const playContext: PlayContext = {
-      studentId: inputData.studentId,
-      aggregates,
-      tightnessLevel: escalation.tightnessLevel,
-      p1FailurePatterns: escalation.p1FailurePatterns,
-      currentEnergy: energy,
-      currentPressure: pressure,
-      currentBacklogPressure: backlogPressure,
-      loopLatencyTrend: aggregates.loopLatencyTrend,
-    };
-
-    const play = selectPlay(1, mode, playContext);
-
-    return {
-      ...inputData,
-      label,
-      mode,
-      play,
-      escalation,
-      playContext,
-    };
-  },
-});
-
-// ============================================================================
-// Step 4: Execute play and emit event (pure + tool)
-// ============================================================================
-
-const executeAndEmit = createStep({
-  id: 'execute-and-emit',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { play, playContext, policy, stateScore } = inputData;
-
-    // Execute the selected play to produce the output contract
-    const output = executeP1Play(play, playContext, policy, stateScore);
-
-    // In actual implementation: tool call to appendEvent('NegotiatedIntentIssued', output)
-    // const result = await mapiClient.runTool('appendEvent', {
-    //   studentId: output.studentId,
-    //   eventType: 'NegotiatedIntentIssued',
-    //   topicId: output.topicId,
-    //   payload: output,
-    // });
-
-    return output;
   },
 });
 
@@ -218,18 +91,19 @@ const executeAndEmit = createStep({
 
 export const protocol1IgnitionWorkflow = createWorkflow({
   id: 'ei-protocol1-ignition',
-  inputSchema: z.object({
-    studentId: z.string(),
-    energy: z.number().min(1).max(5),
-    sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']),
-    pressure: z.number().min(1).max(5),
-    backlogPressure: z.number().min(1).max(5),
-    openedAt: z.string().datetime(),
-  }),
-  outputSchema: z.any(),
+  inputSchema: P1Input,
+  outputSchema: P1WrappedResponseSchema,
 })
-  .then(loadStudentContext)
-  .then(computeScores)
-  .then(classifyAndSelectPlay)
-  .then(executeAndEmit)
+  .then(runP1Gate)
+  .map(async ({ inputData, getInitData }) => {
+    const workflowInput = getInitData() as z.infer<typeof P1Input>;
+    return {
+      domainOutput: inputData,
+      workflowInput: {
+        energy: workflowInput.energy,
+        pressure: workflowInput.pressure,
+      },
+    };
+  })
+  .then(composeP1ViewStep)
   .commit();

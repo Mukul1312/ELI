@@ -1,0 +1,17 @@
+'use client';
+
+import type { SduiGuardrailsCard } from '@/ei/sdui/types/components';
+
+export function SduiGuardrailsCard({ node }: { node: SduiGuardrailsCard }) {
+  const { title, rules } = node.props;
+  return (
+    <div style={{ marginBottom: 16, background: '#1c1917', borderRadius: 8, padding: '12px 14px', border: '1px solid #3f3f46' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{title}</div>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#a1a1aa' }}>
+        {rules.map((r, i) => (
+          <li key={i}>{r}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}

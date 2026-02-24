@@ -1,236 +1,88 @@
 /**
- * Protocol 3: Verification Workflow (thin orchestrator)
+ * Protocol 3: Verification Workflow (structured documentation)
  *
- * Trigger: SessionEnd event (student finishes a study session)
- * Output:  VerificationDecisionIssued event
- *
- * Flow:
- *   loadStudentContext  -> tools: computeAggregates, getPolicy, getTopicState, queryEvents
- *   checkCrossProtocol  -> pure:  read P1 verificationPlan floor + P2 watch-only flag from events
- *   classifyAndSelect   -> pure:  assignP3Label -> resolveMode -> escalation -> selectPlay
- *   executeAndEmit      -> pure:  executePlay (respects cross-protocol constraints) -> tool: appendEvent
- *   updateTopicState    -> tools: based on decision: emit RetrievalVerified/Scheduled/Skipped, updateTMS
- *
- * When a student later completes a scheduled verification (not during SessionEnd),
- * the client MUST send a VerificationCompleted event. That event is handled by
- * appendEvent tool directly (closes OpenLoop, updates TMS, resets SilenceDays).
- *
- * Anti-gaming: if time-per-question < ANTI_GAMING_TIME_PER_Q_SEC AND repeated
- * wrong answers, override to B3-02 (error-log format).
+ * Orchestration delegates to RunP3GateHandler (same as POST /api/ei/protocol3).
  *
  * @see EI_Protocol_3_Verification.md
  * @see EI_Engine_Taxonomy.md sections 3.3, 4
  */
 
-import { createStep } from '@mastra/core/workflows';
-import { createWorkflow } from '@mastra/core/workflows';
+import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-// Engine layers (pure functions)
-import { assignP3Label, resolveMode } from '../../ei/engine/classify';
-import type { StudentAggregates, StudentPolicy, P3Context } from '../../ei/engine/classify';
-import { computeTightnessLevel, getP3Escalation, applyDoNoHarmGuardrail } from '../../ei/engine/escalation';
-import { selectPlay } from '../../ei/engine/plays';
-import type { PlayContext } from '../../ei/engine/plays';
-import { executeP3Play } from '../../ei/engine/play-executor';
-import {
-  findP1VerificationFloorFromEvents,
-  findP2WatchOnlyFlagFromEvents,
-} from '../../ei/engine/cross-protocol';
-import type { StoredEvent } from '../../ei/engine/cross-protocol';
-import { ANTI_GAMING_TIME_PER_Q_SEC } from '../../ei/engine/tunables';
+import { eiStore } from '../../ei/runtime/db';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
+import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
+import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
+import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
+import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
+import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
+import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
+import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { composeP3ViewStep } from './steps/compose-p3-view';
 
 // ============================================================================
-// Step 1: Load student context via tools
+// Schemas
 // ============================================================================
 
-const loadStudentContext = createStep({
-  id: 'load-student-context',
-  inputSchema: z.object({
-    studentId: z.string(),
-    topic: z.string(),
-    endedAt: z.string().datetime(),
-  }),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { studentId, topic } = inputData;
-
-    // tool: computeAggregates({ studentId })
-    const aggregates = {} as StudentAggregates;
-    // tool: getPolicy({ studentId })
-    const policy = {} as StudentPolicy;
-    // tool: getTopicState({ studentId, topicId: topic })
-    const topicState = {};
-    // tool: queryEvents({ studentId, filters: { eventTypes: ['NegotiatedIntentIssued', 'ActivationPlanIssued', 'RetrievalVerified', 'RetrievalScheduled'] } })
-    const recentEvents: StoredEvent[] = [];
-
-    return {
-      ...inputData,
-      aggregates,
-      policy,
-      topicState,
-      recentEvents,
-    };
-  },
+const P3Input = z.object({
+  studentId: z.string(),
+  topic: z.string(),
+  endedAt: z.string().datetime(),
+  idempotencyKey: z.string().optional(),
 });
 
 // ============================================================================
-// Step 2: Check cross-protocol constraints (pure)
+// Steps
 // ============================================================================
 
-const checkCrossProtocol = createStep({
-  id: 'check-cross-protocol',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { recentEvents } = inputData;
+const runP3Gate = createStep({
+  id: 'run-p3-gate',
+  inputSchema: P3Input,
+  outputSchema: VerificationDecisionIssuedSchema,
+  execute: async ({ inputData }): Promise<z.infer<typeof VerificationDecisionIssuedSchema>> => {
+    const { studentId, topic, endedAt, idempotencyKey } = inputData;
+    const db = eiStore.db;
+    const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+    const baseAdapter = new PostgresAppendEventAdapter(db);
+    // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
+    const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
+    const queryEvents = new PostgresQueryEventsAdapter(db);
+    const sessionRepo = new StudySessionRepositoryPg(db);
+    const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
+    const protocolEngine = new ProtocolEngine();
 
-    // Read P1 verification floor from the most recent NegotiatedIntentIssued
-    const p1VerificationFloor = findP1VerificationFloorFromEvents(recentEvents);
+    // Resolve stable session identity via repository (Option A: server owns sessionId).
+    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
 
-    // Read P2 watch-only flag from the most recent ActivationPlanIssued
-    const p2WatchOnlyFlag = findP2WatchOnlyFlagFromEvents(recentEvents);
-
-    // Check if any retrieval/schedule already happened this session
-    const hasRetrieval = recentEvents.some(
-      (e: StoredEvent) => e.eventType === 'RetrievalVerified'
+    const handler = new RunP3GateHandler(
+      signalsPort,
+      assessLoopHealth,
+      appendEvent,
+      queryEvents,
+      protocolEngine,
+      sessionRepo,
     );
-    const hasSchedule = recentEvents.some(
-      (e: StoredEvent) => e.eventType === 'RetrievalScheduled'
-    );
-
-    return {
-      ...inputData,
-      p1VerificationFloor,
-      p2WatchOnlyFlag,
-      hasRetrieval,
-      hasSchedule,
-    };
+    return handler.execute({
+      studentId,
+      topicId: topic,
+      sessionId: session.sessionId,
+      endedAt,
+    });
   },
 });
 
 // ============================================================================
-// Step 3: Classify, check escalation, select play (pure)
-// ============================================================================
-
-const classifyAndSelectPlay = createStep({
-  id: 'classify-and-select-play',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { aggregates, policy, hasRetrieval, hasSchedule } = inputData;
-
-    const p3Context: P3Context = {
-      hasRetrieval,
-      hasSchedule,
-    };
-
-    // 1. Assign label
-    const label = assignP3Label(p3Context, aggregates);
-
-    // 2. Resolve mode
-    const mode = resolveMode(label, aggregates, policy);
-
-    // 3. Check P3-specific escalation
-    const tightnessLevel = computeTightnessLevel(aggregates);
-    const p3Escalation = getP3Escalation(aggregates);
-
-    // 4. Build play context and select play
-    const playContext: PlayContext = {
-      studentId: inputData.studentId,
-      topicId: inputData.topic,
-      aggregates,
-      tightnessLevel,
-      p3Escalation,
-      hasRetrieval,
-      hasSchedule,
-      loopLatencyTrend: aggregates.loopLatencyTrend,
-    };
-
-    const play = selectPlay(3, mode, playContext);
-
-    return {
-      ...inputData,
-      label,
-      mode,
-      play,
-      playContext,
-      tightnessLevel,
-      p3Escalation,
-    };
-  },
-});
-
-// ============================================================================
-// Step 4: Execute play and emit event (pure + tool)
-// ============================================================================
-
-const executeAndEmit = createStep({
-  id: 'execute-and-emit',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { play, playContext, policy, p1VerificationFloor, p2WatchOnlyFlag } = inputData;
-
-    // Execute the play with cross-protocol constraints applied
-    const output = executeP3Play(
-      play,
-      playContext,
-      policy,
-      p1VerificationFloor ?? undefined,
-      p2WatchOnlyFlag ?? false,
-    );
-
-    // In actual implementation: tool call to appendEvent('VerificationDecisionIssued', output)
-
-    return {
-      ...inputData,
-      decision: output,
-    };
-  },
-});
-
-// ============================================================================
-// Step 5: Update topic state based on verification decision (tools)
-// ============================================================================
-
-const updateTopicState = createStep({
-  id: 'update-topic-state',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { decision, studentId, topic } = inputData;
-
-    // Based on the verification decision, emit the appropriate sub-event:
-    //
-    // VerifyNow   -> tool: appendEvent('RetrievalVerified', ...)
-    //             -> tool: updateTMS({ studentId, topicId, ... })
-    //
-    // ScheduleVerify -> tool: appendEvent('RetrievalScheduled', ...)
-    //                   (sets target_due_at in ei_topic_state)
-    //
-    // Skip         -> tool: appendEvent('RetrievalSkipped', { reason })
-
-    return decision;
-  },
-});
-
-// ============================================================================
-// Workflow definition
+// Workflow
 // ============================================================================
 
 export const protocol3VerificationWorkflow = createWorkflow({
   id: 'ei-protocol3-verification',
-  inputSchema: z.object({
-    studentId: z.string(),
-    topic: z.string(),
-    endedAt: z.string().datetime(),
-  }),
-  outputSchema: z.any(),
+  inputSchema: P3Input,
+  outputSchema: P3WrappedResponseSchema,
 })
-  .then(loadStudentContext)
-  .then(checkCrossProtocol)
-  .then(classifyAndSelectPlay)
-  .then(executeAndEmit)
-  .then(updateTopicState)
+  .then(runP3Gate)
+  .map(async ({ inputData }) => ({ domainOutput: inputData }))
+  .then(composeP3ViewStep)
   .commit();

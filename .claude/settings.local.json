@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest:*)",
+      "mcp__mastra__searchMastraDocs",
+      "mcp__mastra__readMastraDocs",
+      "mcp__mastra__mastraDocs",
+      "Bash(npx tsc --noEmit --pretty)"
+    ]
+  }
+}

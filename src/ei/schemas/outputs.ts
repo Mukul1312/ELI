@@ -19,6 +19,7 @@ export type Mode = z.infer<typeof ModeEnum>;
 // ============================================================================
 
 export const NegotiatedIntentIssuedSchema = z.object({
+  negotiatedIntentId: z.string(),
   studentId: z.string(),
   mode: ModeEnum,
   playId: z.string(),
@@ -120,9 +121,10 @@ export const SADialsSchema = z.object({
 });
 
 export const SAConstraintsSchema = z.object({
+  closeOldestOpenLoopFirst: z.boolean().optional(),
+  /** @deprecated Use closeOldestOpenLoopFirst */
   closeLoopsFirst: z.boolean().optional(),
   noNewTopicUntil: z.string().optional(),
-  closeOldestOpenLoopFirst: z.boolean().optional(),
   maxOpenLoops: z.number().int().optional(),
   forceQualityVerification: z.boolean().optional(),
 });
@@ -132,6 +134,7 @@ export const StrategicAdjustmentDecisionSchema = z.object({
   adjustmentMode: AdjustmentModeEnum,
   dials: SADialsSchema,
   nextCycleConstraints: SAConstraintsSchema.optional(),
+  tightnessLevel: z.string().optional(),
   diagnosis: z.enum(['junkVolume', 'luckyGuesser', 'normal']).optional(),
   rationale: z.string().optional(),
   issuedAt: z.string().datetime(),

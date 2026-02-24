@@ -30,13 +30,37 @@ export async function insertEvent(
   topicId: string | null,
   payload: Record<string, unknown>,
   occurredAt?: Date,
+  idempotencyKey?: string,
 ): Promise<StoredEventRow> {
-  return db.one(
+  if (idempotencyKey) {
+    const existing = await db.oneOrNone<{ event_id: string }>(
+      'SELECT event_id FROM ei_idempotency_keys WHERE key = $1',
+      [idempotencyKey],
+    );
+    if (existing) {
+      const row = await db.oneOrNone<StoredEventRow>(
+        'SELECT * FROM ei_events WHERE id = $1',
+        [existing.event_id],
+      );
+      if (row) return row;
+    }
+  }
+
+  const row = await db.one(
     `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
     [studentId, eventType, topicId, JSON.stringify(payload), occurredAt ?? new Date()],
   );
+
+  if (idempotencyKey) {
+    await db.none(
+      'INSERT INTO ei_idempotency_keys (key, event_id) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+      [idempotencyKey, row.id],
+    );
+  }
+
+  return row;
 }
 
 export interface EventQueryFilters {
@@ -87,6 +111,138 @@ export async function queryEvents(
 }
 
 // ============================================================================
+// ei_study_sessions queries
+// ============================================================================
+
+export interface StudySessionRow {
+  id: string;
+  student_id: string;
+  topic_id: string;
+  status: string;
+  negotiated_intent_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export async function getStudySession(
+  db: DbClient,
+  sessionId: string,
+): Promise<StudySessionRow | null> {
+  return db.oneOrNone('SELECT * FROM ei_study_sessions WHERE id = $1', [sessionId]);
+}
+
+export async function upsertStudySession(
+  db: DbClient,
+  id: string,
+  studentId: string,
+  topicId: string,
+  status: string,
+  negotiatedIntentId?: string | null,
+): Promise<StudySessionRow> {
+  const now = new Date();
+  return db.one(
+    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, negotiated_intent_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET status = $4, negotiated_intent_id = COALESCE($5, ei_study_sessions.negotiated_intent_id), updated_at = $6
+     RETURNING *`,
+    [id, studentId, topicId, status, negotiatedIntentId ?? null, now],
+  );
+}
+
+/**
+ * Find the active session for (studentId, topicId) — status in the partial-index set.
+ */
+export async function findActiveStudySession(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<StudySessionRow | null> {
+  return db.oneOrNone(
+    `SELECT * FROM ei_study_sessions
+     WHERE student_id = $1
+       AND topic_id   = $2
+       AND status IN ('negotiating', 'activating', 'active', 'verifying')
+     LIMIT 1`,
+    [studentId, topicId],
+  );
+}
+
+/**
+ * Insert a new session row. Callers must handle the unique-violation from the
+ * partial index on (student_id, topic_id) for active-set statuses.
+ */
+export async function insertStudySession(
+  db: DbClient,
+  id: string,
+  studentId: string,
+  topicId: string,
+  status: string,
+): Promise<StudySessionRow> {
+  const now = new Date();
+  return db.one(
+    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, updated_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [id, studentId, topicId, status, now],
+  );
+}
+
+/**
+ * Update session status (and optionally negotiated_intent_id) by primary key.
+ */
+export async function updateStudySessionStatus(
+  db: DbClient,
+  id: string,
+  status: string,
+  negotiatedIntentId?: string | null,
+): Promise<void> {
+  const now = new Date();
+  await db.none(
+    `UPDATE ei_study_sessions
+        SET status = $2,
+            negotiated_intent_id = COALESCE($3, negotiated_intent_id),
+            updated_at = $4
+      WHERE id = $1`,
+    [id, status, negotiatedIntentId ?? null, now],
+  );
+}
+
+// ============================================================================
+// ei_events (continued)
+// ============================================================================
+
+/** Per-topic event counts in the last 7 days for SA efficiency diagnosis. */
+export interface TopicEventCounts7d {
+  topicId: string;
+  effortCount7d: number;
+  retrievalCount7d: number;
+}
+
+export async function getTopicEventCounts7d(
+  db: DbClient,
+  studentId: string,
+  since: Date,
+): Promise<TopicEventCounts7d[]> {
+  const rows = await queryEvents(db, studentId, {
+    eventTypes: ['SessionEnd', 'RetrievalVerified'],
+    since,
+  });
+  const byTopic = new Map<string, { effort: number; retrieval: number }>();
+  for (const row of rows) {
+    const topicId = row.topic_id ?? 'default-topic';
+    const entry = byTopic.get(topicId) ?? { effort: 0, retrieval: 0 };
+    if (row.event_type === 'SessionEnd') entry.effort++;
+    else if (row.event_type === 'RetrievalVerified') entry.retrieval++;
+    byTopic.set(topicId, entry);
+  }
+  return Array.from(byTopic.entries()).map(([topicId, { effort, retrieval }]) => ({
+    topicId,
+    effortCount7d: effort,
+    retrievalCount7d: retrieval,
+  }));
+}
+
+// ============================================================================
 // ei_topic_state queries
 // ============================================================================
 
@@ -99,6 +255,8 @@ export interface TopicStateRow {
   last_scheduled_due_at: Date | null;
   tms: number;
   delta_decay: number;
+  effort_count_7d: number;
+  retrieval_count_7d: number;
   updated_at: Date;
 }
 
@@ -123,11 +281,25 @@ export async function getAllTopicStates(
   );
 }
 
+/** Rows where scheduled verification is past due and not completed (no retrieval after due). */
+export async function getPastDueScheduledTopicStates(
+  db: DbClient,
+  before: Date,
+): Promise<TopicStateRow[]> {
+  return db.any(
+    `SELECT * FROM ei_topic_state
+     WHERE last_scheduled_due_at IS NOT NULL
+       AND last_scheduled_due_at < $1
+       AND (last_retrieval_at IS NULL OR last_retrieval_at < last_scheduled_due_at)`,
+    [before],
+  );
+}
+
 export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];

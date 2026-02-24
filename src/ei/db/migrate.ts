@@ -37,6 +37,15 @@ const SQL_STATEMENTS = [
    ON ei_events (student_id, event_type, occurred_at DESC)`,
 
   // ================================================================
+  // 1b. ei_idempotency_keys (for Ledger append retry safety)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS ei_idempotency_keys (
+    key         TEXT PRIMARY KEY,
+    event_id    TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  // ================================================================
   // 2. ei_topic_state (per student + topic, upserted)
   // ================================================================
   `CREATE TABLE IF NOT EXISTS ei_topic_state (
@@ -48,9 +57,23 @@ const SQL_STATEMENTS = [
     last_scheduled_due_at TIMESTAMPTZ,
     tms                 DOUBLE PRECISION NOT NULL DEFAULT 0,
     delta_decay         DOUBLE PRECISION NOT NULL DEFAULT 0,
+    effort_count_7d     INTEGER NOT NULL DEFAULT 0,
+    retrieval_count_7d  INTEGER NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (student_id, topic_id)
   )`,
+
+  // Backfill columns for existing DBs (no-op if already present)
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'effort_count_7d') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN effort_count_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'retrieval_count_7d') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN retrieval_count_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)
@@ -106,6 +129,54 @@ const SQL_STATEMENTS = [
 
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_radar_alerts_student_type
    ON ei_radar_alerts (student_id, alert_type)`,
+
+  // ================================================================
+  // 5b. ei_study_sessions (concurrency safety, phase derivation)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS ei_study_sessions (
+    id                    TEXT PRIMARY KEY,
+    student_id            TEXT NOT NULL,
+    topic_id              TEXT NOT NULL,
+    status                TEXT NOT NULL CHECK (status IN ('negotiating','activating','active','verifying','closed')),
+    negotiated_intent_id  TEXT,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_study_sessions_active_per_topic
+   ON ei_study_sessions (student_id, topic_id) WHERE status IN ('negotiating','activating','active')`,
+
+  // ================================================================
+  // 6. CohortAccess tables (institutes, cohorts, students, membership, roles)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS institutes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS cohorts (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institute_id    UUID NOT NULL REFERENCES institutes(id),
+    name            TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS students (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_user_id    TEXT NOT NULL UNIQUE,
+    institute_id    UUID REFERENCES institutes(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS student_cohort_membership (
+    student_id      UUID PRIMARY KEY REFERENCES students(id),
+    cohort_id       UUID REFERENCES cohorts(id),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS roles (
+    student_id      UUID PRIMARY KEY REFERENCES students(id),
+    role            TEXT NOT NULL CHECK (role IN ('student', 'admin', 'institute')),
+    scope           TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
 ];
 
 async function migrate() {
@@ -128,7 +199,7 @@ async function migrate() {
       console.log(`  Executing: ${firstLine}...`);
       await store.db.none(sql);
     }
-    console.log('Migration complete. All 5 EI tables created/verified.');
+    console.log('Migration complete. All EI tables (including ei_idempotency_keys) and CohortAccess tables created/verified.');
   } catch (err) {
     console.error('Migration failed:', err);
     process.exit(1);

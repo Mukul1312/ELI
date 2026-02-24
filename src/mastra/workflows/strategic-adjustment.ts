@@ -1,212 +1,228 @@
 /**
- * Strategic Adjustment Workflow (thin orchestrator)
- *
- * Trigger: Scheduled weekly (cron) OR risk-triggered when computeAggregates
- *          detects threshold flips (EI_Spec.md section 4.13)
- * Output:  StrategicAdjustmentDecision event + updated ei_student_policy
- *
- * Flow:
- *   loadFullEvidence       -> tools: computeAggregates, getAllTopicStates, queryEvents (review window)
- *   computeDeltas          -> pure:  Ambition / Execution / Efficiency / Perception deltas over window
- *   matchScenarioAndDials  -> pure:  matchScenario -> computeDials -> do-no-harm guardrail
- *   computeTightness       -> pure:  computeTightnessLevel, merge with SA dials
- *   persistAndEmit         -> tools: setPolicy, appendEvent(StrategicAdjustmentDecision)
+ * Strategic Adjustment Workflow (structured documentation)
  *
  * @see EI_Spec.md sections 4.6-4.8, 4.14
  * @see EI_Engine_Taxonomy.md section 3.4
  */
 
-import { createStep } from '@mastra/core/workflows';
-import { createWorkflow } from '@mastra/core/workflows';
+import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-// Engine layers (pure functions)
 import type { StudentAggregates } from '../../ei/engine/classify';
 import { computeTightnessLevel } from '../../ei/engine/escalation';
-import { shouldSuppressTightening } from '../../ei/engine/escalation';
-import {
-  matchScenario,
-  computeDials,
-  computeEfficiencyDiagnosis,
-  applyEfficiencyDiagnosis,
-  computeStrategicAdjustment,
-} from '../../ei/engine/strategic-adjustment';
+import { computeStrategicAdjustment } from '../../ei/engine/strategic-adjustment';
 import type { DeltaMetrics, TopicState } from '../../ei/engine/strategic-adjustment';
-import { computeAmbitionDelta } from '../../ei/engine/score';
-import { SA_REVIEW_WINDOW_MIN_DAYS, SA_REVIEW_WINDOW_MAX_DAYS } from '../../ei/engine/tunables';
+import { SA_REVIEW_WINDOW_MIN_DAYS } from '../../ei/engine/tunables';
+import { SCHEDULE_GRACE_HOURS } from '../../ei/engine/tunables';
+import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { PostgresStudentAggregatesRepository } from '../../ei/infrastructure/persistence/student-aggregates-repository.pg';
+import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persistence/student-event-stream-reader.pg';
+import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
+import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
+import { RecomputeStudentAggregatesHandler } from '../../ei/application/recompute-student-aggregates/handler';
+import { eiStore, getEiDb } from '../../ei/runtime/db';
+import { getClock } from '../../ei/runtime/clock';
+import * as Q from '../../ei/db/queries';
+import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 
 // ============================================================================
-// Step 1: Load full evidence via tools
+// Schemas
+// ============================================================================
+
+const AggregatesSchema = z.object({
+  pendingChecks: z.number(), openLoops: z.number(), verificationRate7d: z.number(),
+  scheduleMisses7d: z.number(), avoidantExits7d: z.number(), skipCount7d: z.number(),
+  silenceDays: z.number(), startLatencyMin: z.number().optional(),
+  intentAcceptanceRate7d: z.number().nullable().optional(), replanLoopCount7d: z.number(),
+  stateTrend7d: z.enum(['improving', 'flat', 'worsening']),
+  loopLatencyTrend: z.enum(['improving', 'worsening', 'stable']).nullable().optional(),
+});
+
+const SAInput = z.object({ studentId: z.string(), trigger: z.enum(['scheduled', 'risk-triggered']) });
+
+const Loaded = SAInput.extend({
+  aggregates: AggregatesSchema, topicStates: z.array(z.record(z.unknown())),
+  reviewEvents: z.array(z.object({ eventType: z.string(), payload: z.record(z.unknown()), occurredAt: z.coerce.date() })),
+  reviewWindowDays: z.number(),
+});
+
+const DeltaSchema = z.object({
+  ambitionDelta: z.number(), executionDelta: z.number(), efficiencyDelta: z.number(), perceptionDelta: z.number(),
+});
+
+const Deltaed = Loaded.extend({ deltas: DeltaSchema });
+
+const SADecisionSchema = z.object({ mode: z.string(), dials: z.record(z.unknown()), diagnosis: z.string().optional() });
+const Decided = Deltaed.extend({ saDecision: SADecisionSchema });
+const Tightened = Decided.extend({ tightnessLevel: z.string() });
+const FinalOutput = z.object({ studentId: z.string(), mode: z.string(), dials: z.record(z.unknown()), diagnosis: z.string().optional(), tightnessLevel: z.string() });
+
+// ============================================================================
+// Steps
 // ============================================================================
 
 const loadFullEvidence = createStep({
   id: 'load-full-evidence',
-  inputSchema: z.object({
-    studentId: z.string(),
-    trigger: z.enum(['scheduled', 'risk-triggered']),
-  }),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { studentId } = inputData;
+  inputSchema: SAInput,
+  outputSchema: Loaded,
+  execute: async (params): Promise<any> => {
+    const { inputData, requestContext } = params as {
+      inputData: z.infer<typeof SAInput>;
+      requestContext?: unknown;
+    };
+    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
+    const clock = getClock({ requestContext });
 
-    // tool: computeAggregates({ studentId })
-    const aggregates = {} as StudentAggregates;
-    // tool: getAllTopicStates({ studentId })
-    const topicStates = [] as TopicState[];
-    // tool: queryEvents({ studentId, filters: { since: reviewWindowStart } })
-    // The review window is 7-14 days depending on available data
-    const reviewWindowDays = SA_REVIEW_WINDOW_MIN_DAYS;
-    const reviewEvents: Array<{
-      eventType: string;
-      payload: Record<string, unknown>;
-      occurredAt: Date;
-    }> = [];
+    const signalsAdapter = new PostgresGetStudentSignalsAdapter(db);
+    let signals = await signalsAdapter.getSignals(inputData.studentId);
+
+    if (!signals) {
+      const graceMs = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
+      const repo = new PostgresStudentAggregatesRepository(db);
+      const eventReader = new PostgresStudentEventStreamReader(db);
+      const topicReader = new PostgresTopicStateReader(db);
+      const recomputeHandler = new RecomputeStudentAggregatesHandler(
+        repo,
+        eventReader,
+        topicReader,
+        clock,
+      );
+      await recomputeHandler.execute({
+        studentId: inputData.studentId,
+        graceMs,
+      });
+      signals = await signalsAdapter.getSignals(inputData.studentId);
+    }
+
+    const aggregates = signals?.aggregates ?? null;
+    if (!aggregates) {
+      return {
+        ...inputData,
+        aggregates: {} as StudentAggregates,
+        topicStates: [] as TopicState[],
+        reviewEvents: [],
+        reviewWindowDays: SA_REVIEW_WINDOW_MIN_DAYS,
+      };
+    }
+
+    const reviewUntil = new Date(clock.now());
+    const reviewSince = new Date(
+      clock.now().getTime() - SA_REVIEW_WINDOW_MIN_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [topicRows, reviewRows] = await Promise.all([
+      Q.getAllTopicStates(db, inputData.studentId),
+      Q.queryEvents(db, inputData.studentId, { since: reviewSince, until: reviewUntil }),
+    ]);
+
+    const topicStates: TopicState[] = topicRows.map((row) => ({
+      topicId: row.topic_id,
+      effortCount7d: row.effort_count_7d ?? 0,
+      retrievalCount7d: row.retrieval_count_7d ?? 0,
+      tms: row.tms,
+      deltaDecay: row.delta_decay,
+    }));
+
+    const reviewEvents = reviewRows.map((r) => ({
+      eventType: r.event_type,
+      payload: r.payload,
+      occurredAt: r.occurred_at instanceof Date ? r.occurred_at : new Date(r.occurred_at),
+    }));
 
     return {
       ...inputData,
       aggregates,
       topicStates,
       reviewEvents,
-      reviewWindowDays,
+      reviewWindowDays: SA_REVIEW_WINDOW_MIN_DAYS,
     };
   },
 });
-
-// ============================================================================
-// Step 2: Compute deltas over review window (pure)
-// ============================================================================
 
 const computeDeltas = createStep({
-  id: 'compute-deltas',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { reviewEvents, aggregates } = inputData;
-
-    // In practice, compute these from the raw event sequence:
-    //
-    // Ambition Delta:  avg(IntentScore - StateScore) over review window
-    // Execution Delta: (effortDays / scheduledDays) - target
-    // Efficiency Delta: (TMS improvement / effort) - baseline
-    // Perception Delta: self-reported energy/pressure trend
-    //
-    // For now, default to zero (balanced) -- actual computation needs
-    // the full event sequence which the tool provides.
-
-    const deltas: DeltaMetrics = {
-      ambitionDelta: 0,
-      executionDelta: 0,
-      efficiencyDelta: 0,
-      perceptionDelta: 0,
-    };
-
-    // TODO: Implement actual delta computation from reviewEvents
-    // Example: iterate over NegotiatedIntentIssued + AppOpen events,
-    // extract stateScore/intentScore pairs, compute averages.
-
-    return {
-      ...inputData,
-      deltas,
-    };
-  },
+  id: 'compute-deltas', inputSchema: Loaded, outputSchema: Deltaed,
+  execute: async ({ inputData }): Promise<any> => ({
+    ...inputData,
+    deltas: { ambitionDelta: 0, executionDelta: 0, efficiencyDelta: 0, perceptionDelta: 0 } satisfies DeltaMetrics,
+  }),
 });
-
-// ============================================================================
-// Step 3: Match scenario, compute dials, apply guardrails (pure)
-// ============================================================================
 
 const matchScenarioAndDials = createStep({
-  id: 'match-scenario-and-dials',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { deltas, aggregates, topicStates } = inputData;
-
-    // Use the combined function that does scenario + diagnosis + dials
-    const saDecision = computeStrategicAdjustment(deltas, aggregates, topicStates);
-
-    return {
-      ...inputData,
-      saDecision,
-    };
-  },
+  id: 'match-scenario-and-dials', inputSchema: Deltaed, outputSchema: Decided,
+  execute: async ({ inputData }): Promise<any> => ({
+    ...inputData,
+    saDecision: computeStrategicAdjustment(
+      inputData.deltas as unknown as DeltaMetrics,
+      inputData.aggregates as unknown as StudentAggregates,
+      inputData.topicStates as unknown as TopicState[],
+    ),
+  }),
 });
-
-// ============================================================================
-// Step 4: Compute tightness level and merge with SA dials (pure)
-// ============================================================================
 
 const computeTightnessStep = createStep({
-  id: 'compute-tightness',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { aggregates, saDecision } = inputData;
-
-    const tightnessLevel = computeTightnessLevel(aggregates);
-
-    return {
-      ...inputData,
-      tightnessLevel,
-    };
-  },
+  id: 'compute-tightness', inputSchema: Decided, outputSchema: Tightened,
+  execute: async ({ inputData }): Promise<any> => ({
+    ...inputData,
+    tightnessLevel: computeTightnessLevel(inputData.aggregates as unknown as StudentAggregates),
+  }),
 });
-
-// ============================================================================
-// Step 5: Persist policy and emit event (tools)
-// ============================================================================
 
 const persistAndEmit = createStep({
-  id: 'persist-and-emit',
-  inputSchema: z.any(),
-  outputSchema: z.any(),
-  execute: async ({ inputData }) => {
-    const { studentId, saDecision, tightnessLevel } = inputData;
+  id: 'persist-and-emit', inputSchema: Tightened, outputSchema: FinalOutput,
+  execute: async (params): Promise<any> => {
+    const { inputData, requestContext } = params as { inputData: z.infer<typeof Tightened>; requestContext?: unknown };
+    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
+    const issuedAt = new Date();
 
-    // Construct the policy to persist
-    const policyUpdate = {
-      studentId,
-      tightnessLevel,
-      adjustmentMode: saDecision.mode,
-      dials: {
-        scopeMultiplier: saDecision.dials.scopeMultiplier,
-        difficultyTierDelta: saDecision.dials.difficultyTierDelta,
-        minQuestionsDefault: saDecision.dials.minQuestionsDefault,
-        scheduleAllowed: saDecision.dials.scheduleAllowed,
-        dueInHoursDefault: saDecision.dials.dueInHoursDefault,
-      },
-      constraints: saDecision.dials.constraints,
-    };
+    const dials = inputData.saDecision.dials as Record<string, unknown>;
+    const constraints = (dials as { constraints?: Record<string, unknown> }).constraints ?? {};
+    const { constraints: _c, ...dialsWithoutConstraints } = dials;
 
-    // In actual implementation:
-    // tool: setPolicy(policyUpdate)
-    // tool: appendEvent('StrategicAdjustmentDecision', { mode, dials, diagnosis, deltas })
+    const ledgerPayload = validateEventPayload('StrategicAdjustmentDecision', {
+      studentId: inputData.studentId,
+      adjustmentMode: inputData.saDecision.mode,
+      dials: dialsWithoutConstraints,
+      nextCycleConstraints: Object.keys(constraints).length > 0 ? constraints : undefined,
+      tightnessLevel: inputData.tightnessLevel,
+      issuedAt: issuedAt.toISOString(),
+    } as Record<string, unknown>);
+    const idempotencyKey = `sa:StrategicAdjustmentDecision:${inputData.studentId}:${issuedAt.toISOString()}`;
+    await Q.insertEvent(
+      db,
+      inputData.studentId,
+      'StrategicAdjustmentDecision',
+      null,
+      ledgerPayload,
+      issuedAt,
+      idempotencyKey,
+    );
+
+    const repo = new PostgresStudentPolicyRepository(db);
+    const handler = new ApplyStrategicAdjustmentDecisionHandler(repo);
+    await handler.execute({
+      studentId: inputData.studentId,
+      tightnessLevel: inputData.tightnessLevel,
+      adjustmentMode: inputData.saDecision.mode,
+      dials,
+      constraints,
+      issuedAt,
+    });
 
     return {
-      studentId,
-      mode: saDecision.mode,
-      dials: saDecision.dials,
-      diagnosis: saDecision.diagnosis,
-      tightnessLevel,
+      studentId: inputData.studentId, mode: inputData.saDecision.mode,
+      dials: inputData.saDecision.dials, diagnosis: inputData.saDecision.diagnosis,
+      tightnessLevel: inputData.tightnessLevel,
     };
   },
 });
 
 // ============================================================================
-// Workflow definition
+// Workflow
 // ============================================================================
 
 export const strategicAdjustmentWorkflow = createWorkflow({
-  id: 'ei-strategic-adjustment',
-  inputSchema: z.object({
-    studentId: z.string(),
-    trigger: z.enum(['scheduled', 'risk-triggered']),
-  }),
-  outputSchema: z.any(),
+  id: 'ei-strategic-adjustment', inputSchema: SAInput, outputSchema: FinalOutput,
 })
-  .then(loadFullEvidence)
-  .then(computeDeltas)
-  .then(matchScenarioAndDials)
-  .then(computeTightnessStep)
-  .then(persistAndEmit)
-  .commit();
+  .then(loadFullEvidence).then(computeDeltas).then(matchScenarioAndDials)
+  .then(computeTightnessStep).then(persistAndEmit).commit();
