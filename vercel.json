@@ -1,7 +1,7 @@
 {
   "crons": [
-    { "path": "/api/cron/schedule-missed", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/radar-recompute", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/schedule-missed", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/radar-recompute", "schedule": "0 0 * * *" },
     { "path": "/api/cron/strategic-adjustment", "schedule": "0 0 * * *" }
   ]
 }
