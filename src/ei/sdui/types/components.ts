@@ -90,6 +90,18 @@ export const SduiTextInputSchema = z.object({
 });
 export type SduiTextInput = z.infer<typeof SduiTextInputSchema>;
 
+export const SduiNumericInputSchema = z.object({
+  type: z.literal('numeric-input'),
+  props: z.object({
+    inputId: z.string(),
+    label: z.string(),
+    min: z.number().optional(),
+    placeholder: z.string().optional(),
+    required: z.boolean(),
+  }),
+});
+export type SduiNumericInput = z.infer<typeof SduiNumericInputSchema>;
+
 // ────────────────────────────────────────────────────────────────────────────
 // Cards
 // ────────────────────────────────────────────────────────────────────────────
@@ -212,6 +224,9 @@ export const SduiSessionTimerSchema = z.object({
   props: z.object({
     topic: z.string(),
     showTimer: z.literal(true),
+    /** Action ID the timer's End button invokes (server-driven). */
+    endActionId: z.string().optional(),
+    endLabel: z.string().optional(),
   }),
 });
 export type SduiSessionTimer = z.infer<typeof SduiSessionTimerSchema>;
@@ -240,11 +255,12 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiPendingChecksSchema,
   SduiScaleInputSchema,
   SduiTextInputSchema,
+  SduiNumericInputSchema,
   SduiScopeCardSchema,
   SduiDealCardSchema,
   SduiTwoStepCardSchema,
   SduiActivationCardSchema,
-  // VerificationCard uses lazy refs — validated separately
+  SduiVerificationCardSchema,
   SduiGuardrailsCardSchema,
   SduiWelcomeBackCardSchema,
   SduiActionGroupSchema,
@@ -260,6 +276,7 @@ export type SduiComponent =
   | SduiPendingChecks
   | SduiScaleInput
   | SduiTextInput
+  | SduiNumericInput
   | SduiScopeCard
   | SduiDealCard
   | SduiTwoStepCard

@@ -1,0 +1,108 @@
+/**
+ * EI AppOpen workflow — branches on payload.initial.
+ *
+ * If initial: true → returns checkin view (no P1).
+ * Else → runs router, then P1 or P2 workflow.
+ *
+ * Per composed-churning-orbit: all branching inside Mastra; route stays thin.
+ */
+
+import { createStep, createWorkflow } from '@mastra/core/workflows';
+import { z } from 'zod';
+
+import { eiStore } from '../../ei/runtime/db';
+import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
+import { ProtocolRouter } from '../../ei/application/ei-protocol-router';
+import {
+  type EiCommandWithStudent,
+  type AppOpenPayload,
+  isAppOpenFirstTouch,
+} from '../../ei/application/ei-protocol-router';
+import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { protocol1IgnitionWorkflow } from './protocol1-ignition';
+import { protocol2ActivationWorkflow } from './protocol2-activation';
+import { checkinViewWorkflow } from './checkin-view';
+
+const AppOpenWorkflowInput = z.object({
+  command: z.object({
+    commandType: z.literal('AppOpen'),
+    payload: z.record(z.unknown()),
+  }),
+  studentId: z.string(),
+});
+
+/** Output: either SduiResponse (checkin) or P1/P2 result */
+const AppOpenWorkflowOutput = z.union([
+  SduiResponseSchema,
+  z.record(z.unknown()),
+]);
+
+const appOpenBranchStep = createStep({
+  id: 'app-open-branch',
+  inputSchema: AppOpenWorkflowInput,
+  outputSchema: AppOpenWorkflowOutput,
+  execute: async ({ inputData }): Promise<z.infer<typeof AppOpenWorkflowOutput>> => {
+    const { command, studentId } = inputData;
+    const payload = command.payload;
+
+    if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
+      const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
+      const checkinRun = await checkinViewWorkflow.createRun();
+      return checkinRun.start({ inputData: { studentId, isFirstOfDay } });
+    }
+
+    const fullPayload = payload as {
+      topic: string;
+      energy: number;
+      sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
+      pressure?: number;
+      backlogPressure?: number;
+      openedAt?: string;
+    };
+    const commandWithStudent: EiCommandWithStudent = {
+      commandType: 'AppOpen',
+      payload: fullPayload,
+      studentId,
+    };
+
+    const db = eiStore.db;
+    const queryEvents = new PostgresQueryEventsAdapter(db);
+    const router = new ProtocolRouter(queryEvents);
+    const protocol = await router.decideProtocol(commandWithStudent);
+
+    if (protocol === 1) {
+      const inputData = {
+        studentId,
+        topic: fullPayload.topic,
+        energy: fullPayload.energy,
+        sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
+        pressure: fullPayload.pressure ?? 1,
+        backlogPressure: fullPayload.backlogPressure ?? 1,
+        openedAt: fullPayload.openedAt,
+      };
+      const run = await protocol1IgnitionWorkflow.createRun();
+      return run.start({ inputData });
+    }
+
+    if (protocol === 2) {
+      const inputData = {
+        studentId,
+        topic: fullPayload.topic,
+        setAt: new Date().toISOString(),
+        taskType: undefined,
+      };
+      const run = await protocol2ActivationWorkflow.createRun();
+      return run.start({ inputData });
+    }
+
+    throw new Error(`AppOpen should not route to protocol ${protocol}`);
+  },
+});
+
+export const eiAppOpenWorkflow = createWorkflow({
+  id: 'ei-app-open',
+  inputSchema: AppOpenWorkflowInput,
+  outputSchema: AppOpenWorkflowOutput,
+})
+  .then(appOpenBranchStep)
+  .commit();

@@ -24,7 +24,10 @@ export class ProtocolRouter {
    */
   async decideProtocol(command: EiCommandWithStudent): Promise<1 | 2 | 3> {
     const { commandType, payload, studentId } = command;
-    const { topic } = payload;
+    const topic =
+      commandType === 'AppOpen'
+        ? (payload as { topic?: string }).topic ?? ''
+        : (payload as { topic: string }).topic;
 
     switch (commandType) {
       case 'AppOpen':

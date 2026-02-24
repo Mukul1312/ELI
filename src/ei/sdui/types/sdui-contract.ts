@@ -13,7 +13,11 @@
  */
 
 import { z } from 'zod';
-import { NegotiatedIntentIssuedSchema } from '../../schemas/outputs';
+import {
+  NegotiatedIntentIssuedSchema,
+  ActivationPlanIssuedSchema,
+  VerificationDecisionIssuedSchema,
+} from '../../schemas/outputs';
 import { SduiComponentSchema, type SduiComponent } from './components';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -85,3 +89,31 @@ export const P1WrappedResponseSchema = NegotiatedIntentIssuedSchema.merge(
   }),
 );
 export type P1WrappedResponse = z.infer<typeof P1WrappedResponseSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
+// P2 wrapped response (activation: domain fields at top level + view)
+// ────────────────────────────────────────────────────────────────────────────
+
+export const P2WrappedResponseSchema = ActivationPlanIssuedSchema.merge(
+  z.object({
+    schemaVersion: z.literal(1),
+    phase: SduiPhaseSchema,
+    view: SduiViewTreeSchema,
+    actions: z.record(SduiActionSchema),
+  }),
+);
+export type P2WrappedResponse = z.infer<typeof P2WrappedResponseSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
+// P3 wrapped response (verification: domain fields at top level + view)
+// ────────────────────────────────────────────────────────────────────────────
+
+export const P3WrappedResponseSchema = VerificationDecisionIssuedSchema.merge(
+  z.object({
+    schemaVersion: z.literal(1),
+    phase: SduiPhaseSchema,
+    view: SduiViewTreeSchema,
+    actions: z.record(SduiActionSchema),
+  }),
+);
+export type P3WrappedResponse = z.infer<typeof P3WrappedResponseSchema>;

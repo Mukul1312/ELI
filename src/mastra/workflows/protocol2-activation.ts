@@ -18,6 +18,8 @@ import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { ActivationPlanIssuedSchema } from '../../ei/schemas/outputs';
+import { P2WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { composeP2ViewStep } from './steps/compose-p2-view';
 
 // ============================================================================
 // Input / output schemas
@@ -71,7 +73,16 @@ const runP2Gate = createStep({
 export const protocol2ActivationWorkflow = createWorkflow({
   id: 'ei-protocol2-activation',
   inputSchema: P2Input,
-  outputSchema: ActivationPlanIssuedSchema,
+  outputSchema: P2WrappedResponseSchema,
 })
   .then(runP2Gate)
+  .map(async ({ inputData, getInitData }) => {
+    const initData = getInitData() as z.infer<typeof P2Input>;
+    return {
+      domainOutput: inputData,
+      topic: initData.topic,
+      replanCount: 0, // TODO: pass from context when Replan workflow re-runs P2
+    };
+  })
+  .then(composeP2ViewStep)
   .commit();

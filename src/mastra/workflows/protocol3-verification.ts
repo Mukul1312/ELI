@@ -18,6 +18,8 @@ import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health
 import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
+import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { composeP3ViewStep } from './steps/compose-p3-view';
 
 // ============================================================================
 // Schemas
@@ -69,7 +71,9 @@ const runP3Gate = createStep({
 export const protocol3VerificationWorkflow = createWorkflow({
   id: 'ei-protocol3-verification',
   inputSchema: P3Input,
-  outputSchema: VerificationDecisionIssuedSchema,
+  outputSchema: P3WrappedResponseSchema,
 })
   .then(runP3Gate)
+  .map(async ({ inputData }) => ({ domainOutput: inputData }))
+  .then(composeP3ViewStep)
   .commit();

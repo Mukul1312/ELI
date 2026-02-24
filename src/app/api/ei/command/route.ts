@@ -1,22 +1,25 @@
 /**
  * POST /api/ei/command
  *
- * Command-based EI entry point. Client sends a command (AppOpen, IntentSet, SessionEnd);
- * Runtime decides which protocol to run based on session state and invokes the
- * corresponding Mastra workflow.
+ * Command-based EI entry point. Client sends a command; runtime invokes the
+ * corresponding Mastra workflow and returns SDUI response.
  *
- * Body: { commandType: 'AppOpen' | 'IntentSet' | 'SessionEnd', payload: {...} }
+ * Body: { commandType: 'AppOpen' | 'IntentSet' | 'SessionEnd' | 'SessionStart' | 'Replan' | 'VerificationComplete' | 'RetrievalSchedule' | 'RetrievalSkip', payload: {...} }
  * Auth: Neon Auth session (required)
  */
 
 import { eiStore } from '@/ei/runtime/db';
 import { PostgresQueryEventsAdapter } from '@/ei/infrastructure/persistence/query-events.pg';
-import { ProtocolRouter } from '@/ei/application/ei-protocol-router';
-import { EiCommandSchema } from '@/ei/application/ei-protocol-router';
+import { ProtocolRouter, EiCommandSchema } from '@/ei/application/ei-protocol-router';
 import { withEiSession } from '@/app/api/ei/with-session';
-import { protocol1IgnitionWorkflow } from '@/mastra/workflows/protocol1-ignition';
+import { eiAppOpenWorkflow } from '@/mastra/workflows/ei-app-open';
 import { protocol2ActivationWorkflow } from '@/mastra/workflows/protocol2-activation';
 import { protocol3VerificationWorkflow } from '@/mastra/workflows/protocol3-verification';
+import { sessionStartWorkflow } from '@/mastra/workflows/session-start';
+import { replanWorkflow } from '@/mastra/workflows/replan';
+import { verificationCompleteWorkflow } from '@/mastra/workflows/verification-complete';
+import { retrievalScheduleWorkflow } from '@/mastra/workflows/retrieval-schedule';
+import { retrievalSkipWorkflow } from '@/mastra/workflows/retrieval-skip';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,52 +48,84 @@ export async function POST(req: Request) {
   const command = parseResult.data;
   const commandWithStudent = { ...command, studentId };
 
-  const db = eiStore.db;
-  const queryEvents = new PostgresQueryEventsAdapter(db);
-  const router = new ProtocolRouter(queryEvents);
-
-  let protocol: 1 | 2 | 3;
-  try {
-    protocol = await router.decideProtocol(commandWithStudent);
-  } catch (err: unknown) {
-    console.error('[POST /api/ei/command] Router error:', err);
-    return Response.json(
-      { error: err instanceof Error ? err.message : 'Protocol routing failed' },
-      { status: 500 }
-    );
-  }
-
   try {
     let result: unknown;
-    if (protocol === 1) {
-      const p = command.commandType === 'AppOpen' ? command.payload : null;
-      if (!p) throw new Error('Protocol 1 requires AppOpen command');
-      const inputData = {
-        studentId,
-        topic: p.topic,
-        energy: p.energy,
-        sleepBucket: p.sleepBucket ?? '7-8',
-        pressure: p.pressure ?? 1,
-        backlogPressure: p.backlogPressure ?? 1,
-        openedAt: p.openedAt,
-      };
-      const run = await protocol1IgnitionWorkflow.createRun();
-      result = await run.start({ inputData });
-    } else if (protocol === 2) {
-      const setAt =
-        command.commandType === 'IntentSet'
-          ? command.payload.setAt
-          : command.commandType === 'AppOpen'
-            ? new Date().toISOString()
-            : null;
-      if (setAt == null) throw new Error('Protocol 2 requires IntentSet or AppOpen command');
-      const topic =
-        command.commandType === 'IntentSet'
-          ? command.payload.topic
-          : command.commandType === 'AppOpen'
-            ? command.payload.topic
-            : '';
-      const taskType = command.commandType === 'IntentSet' ? command.payload.taskType : undefined;
+
+    if (command.commandType === 'AppOpen') {
+      const run = await eiAppOpenWorkflow.createRun();
+      result = await run.start({
+        inputData: {
+          command: { commandType: 'AppOpen', payload: command.payload },
+          studentId,
+        },
+      });
+      return Response.json(result);
+    }
+
+    if (command.commandType === 'SessionStart') {
+      const { topic, mode } = command.payload;
+      const run = await sessionStartWorkflow.createRun();
+      result = await run.start({
+        inputData: { studentId, topic, mode },
+      });
+      return Response.json(result);
+    }
+
+    if (command.commandType === 'Replan') {
+      const { topic, mode, reason } = command.payload;
+      const run = await replanWorkflow.createRun();
+      result = await run.start({
+        inputData: { studentId, topic, mode, reason },
+      });
+      return Response.json(result);
+    }
+
+    if (command.commandType === 'VerificationComplete') {
+      const { topic, mode, questionsAttempted, correct, completedAt } = command.payload;
+      const run = await verificationCompleteWorkflow.createRun();
+      result = await run.start({
+        inputData: { studentId, topic, mode, questionsAttempted, correct, completedAt },
+      });
+      return Response.json(result);
+    }
+
+    if (command.commandType === 'RetrievalSchedule') {
+      const { topic, mode, dueInHours, minQuestions } = command.payload;
+      const run = await retrievalScheduleWorkflow.createRun();
+      result = await run.start({
+        inputData: { studentId, topic, mode, dueInHours, minQuestions },
+      });
+      return Response.json(result);
+    }
+
+    if (command.commandType === 'RetrievalSkip') {
+      const { topic, mode, reason } = command.payload;
+      const run = await retrievalSkipWorkflow.createRun();
+      result = await run.start({
+        inputData: { studentId, topic, mode, reason },
+      });
+      return Response.json(result);
+    }
+
+    const db = eiStore.db;
+    const queryEvents = new PostgresQueryEventsAdapter(db);
+    const router = new ProtocolRouter(queryEvents);
+
+    let protocol: 1 | 2 | 3;
+    try {
+      protocol = await router.decideProtocol(commandWithStudent);
+    } catch (err: unknown) {
+      console.error('[POST /api/ei/command] Router error:', err);
+      return Response.json(
+        { error: err instanceof Error ? err.message : 'Protocol routing failed' },
+        { status: 500 }
+      );
+    }
+
+    if (protocol === 2) {
+      if (command.commandType !== 'IntentSet') throw new Error('Protocol 2 requires IntentSet command');
+      const { setAt, topic, taskType } = command.payload;
+      if (!setAt || !topic) throw new Error('IntentSet requires setAt and topic');
       const inputData = { studentId, topic, setAt, taskType };
       const run = await protocol2ActivationWorkflow.createRun();
       result = await run.start({ inputData });

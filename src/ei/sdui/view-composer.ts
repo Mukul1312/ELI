@@ -8,7 +8,12 @@
  * @see docs/strategic-design/02-subdomains.md §6 — StudySessionOrchestration boundaries
  */
 
-import type { NegotiatedIntentIssuedOutput } from '../schemas/outputs';
+import type {
+  NegotiatedIntentIssuedOutput,
+  ActivationPlanIssuedOutput,
+  VerificationDecisionIssuedOutput,
+  Mode,
+} from '../schemas/outputs';
 import type { SduiResponse } from './types/sdui-contract';
 import type { SduiComponent } from './types/components';
 import type { PresentationContext } from './presentation-context';
@@ -64,7 +69,7 @@ const DIFFICULTY_CHIPS = [
 ] as const;
 
 // ────────────────────────────────────────────────────────────────────────────
-// Helper: resolve microcopy for P1
+// Helpers: resolve microcopy per gate
 // ────────────────────────────────────────────────────────────────────────────
 
 function p1Copy(
@@ -79,6 +84,24 @@ function p1Copy(
     playId: ctx.playId,
   };
   return resolveMicrocopy(microcopyCatalog, key, vars);
+}
+
+function p2Copy(
+  slot: MicrocopySlot,
+  mode: Mode,
+  playId: string,
+  vars: Record<string, string | number> = {},
+): string {
+  return resolveMicrocopy(microcopyCatalog, { gate: 'P2', slot, mode, playId }, vars);
+}
+
+function p3Copy(
+  slot: MicrocopySlot,
+  mode: Mode,
+  playId: string,
+  vars: Record<string, string | number> = {},
+): string {
+  return resolveMicrocopy(microcopyCatalog, { gate: 'P3', slot, mode, playId }, vars);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -277,6 +300,437 @@ export function composeP1View(
             taskType: '{{taskType}}',
             setAt: new Date().toISOString(),
           },
+        },
+      },
+    },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P2 View Composer (activation)
+// ────────────────────────────────────────────────────────────────────────────
+
+export function composeP2View(
+  output: ActivationPlanIssuedOutput,
+  topic: string,
+  replanCount = 0,
+): SduiResponse {
+  const header: SduiComponent[] = [];
+  const body: SduiComponent[] = [];
+  const actions: SduiComponent[] = [];
+  const footer: SduiComponent[] = [];
+
+  const activationTitle = p2Copy('activation_title', output.mode, output.playId);
+
+  header.push({
+    type: 'message',
+    props: { text: activationTitle, variant: 'heading' },
+  });
+  header.push({
+    type: 'mode-badge',
+    props: { mode: output.mode, label: output.mode },
+  });
+
+  const desc = output.firstAction.description
+    ?? p2Copy('activation_description', output.mode, output.playId);
+  const timeboxParts: string[] = [];
+  if (output.firstAction.timeboxMin) timeboxParts.push(`${output.firstAction.timeboxMin} min`);
+  if (output.firstAction.timeboxSec) timeboxParts.push(`${output.firstAction.timeboxSec} sec`);
+  const timebox = timeboxParts.length > 0 ? timeboxParts.join(' / ') : undefined;
+
+  const focusNote = output.focusContract?.noSwitchingUntil
+    ? p2Copy('focus_note', output.mode, output.playId)
+    : undefined;
+
+  body.push({
+    type: 'activation-card',
+    props: {
+      title: activationTitle,
+      description: desc,
+      timebox,
+      focusNote,
+      badge: { mode: output.mode, label: output.mode },
+    },
+  });
+
+  const replanDisabled =
+    output.replanCap != null && replanCount >= output.replanCap;
+  actions.push({
+    type: 'action-group',
+    props: {
+      layout: 'row',
+      buttons: [
+        { label: 'Start', actionId: 'session_start', variant: 'primary' },
+        {
+          label: `Replan (${replanCount}${output.replanCap != null ? `/${output.replanCap}` : ''})`,
+          actionId: 'replan',
+          variant: 'secondary',
+          disabled: replanDisabled,
+          disabledReason: replanDisabled ? 'Replan limit reached' : undefined,
+        },
+      ],
+    },
+  });
+
+  return {
+    schemaVersion: 1,
+    phase: 'activation',
+    view: { header, body, actions, footer },
+    domain: { ...output, topic },
+    actions: {
+      session_start: {
+        id: 'session_start',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: {
+          commandType: 'SessionStart',
+          payload: { topic, mode: output.mode },
+        },
+      },
+      replan: {
+        id: 'replan',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: {
+          commandType: 'Replan',
+          payload: { topic, mode: output.mode },
+        },
+      },
+    },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Session View Composer
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface SessionViewInput {
+  topic: string;
+  mode: 'Rescue' | 'Neutral' | 'Boost';
+  playId: string;
+}
+
+export function composeSessionView(input: SessionViewInput): SduiResponse {
+  const header: SduiComponent[] = [];
+  const body: SduiComponent[] = [];
+  const actions: SduiComponent[] = [];
+  const footer: SduiComponent[] = [];
+
+  header.push({
+    type: 'message',
+    props: { text: `Studying: ${input.topic}`, variant: 'heading' },
+  });
+
+  body.push({
+    type: 'session-timer',
+    props: {
+      topic: input.topic,
+      showTimer: true,
+      endActionId: 'session_end',
+      endLabel: 'End Session',
+    },
+  });
+
+  actions.push({
+    type: 'action-group',
+    props: {
+      layout: 'row',
+      buttons: [
+        {
+          label: 'End Session',
+          actionId: 'session_end',
+          variant: 'danger',
+        },
+      ],
+    },
+  });
+
+  return {
+    schemaVersion: 1,
+    phase: 'session',
+    view: { header, body, actions, footer },
+    domain: input,
+    actions: {
+      session_end: {
+        id: 'session_end',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: {
+          commandType: 'SessionEnd',
+          payload: {
+            topic: input.topic,
+            endedAt: '{{__nowIso}}',
+          },
+        },
+      },
+    },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P3 View Composer (verification)
+// ────────────────────────────────────────────────────────────────────────────
+
+export function composeP3View(output: VerificationDecisionIssuedOutput): SduiResponse {
+  const header: SduiComponent[] = [];
+  const body: SduiComponent[] = [];
+  const actions: SduiComponent[] = [];
+  const footer: SduiComponent[] = [];
+
+  const verificationTitle = p3Copy('verification_title', output.mode, output.playId);
+
+  header.push({
+    type: 'message',
+    props: { text: verificationTitle, variant: 'heading' },
+  });
+  header.push({
+    type: 'mode-badge',
+    props: { mode: output.mode, label: output.mode },
+  });
+
+  const minQ = output.verificationSpec?.minQuestions ?? 1;
+  const primarySection: Array<{ text: string; variant?: 'body' | 'muted' | 'emphasis' }> = [];
+  const fallbackSection:
+    | { label: string; items: Array<{ text: string; variant?: 'body' | 'muted' | 'emphasis' }> }
+    | undefined = undefined;
+
+  if (output.verificationDecision === 'VerifyNow') {
+    const verifyPrompt = p3Copy('verify_now_prompt', output.mode, output.playId, { count: minQ });
+    primarySection.push({ text: verifyPrompt, variant: 'muted' });
+    body.push({
+      type: 'verification-card',
+      props: {
+        title: verificationTitle,
+        prompt: verifyPrompt,
+        badge: { mode: output.mode, label: output.mode },
+        primarySection,
+        fallbackSection,
+      },
+    });
+    body.push({
+      type: 'numeric-input',
+      props: {
+        inputId: 'questionsAttempted',
+        label: 'Questions attempted',
+        min: 0,
+        required: true,
+      },
+    });
+    body.push({
+      type: 'numeric-input',
+      props: {
+        inputId: 'correct',
+        label: 'Correct',
+        min: 0,
+        required: true,
+      },
+    });
+    actions.push({
+      type: 'action-group',
+      props: {
+        layout: 'row',
+        buttons: [
+          {
+            label: 'Submit Verification',
+            actionId: 'verification_complete',
+            variant: 'primary',
+          },
+        ],
+      },
+    });
+  } else if (output.verificationDecision === 'ScheduleVerify' && output.deadlineSpec) {
+    const { dueInHours, minQuestions } = output.deadlineSpec;
+    const schedulePrompt = p3Copy('schedule_prompt', output.mode, output.playId, { hours: dueInHours });
+    primarySection.push({ text: schedulePrompt, variant: 'muted' });
+    body.push({
+      type: 'verification-card',
+      props: {
+        title: verificationTitle,
+        prompt: p3Copy('schedule_prompt', output.mode, output.playId, { hours: dueInHours }),
+        badge: { mode: output.mode, label: output.mode },
+        primarySection,
+        fallbackSection,
+      },
+    });
+    actions.push({
+      type: 'action-group',
+      props: {
+        layout: 'row',
+        buttons: [
+          {
+            label: `Schedule (${dueInHours}h)`,
+            actionId: 'retrieval_schedule',
+            variant: 'primary',
+          },
+        ],
+      },
+    });
+  } else if (output.verificationDecision === 'Skip') {
+    const skipPrompt = p3Copy('skip_prompt', output.mode, output.playId);
+    primarySection.push({ text: skipPrompt, variant: 'muted' });
+    body.push({
+      type: 'verification-card',
+      props: {
+        title: verificationTitle,
+        prompt: skipPrompt,
+        badge: { mode: output.mode, label: output.mode },
+        primarySection,
+        fallbackSection,
+      },
+    });
+    actions.push({
+      type: 'action-group',
+      props: {
+        layout: 'column',
+        buttons: [
+          { label: 'Skip (Fatigue)', actionId: 'retrieval_skip_fatigue', variant: 'secondary' },
+          { label: 'Skip (Time)', actionId: 'retrieval_skip_time', variant: 'secondary' },
+          { label: 'Skip (Confusion)', actionId: 'retrieval_skip_confusion', variant: 'secondary' },
+        ],
+      },
+    });
+  }
+
+  // Fallback "Verify now instead" for ScheduleVerify/Skip
+  if (output.verificationDecision !== 'VerifyNow') {
+    body.push({ type: 'spacer', props: { size: 'md' } });
+    body.push({
+      type: 'message',
+      props: { text: 'Or verify now instead:', variant: 'muted' },
+    });
+    body.push({
+      type: 'numeric-input',
+      props: { inputId: 'questionsAttempted', label: 'Questions', min: 0, required: false },
+    });
+    body.push({
+      type: 'numeric-input',
+      props: { inputId: 'correct', label: 'Correct', min: 0, required: false },
+    });
+    actions.push({
+      type: 'action-group',
+      props: {
+        layout: 'row',
+        buttons: [
+          {
+            label: 'Verify Now',
+            actionId: 'verification_complete',
+            variant: 'secondary',
+          },
+        ],
+      },
+    });
+  }
+
+  const actionMap: Record<string, { id: string; endpoint: { method: 'POST'; path: string }; payload: Record<string, unknown> }> = {
+    verification_complete: {
+      id: 'verification_complete',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: {
+        commandType: 'VerificationComplete',
+        payload: {
+          topic: output.topic,
+          mode: output.mode,
+          questionsAttempted: '{{questionsAttempted}}',
+          correct: '{{correct}}',
+          completedAt: '{{__nowIso}}',
+        },
+      },
+    },
+    retrieval_schedule: {
+      id: 'retrieval_schedule',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: {
+        commandType: 'RetrievalSchedule',
+        payload: {
+          topic: output.topic,
+          mode: output.mode,
+          dueInHours: output.deadlineSpec?.dueInHours ?? 24,
+          minQuestions: output.deadlineSpec?.minQuestions ?? 1,
+        },
+      },
+    },
+    retrieval_skip_fatigue: {
+      id: 'retrieval_skip_fatigue',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: { commandType: 'RetrievalSkip', payload: { topic: output.topic, mode: output.mode, reason: 'fatigue' } },
+    },
+    retrieval_skip_time: {
+      id: 'retrieval_skip_time',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: { commandType: 'RetrievalSkip', payload: { topic: output.topic, mode: output.mode, reason: 'time' } },
+    },
+    retrieval_skip_confusion: {
+      id: 'retrieval_skip_confusion',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: { commandType: 'RetrievalSkip', payload: { topic: output.topic, mode: output.mode, reason: 'confusion' } },
+    },
+  };
+
+  return {
+    schemaVersion: 1,
+    phase: 'verification',
+    view: { header, body, actions, footer },
+    domain: output,
+    actions: actionMap,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Done View Composer
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface DoneViewInput {
+  topic: string;
+  mode: 'Rescue' | 'Neutral' | 'Boost';
+  durationSec?: number;
+}
+
+export function composeDoneView(input: DoneViewInput): SduiResponse {
+  const header: SduiComponent[] = [];
+  const body: SduiComponent[] = [];
+  const actions: SduiComponent[] = [];
+  const footer: SduiComponent[] = [];
+
+  const summaryLines: string[] = [
+    `Mode today: ${input.mode}`,
+    `Topic: ${input.topic}`,
+  ];
+  if (input.durationSec != null && input.durationSec > 0) {
+    const m = Math.floor(input.durationSec / 60);
+    const s = input.durationSec % 60;
+    summaryLines.push(`Duration: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+  }
+
+  body.push({
+    type: 'done-card',
+    props: {
+      title: 'Session Complete',
+      topic: input.topic,
+      badge: { mode: input.mode, label: input.mode },
+      summary: summaryLines,
+      celebrationMessage: 'Great work.',
+    },
+  });
+
+  actions.push({
+    type: 'action-group',
+    props: {
+      layout: 'row',
+      buttons: [
+        { label: 'Start New Session', actionId: 'new_session', variant: 'primary' },
+      ],
+    },
+  });
+
+  return {
+    schemaVersion: 1,
+    phase: 'done',
+    view: { header, body, actions, footer },
+    domain: input,
+    actions: {
+      new_session: {
+        id: 'new_session',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: {
+          commandType: 'AppOpen',
+          payload: { initial: true },
         },
       },
     },

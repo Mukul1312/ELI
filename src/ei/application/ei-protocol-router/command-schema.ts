@@ -1,11 +1,21 @@
 /**
  * EiCommand schemas — Zod validation for command payloads.
  * Aligns with event catalog in docs/strategic-design/05-cross-cutting-concerns.md.
+ *
+ * AppOpen supports two shapes: first-touch (initial: true) for checkin view,
+ * and full payload (topic, energy) for checkin submit → P1/P2.
  */
 
 import { z } from 'zod';
 
-export const AppOpenPayloadSchema = z.object({
+/** First-touch: client requests checkin view before filling form. No topic/energy. */
+export const AppOpenFirstTouchSchema = z.object({
+  initial: z.literal(true),
+  isFirstOfDay: z.boolean().optional(),
+});
+
+/** Checkin-submitted: client sends topic, energy, etc. to run P1. */
+export const AppOpenFullPayloadSchema = z.object({
   topic: z.string(),
   energy: z.number().min(1).max(5),
   sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
@@ -13,6 +23,11 @@ export const AppOpenPayloadSchema = z.object({
   backlogPressure: z.number().min(1).max(5).optional(),
   openedAt: z.string().datetime().optional(),
 });
+
+export const AppOpenPayloadSchema = z.union([
+  AppOpenFirstTouchSchema,
+  AppOpenFullPayloadSchema,
+]);
 
 export const IntentSetPayloadSchema = z.object({
   topic: z.string(),
@@ -24,6 +39,38 @@ export const SessionEndPayloadSchema = z.object({
   topic: z.string(),
   endedAt: z.string().datetime(),
   effortSummary: z.record(z.unknown()).optional(),
+});
+
+export const SessionStartPayloadSchema = z.object({
+  topic: z.string(),
+  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+});
+
+export const ReplanPayloadSchema = z.object({
+  topic: z.string(),
+  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  reason: z.string().optional(),
+});
+
+export const VerificationCompletePayloadSchema = z.object({
+  topic: z.string(),
+  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  questionsAttempted: z.union([z.number(), z.string()]),
+  correct: z.union([z.number(), z.string()]),
+  completedAt: z.string().datetime(),
+});
+
+export const RetrievalSchedulePayloadSchema = z.object({
+  topic: z.string(),
+  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  dueInHours: z.number(),
+  minQuestions: z.number().int(),
+});
+
+export const RetrievalSkipPayloadSchema = z.object({
+  topic: z.string(),
+  mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+  reason: z.string(),
 });
 
 export const EiCommandSchema = z.discriminatedUnion('commandType', [
@@ -39,9 +86,43 @@ export const EiCommandSchema = z.discriminatedUnion('commandType', [
     commandType: z.literal('SessionEnd'),
     payload: SessionEndPayloadSchema,
   }),
+  z.object({
+    commandType: z.literal('SessionStart'),
+    payload: SessionStartPayloadSchema,
+  }),
+  z.object({
+    commandType: z.literal('Replan'),
+    payload: ReplanPayloadSchema,
+  }),
+  z.object({
+    commandType: z.literal('VerificationComplete'),
+    payload: VerificationCompletePayloadSchema,
+  }),
+  z.object({
+    commandType: z.literal('RetrievalSchedule'),
+    payload: RetrievalSchedulePayloadSchema,
+  }),
+  z.object({
+    commandType: z.literal('RetrievalSkip'),
+    payload: RetrievalSkipPayloadSchema,
+  }),
 ]);
 
 export type AppOpenPayload = z.infer<typeof AppOpenPayloadSchema>;
+export type AppOpenFirstTouchPayload = z.infer<typeof AppOpenFirstTouchSchema>;
+export type AppOpenFullPayload = z.infer<typeof AppOpenFullPayloadSchema>;
+
+/** Type guard: true when payload is first-touch (checkin view request). */
+export function isAppOpenFirstTouch(
+  payload: AppOpenPayload
+): payload is AppOpenFirstTouchPayload {
+  return 'initial' in payload && payload.initial === true;
+}
 export type IntentSetPayload = z.infer<typeof IntentSetPayloadSchema>;
 export type SessionEndPayload = z.infer<typeof SessionEndPayloadSchema>;
+export type SessionStartPayload = z.infer<typeof SessionStartPayloadSchema>;
+export type ReplanPayload = z.infer<typeof ReplanPayloadSchema>;
+export type VerificationCompletePayload = z.infer<typeof VerificationCompletePayloadSchema>;
+export type RetrievalSchedulePayload = z.infer<typeof RetrievalSchedulePayloadSchema>;
+export type RetrievalSkipPayload = z.infer<typeof RetrievalSkipPayloadSchema>;
 export type EiCommand = z.infer<typeof EiCommandSchema>;

@@ -64,3 +64,84 @@ export function buildP1PresentationContext(
     closeOpenLoopFirst: domainOutput.constraints?.closeOpenLoopFirst ?? false,
   };
 }
+
+/**
+ * Build minimal PresentationContext for the checkin view (before P1 runs).
+ * Used when client sends AppOpen with initial: true — no domain output yet.
+ */
+export function buildCheckinPresentationContext(
+  isFirstOfDay: boolean,
+  studentId = ''
+): PresentationContext {
+  return {
+    studentId,
+    topicId: '',
+    mode: 'Neutral',
+    playId: 'P1-N1',
+    stateScore: 0,
+    pendingChecks: 0,
+    silenceDays: 0,
+    isFirstOfDay,
+    tightnessLevel: 'Normal',
+    energy: 3,
+    pressure: 1,
+    closeOpenLoopFirst: false,
+  };
+}
+
+/**
+ * Build PresentationContext from P2 (Activation) domain output.
+ * Zero I/O — all fields derived from ActivationPlanIssuedOutput.
+ */
+export function buildP2PresentationContext(
+  domainOutput: {
+    studentId: string;
+    mode: Mode;
+    playId: string;
+  },
+  workflowInput?: { topic?: string },
+): PresentationContext {
+  return {
+    studentId: domainOutput.studentId,
+    topicId: workflowInput?.topic ?? '',
+    mode: domainOutput.mode,
+    playId: domainOutput.playId,
+    stateScore: 0,
+    pendingChecks: 0,
+    silenceDays: 0,
+    isFirstOfDay: true,
+    tightnessLevel: 'Normal',
+    energy: 3,
+    pressure: 1,
+    closeOpenLoopFirst: false,
+  };
+}
+
+/**
+ * Build PresentationContext from P3 (Verification) domain output.
+ * Zero I/O — all fields derived from VerificationDecisionIssuedOutput.
+ */
+export function buildP3PresentationContext(
+  domainOutput: {
+    studentId: string;
+    mode: Mode;
+    playId: string;
+    topic: string;
+  },
+  _workflowInput?: Record<string, unknown>,
+): PresentationContext {
+  return {
+    studentId: domainOutput.studentId,
+    topicId: domainOutput.topic,
+    mode: domainOutput.mode,
+    playId: domainOutput.playId,
+    stateScore: 0,
+    pendingChecks: 0,
+    silenceDays: 0,
+    isFirstOfDay: true,
+    tightnessLevel: 'Normal',
+    energy: 3,
+    pressure: 1,
+    closeOpenLoopFirst: false,
+  };
+}

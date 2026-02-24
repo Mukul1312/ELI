@@ -16,6 +16,13 @@ import { protocol2ActivationWorkflow } from './workflows/protocol2-activation';
 import { protocol3VerificationWorkflow } from './workflows/protocol3-verification';
 import { strategicAdjustmentWorkflow } from './workflows/strategic-adjustment';
 import { radarRecomputeWorkflow } from './workflows/radar-recompute';
+import { eiAppOpenWorkflow } from './workflows/ei-app-open';
+import { checkinViewWorkflow } from './workflows/checkin-view';
+import { sessionStartWorkflow } from './workflows/session-start';
+import { replanWorkflow } from './workflows/replan';
+import { verificationCompleteWorkflow } from './workflows/verification-complete';
+import { retrievalScheduleWorkflow } from './workflows/retrieval-schedule';
+import { retrievalSkipWorkflow } from './workflows/retrieval-skip';
 
 const storage = new PostgresStore({
   id: 'ei-storage',
@@ -36,6 +43,13 @@ export const mastra = new Mastra({
     protocol3VerificationWorkflow,
     strategicAdjustmentWorkflow,
     radarRecomputeWorkflow,
+    eiAppOpenWorkflow,
+    checkinViewWorkflow,
+    sessionStartWorkflow,
+    replanWorkflow,
+    verificationCompleteWorkflow,
+    retrievalScheduleWorkflow,
+    retrievalSkipWorkflow,
   },
   tools: {
     appendEventTool,
