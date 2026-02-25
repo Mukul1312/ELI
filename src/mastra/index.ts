@@ -1,7 +1,14 @@
 import { Mastra } from '@mastra/core';
 import { PostgresStore } from '@mastra/pg';
 import { VercelDeployer } from "@mastra/deployer-vercel";
+import {
+  Observability,
+  DefaultExporter,
+  SensitiveDataFilter,
+} from '@mastra/observability';
 
+import { eiStore } from '@/ei/runtime/db';
+import { EI_DB_KEY } from '@/ei/runtime/request-context';
 
 // Tools
 import { appendEventTool, queryEventsTool } from './tools/event-store';
@@ -32,6 +39,15 @@ const storage = new PostgresStore({
 });
 
 export const mastra = new Mastra({
+  observability: new Observability({
+    configs: {
+      default: {
+        serviceName: 'ai-study-brother',
+        exporters: [new DefaultExporter()],
+        spanOutputProcessors: [new SensitiveDataFilter()],
+      },
+    },
+  }),
   deployer: new VercelDeployer({
     // optional but useful for longer workflows/batches
     // maxDuration: 300,
@@ -68,5 +84,16 @@ export const mastra = new Mastra({
     setPolicyTool,
     upsertRadarAlertTool,
     getRadarAlertsTool,
+  },
+  server: {
+    middleware: [
+      async (context, next) => {
+        const requestContext = context.get('requestContext');
+        if (requestContext) {
+          requestContext.set(EI_DB_KEY, eiStore.db);
+        }
+        await next();
+      },
+    ],
   },
 });

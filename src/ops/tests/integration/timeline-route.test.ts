@@ -7,7 +7,7 @@
  */
 
 import 'dotenv/config';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthSession } from '@/cohort-access/domain/shared/auth-session';
 import { Role } from '@/cohort-access/domain/shared/role';
 import { AccessScope } from '@/cohort-access/domain/shared/access-scope';
@@ -24,12 +24,14 @@ vi.mock('@/ei/runtime/db', async (importOriginal) => {
     return importOriginal<typeof import('@/ei/runtime/db')>();
   }
   const mockOneOrNone = vi.fn();
+  const mockAny = vi.fn();
   return {
     eiStore: {
       db: {
         one: vi.fn(),
         oneOrNone: mockOneOrNone,
         many: vi.fn(),
+        any: mockAny,
         none: vi.fn(),
       },
     },
@@ -126,6 +128,50 @@ describe('GET /api/admin/students/[studentId]/timeline', () => {
       mockCreateResolveAuthSessionUseCase.mockReturnValue({
         execute: async () => adminSession,
       });
+
+      const { GET } = await import('@/app/api/admin/students/[studentId]/timeline/route');
+      const req = new NextRequest('http://localhost/api/admin/students/s1/timeline');
+      const res = await GET(req, { params: Promise.resolve({ studentId: 's1' }) });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toHaveProperty('events');
+      expect(body).toHaveProperty('aggregates');
+    });
+  });
+
+  describe('dev bypass', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('returns 401 when NODE_ENV is not development (bypass disabled)', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+
+      mockCreateResolveAuthSessionUseCase.mockReturnValue({
+        execute: async () => null,
+      });
+
+      const { GET } = await import('@/app/api/admin/students/[studentId]/timeline/route');
+      const req = new NextRequest('http://localhost/api/admin/students/s1/timeline');
+      const res = await GET(req, { params: Promise.resolve({ studentId: 's1' }) });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 200 when NODE_ENV is development and no secret (bypass allowed)', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.stubEnv('OPS_DEV_BYPASS_SECRET', '');
+
+      if (!process.env.DATABASE_URL) {
+        const { eiStore } = await import('@/ei/runtime/db');
+        const db = eiStore.db as unknown as {
+          any: ReturnType<typeof vi.fn>;
+          oneOrNone: ReturnType<typeof vi.fn>;
+        };
+        db.any.mockResolvedValue([]);
+        db.oneOrNone.mockResolvedValue(null);
+      }
 
       const { GET } = await import('@/app/api/admin/students/[studentId]/timeline/route');
       const req = new NextRequest('http://localhost/api/admin/students/s1/timeline');

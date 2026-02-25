@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest",
+    "mastra:dev": "mastra dev",
     "migrate": "tsx src/ei/db/migrate.ts",
+    "migrate:reset": "tsx src/ei/db/reset-and-migrate.ts",
     "test:integration": "vitest run --testPathPattern=topic-loop-repository.pg.test",
     "test:auth": "vitest run ensure-student-identity provision-student-identity command-brand-new-user get-institute-scope",
     "test:loop-health": "vitest run src/ei/tests/unit/domain/loop-health/assess-loop-health.test.ts",
@@ -19,6 +21,7 @@
   "dependencies": {
     "@mastra/core": "latest",
     "@mastra/deployer-vercel": "^1.0.5",
+    "@mastra/observability": "^1.2.1",
     "@mastra/pg": "latest",
     "@neondatabase/auth": "^0.2.0-beta.1",
     "@upstash/ratelimit": "^2.0.0",

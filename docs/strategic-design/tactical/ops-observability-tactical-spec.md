@@ -157,6 +157,8 @@ List the outbound dependencies Ops needs:
 
 **Current implementation:** `IGetStudentTimelineUseCase` and driven ports (`IQueryEventsPort`, `IGetStudentAggregatesPort`) exist in `[src/ops/application/get-student-timeline/port.ts](../../src/ops/application/get-student-timeline/port.ts)`. The timeline route invokes `GetStudentTimelineHandler` via `LedgerTimelineAdapter` (`[src/ops/infrastructure/persistence/ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`). Recompute via `RecomputeStudentAggregatesHandler` and Mastra tools (`signal-compute`, `recompute-topic-loop`, `recompute-student-policy`).
 
+**Tracing (ITracerPort):** Mastra Observability implements span/trace propagation for the Mastra layer (workflows, agents, tool calls). Configured in [src/mastra/index.ts](../../src/mastra/index.ts) via `@mastra/observability`: `DefaultExporter` (persists traces to Postgres for Mastra Studio), `SensitiveDataFilter` (redaction). Traced: workflow runs, workflow steps, agent runs, tool executions (when invoked by an agent). **Known limitation:** Direct tool invocations from Mastra Studio (e.g. "Run tool" for `compute-aggregates`) do not create traces; only agent-invoked tools and workflow steps are traced.
+
 ---
 
 ## 7) Domain Logic (Code Pointers)
@@ -169,12 +171,14 @@ Ops has no domain aggregates. The following table documents the **runtime integr
 | **Timeline** (events + aggregates)     | `[src/app/api/admin/students/[studentId]/timeline/route.ts](../../src/app/api/admin/students/[studentId]/timeline/route.ts)`     | Admin GET; RBAC via ResolveAuthSession; tenant isolation; invokes `GetStudentTimelineHandler`; adapter calls `queryEvents`, `getAggregates`. Use case: `[src/ops/application/get-student-timeline/](../../src/ops/application/get-student-timeline/)`, adapter: `[ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`. |
 | **CorrelationId + structured logging** | `[src/ei/infrastructure/logging.ts](../../src/ei/infrastructure/logging.ts)`                                                     | `createCorrelationId`, `logGateCall` (GateLogEntry with correlationId, gate, duration, summaries)                  |
 | **Signal compute / recompute**         | `[src/mastra/tools/signal-compute.ts](../../src/mastra/tools/signal-compute.ts)`, `[recompute-topic-loop.ts](../../src/mastra/tools/recompute-topic-loop.ts)`, `[recompute-student-policy.ts](../../src/mastra/tools/recompute-student-policy.ts)` | `computeAggregatesTool`, `checkOverdueSchedulesTool`, `listStudentsTool`; projector backfill: `recomputeTopicLoopTool`, `recomputeStudentPolicyTool` |
+| **Tracing (ITracerPort)**              | `[src/mastra/index.ts](../../src/mastra/index.ts)`                                                                               | Mastra Observability: DefaultExporter, SensitiveDataFilter. Workflow/agent/tool spans for Studio. Aligns with §5 redaction via SensitiveDataFilter. |
 | **Event append + query**               | `[src/mastra/tools/event-store.ts](../../src/mastra/tools/event-store.ts)`                                                       | `appendEventTool`, `queryEventsTool` — Ledger read/write for workflows                                             |
 | **Recompute handler**                  | `[src/ei/application/recompute-student-aggregates/handler.ts](../../src/ei/application/recompute-student-aggregates/handler.ts)` | RecomputeStudentAggregatesHandler — backfill entrypoint                                                            |
 | **Projectors**                         | `[src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)`                                                     | `topic-loop-projector.ts`, `student-aggregates-projector.ts`, `student-policy-projector.ts` — backfill entrypoints |
 | **Ledger**                             | `[src/ei/db/migrate.ts](../../src/ei/db/migrate.ts)`, `[src/ei/db/queries.ts](../../src/ei/db/queries.ts)`                       | `insertEvent`, `queryEvents` — Ledger exists                                                                       |
 | **Projections**                        | `recompute-student-aggregates`, `projector/`                                                                                     | Projections exist; Ops invokes via tools/handlers                                                                  |
 
+**Dev-only bypass:** When `NODE_ENV === 'development'`, the timeline route may skip auth. Optional: set `OPS_DEV_BYPASS_SECRET` and send `X-Ops-Dev-Bypass` or `Authorization: Bearer <secret>` for controlled access. **Never active in production.** Use for local debugging only.
 
 ---
 
@@ -193,6 +197,7 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 - Persistent job orchestration with checkpoints (`BackfillJob` table, `IBackfillJobRepository`)
 - Canary / dry-run modes for backfill
 - Alerting / SLOs
+- Mastra Observability (tracing) — optional ITracerPort; workflow/agent visibility in Studio
 
 ---
 
@@ -209,6 +214,8 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 | Scope validation             | Invalid projection name                        | Reject with clear error                  |
 | Throttling                   | Backfill with throttle limit                   | Respects rate limit (when implemented)   |
 | Cross-tenant                 | Admin of cohort A requests student in cohort B | Implemented: cohort-scoped admin → 403 for student outside cohort. See `[timeline-route.test.ts](../../src/ops/tests/integration/timeline-route.test.ts)`. |
+| Dev bypass disabled         | NODE_ENV !== 'development', no session        | 401 Unauthorized (bypass never active)                                                                             |
+| Dev bypass works            | NODE_ENV=development, no secret or header OK   | Returns timeline without session (local debugging)                                                                 |
 
 
 **Test layers:**
@@ -240,4 +247,5 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 - `[src/mastra/tools/signal-compute.ts](../../src/mastra/tools/signal-compute.ts)` — computeAggregatesTool, checkOverdueSchedulesTool
 - `[src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)` — Backfill entrypoints
 - `[src/ei/db/queries.ts](../../src/ei/db/queries.ts)` — queryEvents, getAggregates, insertEvent
+- [Mastra Observability](https://mastra.ai/docs/observability/overview) — Tracing, DefaultExporter, SensitiveDataFilter
 
