@@ -2,6 +2,7 @@ import type {
   IEnsureStudentIdentityUseCase,
   IProvisionStudentIdentityPort,
   EnsureStudentIdentityCommand,
+  ProvisionResult,
 } from './port';
 
 export class EnsureStudentIdentityHandler implements IEnsureStudentIdentityUseCase {
