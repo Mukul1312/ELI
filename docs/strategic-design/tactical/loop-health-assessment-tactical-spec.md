@@ -163,7 +163,7 @@ Taxonomy reference: [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (la
 | Scenario                            | Input                                                       | Expected outcome                      |
 | ----------------------------------- | ----------------------------------------------------------- | ------------------------------------- |
 | S2 lowCapacity                      | Revenge planning; energy low, pressure high                 | P1 LOW_ENERGY; mode Rescue or Neutral |
-| S5 lowEnergy                        | Burnout/silence; stateTrend worsening                       | P1 LOW_ENERGY; risk signals elevated  |
+| S5 lowEnergy                        | Burnout/silence; energy ≤ 2, sleep '<6', pressure ≥ 4, or backlog ≥ 4 | P1 LOW_ENERGY; risk signals elevated |
 | S7 avoidantRisk                     | Pending checks pile up; no retrieval/schedule at SessionEnd | P3 AVOIDANT; mode Rescue              |
 | Precedence: risk overrides ambition | HIGH_ENERGY label but openLoops≥3                           | mode Neutral or Rescue (no Boost)     |
 | Precedence: AVOIDANT → Rescue       | P3 AVOIDANT                                                 | mode Rescue always                    |
@@ -177,7 +177,13 @@ Taxonomy reference: [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (la
 ## 9) Open Questions and Deferred Decisions
 
 - schemaVersion field when LoopHealthSnapshot exposed as API/event
-- Gate-phase scoping: return full snapshot (p1, p2, p3) or only current gate label?
+- Gate-phase scoping: ~~return full snapshot (p1, p2, p3) or only current gate label?~~ **Resolved:** return full snapshot (all 3 labels for observability), but only the active gate's label drives `mode`. Non-active labels are informational. When `gatePhase` is undefined (background path), all labels contribute.
+
+### Resolved design decisions
+
+| Decision | Resolution |
+|----------|------------|
+| **`stateTrend7d === 'worsening'` in `assignP1Label`** | Removed from LOW_ENERGY condition. Worsening trend **caps mode at Neutral** (via `resolveMode`'s `hasStability` check) but does **not force Rescue**. LOW_ENERGY is only triggered by energy ≤ 2, sleep '<6', pressure ≥ 4, or backlogPressure ≥ 4. A recovering student with good current context gets Neutral, not Rescue. |
 
 ---
 

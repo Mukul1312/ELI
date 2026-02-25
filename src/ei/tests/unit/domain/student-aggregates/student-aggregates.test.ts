@@ -101,6 +101,36 @@ describe('StudentAggregates.recompute', () => {
     });
   });
 
+  describe('openLoops: absent commitment (studied without scheduling)', () => {
+    it('counts topic studied but never scheduled after grace period', () => {
+      const effortAt = new Date(NOW.getTime() - GRACE_MS - 60_000); // past grace
+      const topicStates = [
+        makeTopicState({ lastEffortAt: effortAt, lastScheduledDueAt: null, lastRetrievalAt: null }),
+      ];
+      const agg = StudentAggregates.recompute(makeId(), makeInput({ topicStates }));
+      expect(agg.metrics.openLoops).toBe(1);
+    });
+
+    it('does not count topic studied within grace period', () => {
+      const effortAt = new Date(NOW.getTime() - GRACE_MS + 60_000); // still within grace
+      const topicStates = [
+        makeTopicState({ lastEffortAt: effortAt, lastScheduledDueAt: null, lastRetrievalAt: null }),
+      ];
+      const agg = StudentAggregates.recompute(makeId(), makeInput({ topicStates }));
+      expect(agg.metrics.openLoops).toBe(0);
+    });
+
+    it('does not count topic studied but retrieved even without a schedule', () => {
+      const effortAt = new Date(NOW.getTime() - GRACE_MS - 60_000);
+      const retrievedAt = new Date(effortAt.getTime() + 1000); // retrieved after effort
+      const topicStates = [
+        makeTopicState({ lastEffortAt: effortAt, lastScheduledDueAt: null, lastRetrievalAt: retrievedAt }),
+      ];
+      const agg = StudentAggregates.recompute(makeId(), makeInput({ topicStates }));
+      expect(agg.metrics.openLoops).toBe(0);
+    });
+  });
+
   describe('overdue schedule (openLoops + scheduleMisses7d)', () => {
     it('counts overdue topics past grace period', () => {
       const overdueDate = new Date(NOW.getTime() - GRACE_MS - 60_000);

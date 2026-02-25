@@ -79,10 +79,20 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
     ).length);
 
     const openLoops = Math.max(0, topicStates.filter((t) => {
-      if (!t.lastScheduledDueAt) return false;
-      const dueAt = t.lastScheduledDueAt.getTime();
-      const retrievedAt = t.lastRetrievalAt ? t.lastRetrievalAt.getTime() : 0;
-      return dueAt + graceMs < nowMs && retrievedAt < dueAt;
+      // Case 1: overdue scheduled retrieval — broken commitment (existing behavior)
+      if (t.lastScheduledDueAt) {
+        const dueAt = t.lastScheduledDueAt.getTime();
+        const retrievedAt = t.lastRetrievalAt ? t.lastRetrievalAt.getTime() : 0;
+        if (dueAt + graceMs < nowMs && retrievedAt < dueAt) return true;
+      }
+      // Case 2: studied but never entered the retrieval cycle — absent commitment.
+      // !t.lastScheduledDueAt guard ensures no overlap with Case 1.
+      if (!t.lastScheduledDueAt && t.lastEffortAt) {
+        const effortAt = t.lastEffortAt.getTime();
+        const retrievedAt = t.lastRetrievalAt ? t.lastRetrievalAt.getTime() : 0;
+        if (effortAt + graceMs < nowMs && retrievedAt < effortAt) return true;
+      }
+      return false;
     }).length);
 
     const sessionEnds = events.filter((e) => e.eventType === 'SessionEnd').length;

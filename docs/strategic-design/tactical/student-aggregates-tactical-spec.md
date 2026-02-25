@@ -24,7 +24,7 @@
 |------|------------|
 | StudentAggregatesId | Identity: `{ studentId }` |
 | StudentId | Student identifier (string; server-derived) |
-| OpenLoops | Count of topics where `last_scheduled_due_at` has passed without verification |
+| OpenLoops | Count of unclosed topic loops: **(1)** topics where `last_scheduled_due_at` has passed the grace period without retrieval (broken commitment), OR **(2)** topics where `last_effort_at` is set and `last_scheduled_due_at` is null and no retrieval has occurred and the grace period has passed (absent commitment — studied without ever entering the retrieval cycle) |
 | PendingChecks | Count of topics where `last_effort_at > last_retrieval_at` (effort without retrieval) |
 | VerificationRate7d | Ratio of verified/scheduled sessions over last 7 days |
 | ScheduleMisses7d | Count of topics with overdue schedules in last 7 days |
@@ -47,7 +47,7 @@
 |-------|------|-----------|
 | studentId | string | Identity |
 | pendingChecks | integer | Topics with effort but no retrieval |
-| openLoops | integer | Topics overdue past grace period |
+| openLoops | integer | Unclosed topic loops: overdue scheduled retrievals (broken commitments) + topics studied but never scheduled for retrieval past grace period (absent commitments) |
 | verificationRate7d | float [0,1] | Verification completions / session ends in 7d |
 | scheduleMisses7d | integer | Overdue due-dates within 7d window |
 | avoidantExits7d | integer | SessionEnds without retrieval/schedule in 7d |
@@ -161,6 +161,7 @@ StudentAggregates does not emit new domain events. It updates `ei_student_aggreg
 | Simple session with verification | SessionEnd + RetrievalVerified same day | pendingChecks=0, openLoops=0, verificationRate7d=1.0 |
 | Avoidant exit | SessionEnd without retrieval/schedule | avoidantExits7d=1; pendingChecks ≥ 1 |
 | Overdue schedule | last_scheduled_due_at past grace, no retrieval | openLoops ≥ 1; scheduleMisses7d ≥ 1 |
+| Absent commitment | last_effort_at set, last_scheduled_due_at null, no retrieval, past grace | openLoops ≥ 1; scheduleMisses7d unchanged (0) |
 | Silence detection | Last meaningful event 5 days ago | silenceDays ≥ 5 |
 | Energy trend improving | AppOpen events with rising energy | stateTrend7d = `improving` |
 | Events outside 7d window | Old events beyond window | Not counted in 7d metrics |

@@ -51,8 +51,7 @@ export function assignP1Label(
     context.energy <= P1_LOW_ENERGY_THRESHOLD ||
     context.sleepBucket === '<6' ||
     context.pressure >= P1_HIGH_PRESSURE_THRESHOLD ||
-    context.backlogPressure >= P1_HIGH_BACKLOG_THRESHOLD ||
-    aggregates.stateTrend7d === 'worsening'
+    context.backlogPressure >= P1_HIGH_BACKLOG_THRESHOLD
   ) {
     return 'LOW_ENERGY';
   }

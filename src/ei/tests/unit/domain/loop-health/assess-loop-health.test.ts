@@ -261,6 +261,26 @@ describe('assessLoopHealth domain', () => {
     });
   });
 
+  describe('Gap 1 fix — stateTrend7d worsening caps at Neutral, not Rescue', () => {
+    it('worsening trend with excellent current context → Neutral (not Rescue)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ stateTrend7d: 'worsening', openLoops: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('gap1', aggregates, p1Context, undefined, 'P1', computedAt);
+      // HIGH_ENERGY label; hasStability=false (worsening trend) → mode=Neutral, not Rescue
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Neutral');
+      expect(snapshot.mode).not.toBe('Rescue');
+    });
+
+    it('energy ≤ 2 alone still forces LOW_ENERGY → Rescue (no worsening needed)', () => {
+      const p1Context: P1Context = { energy: 2, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ stateTrend7d: 'flat' });
+      const snapshot = assessLoopHealth('gap1b', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+  });
+
   describe('S7 P3 — avoidant at SessionEnd', () => {
     it('Day 3 SessionEnd — P3 AVOIDANT (student defers with no retrieval/schedule)', () => {
       const p3Context: P3Context = { hasRetrieval: false, hasSchedule: false };

@@ -161,7 +161,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
         },
       ],
       expectedOutputs: [
-        { protocol: 1, mode: 'Rescue' }, // energy=3 with worsening trend -> still Rescue
+        { protocol: 1, mode: 'Neutral' }, // energy=3, pressure=3, sleep='7-8' — no LOW_ENERGY trigger; worsening trend caps at Neutral (not Rescue)
       ],
       expectedSignals: {
         silenceDays: { min: 0, max: 0 },
