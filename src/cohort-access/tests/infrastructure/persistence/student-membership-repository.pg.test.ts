@@ -5,7 +5,7 @@ import type { CohortAccessDb } from '../../../infrastructure/persistence/db-type
 import { StudentMembershipRepositoryPg } from '../../../infrastructure/persistence/student-membership-repository.pg';
 import { StudentId, CohortId } from '../../../domain/shared/ids';
 
-const STUDENT_ID = 'int-test-membership-student';
+const STUDENT_ID = '00000000-0000-0000-0000-000000000099';
 const COHORT_ID_1 = '00000000-0000-0000-0000-000000000001';
 const COHORT_ID_2 = '00000000-0000-0000-0000-000000000002';
 

@@ -9,7 +9,8 @@
     "start": "next start",
     "test": "vitest",
     "migrate": "tsx src/ei/db/migrate.ts",
-    "test:integration": "vitest run --testPathPattern=topic-loop-repository.pg.test"
+    "test:integration": "vitest run --testPathPattern=topic-loop-repository.pg.test",
+    "test:auth": "vitest run ensure-student-identity provision-student-identity command-brand-new-user get-institute-scope"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.0",
@@ -32,6 +33,7 @@
     "shadcn": "^3.8.5",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "uuid": "^10.0.0",
     "vitest": "^3.0.0"
   }
 }

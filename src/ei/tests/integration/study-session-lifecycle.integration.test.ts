@@ -102,7 +102,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
       // Simulate P3 completion (active → verifying)
       const session3 = await repo.findById(session.sessionId);
       session3!.issueVerificationDecision(
-        { playId: 'NeutralDefault', mode: 'Neutral', protocol: 3 } as never,
+        { playId: 'N3-01', mode: 'Neutral', protocol: 3 } as never,
         {} as never,
         {},
       );
