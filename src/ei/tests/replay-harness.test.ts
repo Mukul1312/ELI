@@ -12,13 +12,14 @@
 
 import { describe, it, expect } from 'vitest';
 
-// Engine layers
+// Engine layers (assessLoopHealth is the production entry point for mode resolution)
 import { computeStateScore } from '../engine/score';
-import { assignP1Label, assignP2Label, assignP3Label, resolveMode } from '../engine/classify';
+import { assessLoopHealth } from '../domain/loop-health/assess-loop-health';
 import type { StudentAggregates, P1Context, P2Context, P3Context } from '../engine/classify';
 import { selectPlay } from '../engine/plays';
 import type { PlayContext } from '../engine/plays';
 import { computeTightnessLevel } from '../engine/escalation';
+import type { SleepBucket } from '../domain/loop-health/gate-context';
 
 // Fixtures
 import { s7AmbitiousFixture } from './fixtures/s7-ambitious';
@@ -58,16 +59,17 @@ function assertP1(
   const appOpenEvent = day.events.find((e) => e.eventType === 'AppOpen');
   if (!appOpenEvent) return;
 
-  const payload = appOpenEvent.payload as any;
+  const payload = appOpenEvent.payload as Record<string, unknown>;
   const p1Ctx: P1Context = {
-    energy: payload.energy ?? 3,
-    sleepBucket: payload.sleepBucket ?? '7-8',
-    pressure: payload.pressure ?? 3,
-    backlogPressure: payload.backlogPressure ?? 3,
+    energy: (payload.energy as number) ?? 3,
+    sleepBucket: (payload.sleepBucket as SleepBucket | undefined) ?? '7-8',
+    pressure: (payload.pressure as number) ?? 3,
+    backlogPressure: (payload.backlogPressure as number) ?? 3,
   };
 
-  const label = assignP1Label(p1Ctx, aggregates);
-  const mode = resolveMode(label, aggregates);
+  const openedAt = (payload.openedAt as string) ?? new Date().toISOString();
+  const snapshot = assessLoopHealth('test', aggregates, p1Ctx, undefined, 'P1', openedAt);
+  const mode = snapshot.mode;
 
   if (expected.mode) {
     expect(mode).toBe(expected.mode);
@@ -101,12 +103,14 @@ function assertP2(
   const firstAction = day.events.find((e) => e.eventType === 'FirstActionStarted');
   if (!intentSetEvent) return;
 
-  const setAt = (intentSetEvent.payload as any).setAt;
-  const startedAt = firstAction ? (firstAction.payload as any).startedAt : null;
+  const intentPayload = intentSetEvent.payload as Record<string, unknown>;
+  const setAt = intentPayload.setAt as string | undefined;
+  const startedAt = firstAction ? ((firstAction.payload as Record<string, unknown>).startedAt as string | undefined) : null;
   const replans = day.events.filter((e) => e.eventType === 'Replan');
 
+  const setAtDate = setAt != null ? new Date(setAt) : new Date();
   const startLatencyMin = startedAt
-    ? (new Date(startedAt).getTime() - new Date(setAt).getTime()) / 60_000
+    ? (new Date(startedAt).getTime() - setAtDate.getTime()) / 60_000
     : undefined;
 
   const p2Ctx: P2Context = {
@@ -116,8 +120,9 @@ function assertP2(
     timeSinceIntentSet: startLatencyMin ?? 0,
   };
 
-  const label = assignP2Label(p2Ctx, aggregates);
-  const mode = resolveMode(label, aggregates);
+  const computedAt = (setAt ?? new Date().toISOString()) as string;
+  const snapshot = assessLoopHealth('test', aggregates, p2Ctx, undefined, 'P2', computedAt);
+  const mode = snapshot.mode;
 
   if (expected.mode) {
     expect(mode).toBe(expected.mode);
@@ -153,8 +158,11 @@ function assertP3(
   const hasSchedule = day.events.some((e) => e.eventType === 'RetrievalScheduled');
 
   const p3Ctx: P3Context = { hasRetrieval, hasSchedule };
-  const label = assignP3Label(p3Ctx, aggregates);
-  const mode = resolveMode(label, aggregates);
+  const sessionPayload = sessionEnd.payload as Record<string, unknown>;
+  const endedAt = sessionPayload.endedAt as string | undefined;
+  const computedAt = endedAt ?? new Date().toISOString();
+  const snapshot = assessLoopHealth('test', aggregates, p3Ctx, undefined, 'P3', computedAt);
+  const mode = snapshot.mode;
 
   if (expected.mode) {
     expect(mode).toBe(expected.mode);
@@ -202,7 +210,30 @@ function runFixture(fixture: StoryboardFixture) {
 
     for (const day of fixture.days) {
       it(`Day ${day.day}: ${day.description}`, () => {
-        // Update mock aggregates from expectedSignals of previous days
+        // aggregates = state at START of this day (from previous day's expectedSignals)
+        for (const expected of day.expectedOutputs) {
+          if (expected.protocol === 1) {
+            assertP1(day, expected, aggregates);
+          } else if (expected.protocol === 2) {
+            assertP2(day, expected, aggregates);
+          } else if (expected.protocol === 3) {
+            assertP3(day, expected, aggregates);
+          }
+        }
+
+        // Assert signal ranges (end-of-day expectations)
+        if (day.expectedSignals?.verificationRate7d) {
+          const { min, max } = day.expectedSignals.verificationRate7d;
+          if (min !== undefined) expect(aggregates.verificationRate7d).toBeGreaterThanOrEqual(min);
+          if (max !== undefined) expect(aggregates.verificationRate7d).toBeLessThanOrEqual(max);
+        }
+        if (day.expectedSignals?.silenceDays) {
+          const { min, max } = day.expectedSignals.silenceDays;
+          if (min !== undefined) expect(aggregates.silenceDays).toBeGreaterThanOrEqual(min);
+          if (max !== undefined) expect(aggregates.silenceDays).toBeLessThanOrEqual(max);
+        }
+
+        // Update aggregates to END of this day for next iteration
         if (day.expectedSignals) {
           if (day.expectedSignals.pendingChecks !== undefined) {
             aggregates = { ...aggregates, pendingChecks: day.expectedSignals.pendingChecks };
@@ -216,28 +247,6 @@ function runFixture(fixture: StoryboardFixture) {
           if (day.expectedSignals.stateTrend7d !== undefined) {
             aggregates = { ...aggregates, stateTrend7d: day.expectedSignals.stateTrend7d };
           }
-        }
-
-        for (const expected of day.expectedOutputs) {
-          if (expected.protocol === 1) {
-            assertP1(day, expected, aggregates);
-          } else if (expected.protocol === 2) {
-            assertP2(day, expected, aggregates);
-          } else if (expected.protocol === 3) {
-            assertP3(day, expected, aggregates);
-          }
-        }
-
-        // Assert signal ranges
-        if (day.expectedSignals?.verificationRate7d) {
-          const { min, max } = day.expectedSignals.verificationRate7d;
-          if (min !== undefined) expect(aggregates.verificationRate7d).toBeGreaterThanOrEqual(min);
-          if (max !== undefined) expect(aggregates.verificationRate7d).toBeLessThanOrEqual(max);
-        }
-        if (day.expectedSignals?.silenceDays) {
-          const { min, max } = day.expectedSignals.silenceDays;
-          if (min !== undefined) expect(aggregates.silenceDays).toBeGreaterThanOrEqual(min);
-          if (max !== undefined) expect(aggregates.silenceDays).toBeLessThanOrEqual(max);
         }
       });
     }

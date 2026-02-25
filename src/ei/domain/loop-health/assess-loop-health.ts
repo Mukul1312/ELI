@@ -187,7 +187,7 @@ function defaultP2Context(aggregates: StudentAggregatesInput): P2Context {
 }
 
 function defaultP3Context(): P3Context {
-  return { hasRetrieval: false, hasSchedule: false };
+  return { hasRetrieval: true, hasSchedule: true };
 }
 
 export type GatePhase = 'P1' | 'P2' | 'P3';
@@ -215,15 +215,21 @@ export function assessLoopHealth(
   const p2 = assignP2Label(p2Ctx, aggregates);
   const p3 = assignP3Label(p3Ctx, aggregates);
 
-  const labels: (P1Label | P2Label | P3Label)[] = [p1, p2, p3];
-  let mode: Mode = 'Neutral';
-  for (const lbl of labels) {
-    const m = resolveMode(lbl, aggregates, policy);
-    if (m === 'Rescue') {
-      mode = 'Rescue';
-      break;
+  let mode: Mode;
+  if (gatePhase) {
+    const activeLabel = gatePhase === 'P1' ? p1 : gatePhase === 'P2' ? p2 : p3;
+    mode = resolveMode(activeLabel, aggregates, policy);
+  } else {
+    mode = 'Neutral';
+    const labels: (P1Label | P2Label | P3Label)[] = [p1, p2, p3];
+    for (const lbl of labels) {
+      const m = resolveMode(lbl, aggregates, policy);
+      if (m === 'Rescue') {
+        mode = 'Rescue';
+        break;
+      }
+      if (m === 'Boost') mode = 'Boost';
     }
-    if (m === 'Boost') mode = 'Boost';
   }
 
   return {
