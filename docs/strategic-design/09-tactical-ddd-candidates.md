@@ -98,3 +98,14 @@ src/ei/
 ```
 
 Full EI layer layout and port rules: [tactical/01-ei-tactical-conventions.md](tactical/01-ei-tactical-conventions.md).
+
+---
+
+## Context-level tactical specs (cross-cutting)
+
+Bounded contexts that have a tactical spec but no aggregate in this doc; they implement cross-cutting concerns (see [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md)).
+
+| Context | Spec | Purpose |
+|---------|------|---------|
+| CohortAccess | [tactical/cohort-access-tactical-spec.md](tactical/cohort-access-tactical-spec.md) | Auth resolution (ACL), GetCohortScope, StudentMembership, RBAC |
+| Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Debug timeline, correlation ids, repair/backfill orchestration; consumer + ops-level orchestrator; admin-only, redaction |

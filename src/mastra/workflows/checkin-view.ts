@@ -13,6 +13,7 @@ import { composeCheckinViewStep } from './steps/compose-checkin-view';
 const CheckinViewInput = z.object({
   studentId: z.string(),
   isFirstOfDay: z.boolean(),
+  correlationId: z.string().optional(),
 });
 
 export const checkinViewWorkflow = createWorkflow({

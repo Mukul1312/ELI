@@ -25,6 +25,7 @@
 | Redemption | BillingEntitlements | Command Handler | [redemption-tactical-spec.md](redemption-tactical-spec.md) | Idempotent redemption audit record; triggers StudentMembership on valid coupon use |
 | LoopHealth | LoopHealthAssessment | Domain Service | [loop-health-assessment-tactical-spec.md](loop-health-assessment-tactical-spec.md) | Interpret signals to labels + evidence; single source for "what is healthy" |
 | StudySession + ViewComposer | EI Runtime | Command Handler + Presenter | [ei-runtime-tactical-spec.md](ei-runtime-tactical-spec.md) | One student study session: negotiating → activating → active → verifying → closed; owns NegotiatedIntent, ActivationPlan, VerificationDecision VOs; cross-protocol invariants. ViewComposer (StudySessionOrchestration) maps protocol VO outputs → `SduiResponse` component tree as a chained Mastra step. Code: `src/ei/sdui/` |
+| Ops & Observability | OpsObservability | Bounded Context | [ops-observability-tactical-spec.md](ops-observability-tactical-spec.md) | Debug timeline, correlation ids, repair/backfill orchestration; consumer + ops-level orchestrator |
 
 ---
 

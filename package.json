@@ -13,7 +13,8 @@
     "test:auth": "vitest run ensure-student-identity provision-student-identity command-brand-new-user get-institute-scope",
     "test:loop-health": "vitest run src/ei/tests/unit/domain/loop-health/assess-loop-health.test.ts",
     "test:replay-harness": "vitest run src/ei/tests/replay-harness.test.ts",
-    "test:pipeline": "vitest run src/ei/tests/pipeline-harness.test.ts"
+    "test:pipeline": "vitest run src/ei/tests/pipeline-harness.test.ts",
+    "test:timeline": "vitest run src/ops/tests/integration/timeline-route.test.ts"
   },
   "dependencies": {
     "@mastra/core": "latest",

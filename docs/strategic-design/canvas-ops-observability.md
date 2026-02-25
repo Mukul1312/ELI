@@ -23,11 +23,13 @@ Keep EI runnable and diagnosable in production: observe behavior (logs, metrics,
 
 ## Strategic Classification
 
-| Dimension               | Choice         | Notes                                                       |
-| ----------------------- | -------------- | ----------------------------------------------------------- |
-| **Domain**              | generic        | Standard observability and repair patterns                  |
-| **Business model role** | cost reduction | Enables diagnosis and safe repair; reduces incident cost   |
-| **Evolution**           | commodity      | Integrate standard tooling; job orchestration is custom     |
+
+| Dimension               | Choice         | Notes                                                    |
+| ----------------------- | -------------- | -------------------------------------------------------- |
+| **Domain**              | generic        | Standard observability and repair patterns               |
+| **Business model role** | cost reduction | Enables diagnosis and safe repair; reduces incident cost |
+| **Evolution**           | commodity      | Integrate standard tooling; job orchestration is custom  |
+
 
 ---
 
@@ -40,38 +42,44 @@ Keep EI runnable and diagnosable in production: observe behavior (logs, metrics,
 
 ## Ubiquitous Language (in this context)
 
-| Term             | Definition (in this context)                                                                 |
-| ---------------- | -------------------------------------------------------------------------------------------- |
-| CorrelationId   | Request-scoped ID for tracing across contexts                                                |
-| TraceId          | End-to-end trace for a flow                                                                  |
-| TimelineDebug    | Student or request timeline; assembled from Ledger and Projections                          |
-| ReplayJob        | Job to re-ingest events; idempotent, auditable, throttled                                   |
-| BackfillJob      | Job to recompute projection state; scope, version, checkpoint                                |
-| ProjectionVersion| Version of projection logic; enables safe rollback and audit                                |
-| Checkpoint       | Watermark for resumable jobs                                                                 |
-| idempotent job   | Replay/backfill can be re-run without corrupting domain truth                                |
-| DryRun           | Job mode: validate without persisting                                                        |
-| Canary           | Rollout: small scope first before full run                                                  |
-| Throttling       | Rate limiting for replay/backfill to protect production                                     |
-| Redaction        | Privacy: no raw PII in logs/traces; tenant isolation for ops views                           |
+
+| Term              | Definition (in this context)                                       |
+| ----------------- | ------------------------------------------------------------------ |
+| CorrelationId     | Request-scoped ID for tracing across contexts                      |
+| TraceId           | End-to-end trace for a flow                                        |
+| TimelineDebug     | Student or request timeline; assembled from Ledger and Projections |
+| ReplayJob         | Job to re-ingest events; idempotent, auditable, throttled          |
+| BackfillJob       | Job to recompute projection state; scope, version, checkpoint      |
+| ProjectionVersion | Version of projection logic; enables safe rollback and audit       |
+| Checkpoint        | Watermark for resumable jobs                                       |
+| idempotent job    | Replay/backfill can be re-run without corrupting domain truth      |
+| DryRun            | Job mode: validate without persisting                              |
+| Canary            | Rollout: small scope first before full run                         |
+| Throttling        | Rate limiting for replay/backfill to protect production            |
+| Redaction         | Privacy: no raw PII in logs/traces; tenant isolation for ops views |
+
 
 ---
 
 ## Inbound Communication
 
-| Collaborator        | Message type   | Message name                        | Key data                                 | Integration style    | Relationship (from context map) |
-| ------------------- | -------------- | ----------------------------------- | ---------------------------------------- | ------------------- | ------------------------------- |
-| EI Event Ledger     | Query response | Event stream (read-only)            | events, timeline, replay scope           | Read-only / replay   | Customer-Supplier               |
-| EI Projections      | Query response | Projection state (read-only)        | aggregates, policy, backfill specs        | Read-only / backfill | Customer-Supplier               |
-| BillingEntitlements | Query response | Billing audit (read-only)           | redemptions, entitlement status          | Read-only query     | Customer-Supplier               |
+
+| Collaborator        | Message type   | Message name                 | Key data                           | Integration style    | Relationship (from context map) |
+| ------------------- | -------------- | ---------------------------- | ---------------------------------- | -------------------- | ------------------------------- |
+| EI Event Ledger     | Query response | Event stream (read-only)     | events, timeline, replay scope     | Read-only / replay   | Customer-Supplier               |
+| EI Projections      | Query response | Projection state (read-only) | aggregates, policy, backfill specs | Read-only / backfill | Customer-Supplier               |
+| BillingEntitlements | Query response | Billing audit (read-only)    | redemptions, entitlement status    | Read-only query      | Customer-Supplier               |
+
 
 ---
 
 ## Outbound Communication
 
+
 | Message type | Message name | Collaborator | Key data | Integration style | Relationship      |
 | ------------ | ------------ | ------------ | -------- | ----------------- | ----------------- |
 | (None)       | —            | —            | —        | —                 | Ops consumes only |
+
 
 Ops does not supply domain data to other bounded contexts. Replay/backfill writes to Ledger and Projections via their own APIs; Ops orchestrates, does not define schemas.
 
@@ -106,3 +114,4 @@ Ops does not supply domain data to other bounded contexts. Replay/backfill write
 
 - SLI/SLO definitions and alerting ownership.
 - Redaction policy for PII in logs/traces.
+

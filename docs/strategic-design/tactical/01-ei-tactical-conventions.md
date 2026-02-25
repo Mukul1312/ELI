@@ -18,8 +18,9 @@ The 9 bounded contexts from [03-context-map.md](../03-context-map.md) map to mod
 |-----------------|------------------|-----------|
 | `src/ei/` | EI Event Ledger, EI Projections, EI Runtime, LoopHealthAssessment, Strategic Adjustment | Shared db, schemas, engine |
 | `src/cohort-access/` | CohortAccess | Separate when implemented |
+| `src/ops/` | Ops & Observability | GetStudentTimeline, future backfill job orchestration |
 | `src/billing/` | BillingEntitlements | Separate when implemented |
-| `src/mastra/tools/` | Institute Radar, Ops & Observability | radar-store, event-store, replay tools |
+| `src/mastra/tools/` | Institute Radar, Ops & Observability (driver adapters) | radar-store, event-store, signal-compute, projector backfill tools |
 
 **Within `src/ei/`, context-to-code placement:**
 

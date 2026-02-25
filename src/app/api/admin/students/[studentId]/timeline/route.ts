@@ -3,6 +3,7 @@
  *
  * Admin debug: returns last N events + aggregates for a student.
  * Requires admin role. RBAC-protected.
+ * Events returned in chronological order (occurred_at ASC).
  */
 
 import { NextRequest } from 'next/server';
@@ -10,7 +11,8 @@ import { eiStore } from '@/ei/runtime/db';
 import { createResolveAuthSessionUseCase } from '@/lib/cohort-access';
 import { createServerGetSession } from '@/lib/auth/server';
 import type { CohortAccessDb } from '@/cohort-access/infrastructure/persistence/db-types';
-import { queryEvents, getAggregates } from '@/ei/db/queries';
+import { GetStudentTimelineHandler } from '@/ops/application/get-student-timeline/handler';
+import { LedgerTimelineAdapter } from '@/ops/infrastructure/persistence/ledger-timeline-adapter';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,30 +46,46 @@ export async function GET(
     return Response.json({ error: 'Forbidden: admin role required' }, { status: 403 });
   }
 
-  const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') ?? '200', 10), 500);
+  // Tenant isolation: cohort-scoped admins may only access students in their cohorts.
+  const { accessScope } = authSession;
+  if (accessScope.scope === 'cohort' && accessScope.cohortIds.length > 0) {
+    const membershipRow = await db.oneOrNone<{ cohort_id: string | null }>(
+      'SELECT cohort_id FROM student_cohort_membership WHERE student_id = $1',
+      [studentId],
+    );
+    const studentCohortId = membershipRow?.cohort_id ?? null;
+    if (!studentCohortId || !accessScope.cohortIds.includes(studentCohortId)) {
+      return Response.json(
+        { error: 'Forbidden: student not in your cohort scope' },
+        { status: 403 },
+      );
+    }
+  }
 
-  const [eventRows, aggregatesRow] = await Promise.all([
-    queryEvents(eiStore.db, studentId, { limit }),
-    getAggregates(eiStore.db, studentId),
-  ]);
+  const raw = parseInt(req.nextUrl.searchParams.get('limit') ?? '200', 10);
+  const limitParam = Number.isFinite(raw) ? raw : undefined;
+  const adapter = new LedgerTimelineAdapter(eiStore.db);
+  const handler = new GetStudentTimelineHandler(adapter);
+  const { events, aggregates } = await handler.execute({ studentId, limit: limitParam });
 
-  const events = eventRows.map((row) => ({
-    id: row.id,
-    eventType: row.event_type,
-    topicId: row.topic_id,
-    payload: row.payload,
-    occurredAt: row.occurred_at,
-  }));
-
-  const aggregates = aggregatesRow
+  const aggregatesDto = aggregates
     ? {
-        pendingChecks: aggregatesRow.pending_checks,
-        openLoops: aggregatesRow.open_loops,
-        verificationRate7d: aggregatesRow.verification_rate_7d,
-        scheduleMisses7d: aggregatesRow.schedule_misses_7d,
-        silenceDays: aggregatesRow.silence_days,
+        pendingChecks: aggregates.pending_checks,
+        openLoops: aggregates.open_loops,
+        verificationRate7d: aggregates.verification_rate_7d,
+        scheduleMisses7d: aggregates.schedule_misses_7d,
+        silenceDays: aggregates.silence_days,
       }
     : null;
 
-  return Response.json({ events, aggregates });
+  return Response.json({
+    events: events.map((e) => ({
+      id: e.id,
+      eventType: e.eventType,
+      topicId: e.topicId,
+      payload: e.payload,
+      occurredAt: e.occurredAt,
+    })),
+    aggregates: aggregatesDto,
+  });
 }

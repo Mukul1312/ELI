@@ -26,7 +26,7 @@ import { PhaseDeriver } from './phase-deriver';
 export class RunEiCommandHandler implements IRunEiCommandUseCase {
   constructor(private readonly queryEvents?: IQueryEventsPort) {}
 
-  async execute({ command, studentId, idempotencyKey }: RunEiCommandInput): Promise<unknown> {
+  async execute({ command, studentId, idempotencyKey, correlationId }: RunEiCommandInput): Promise<unknown> {
     const deriver = this.queryEvents ? new PhaseDeriver(this.queryEvents) : null;
 
     switch (command.commandType) {
@@ -38,6 +38,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
             command: { commandType: 'AppOpen', payload: command.payload },
             studentId,
             idempotencyKey,
+            correlationId,
           },
         });
       }
@@ -51,7 +52,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
           }
         }
         const run = await protocol2ActivationWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, setAt, taskType, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, setAt, taskType, idempotencyKey, correlationId } });
       }
 
       case 'SessionEnd': {
@@ -63,7 +64,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
           }
         }
         const run = await protocol3VerificationWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, endedAt, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, endedAt, idempotencyKey, correlationId } });
       }
 
       case 'SessionStart': {
@@ -75,31 +76,31 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
           }
         }
         const run = await sessionStartWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, mode, idempotencyKey, correlationId } });
       }
 
       case 'Replan': {
         const { topic, reason } = command.payload;
         const run = await replanWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, reason, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, reason, idempotencyKey, correlationId } });
       }
 
       case 'VerificationComplete': {
         const { topic, mode, questionsAttempted, correct, completedAt } = command.payload;
         const run = await verificationCompleteWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, questionsAttempted, correct, completedAt, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, mode, questionsAttempted, correct, completedAt, idempotencyKey, correlationId } });
       }
 
       case 'RetrievalSchedule': {
         const { topic, mode, dueInHours, minQuestions } = command.payload;
         const run = await retrievalScheduleWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, dueInHours, minQuestions, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, mode, dueInHours, minQuestions, idempotencyKey, correlationId } });
       }
 
       case 'RetrievalSkip': {
         const { topic, mode, reason } = command.payload;
         const run = await retrievalSkipWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, reason, idempotencyKey } });
+        return run.start({ inputData: { studentId, topic, mode, reason, idempotencyKey, correlationId } });
       }
 
       case 'IntentResponse': {
@@ -116,6 +117,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
             difficultyTier,
             setAt,
             idempotencyKey,
+            correlationId,
           },
         });
       }

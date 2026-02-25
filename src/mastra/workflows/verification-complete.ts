@@ -19,6 +19,7 @@ const VerificationCompleteInput = z.object({
   correct: z.union([z.number(), z.string()]),
   completedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({

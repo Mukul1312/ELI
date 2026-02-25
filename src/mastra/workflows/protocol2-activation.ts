@@ -32,6 +32,7 @@ const P2Input = z.object({
   taskType: z.string().optional(),
   setAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 // ============================================================================

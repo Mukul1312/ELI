@@ -30,6 +30,7 @@ const AppOpenWorkflowInput = z.object({
   }),
   studentId: z.string(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 /** Output: either SduiResponse (checkin) or P1/P2 result */
@@ -43,14 +44,14 @@ const appOpenBranchStep = createStep({
   inputSchema: AppOpenWorkflowInput,
   outputSchema: AppOpenWorkflowOutput,
   execute: async ({ inputData }): Promise<z.infer<typeof AppOpenWorkflowOutput>> => {
-    const { command, studentId, idempotencyKey } = inputData;
+    const { command, studentId, idempotencyKey, correlationId } = inputData;
     const payload = command.payload;
 
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
       // checkin view is read-only — no events appended, no idempotency needed
-      return checkinRun.start({ inputData: { studentId, isFirstOfDay } });
+      return checkinRun.start({ inputData: { studentId, isFirstOfDay, correlationId } });
     }
 
     const fullPayload = payload as {
@@ -82,6 +83,7 @@ const appOpenBranchStep = createStep({
         backlogPressure: fullPayload.backlogPressure ?? 1,
         openedAt: fullPayload.openedAt,
         idempotencyKey,
+        correlationId,
       };
       const run = await protocol1IgnitionWorkflow.createRun();
       return run.start({ inputData: p1InputData });
@@ -94,6 +96,7 @@ const appOpenBranchStep = createStep({
         setAt: new Date().toISOString(),
         taskType: undefined,
         idempotencyKey,
+        correlationId,
       };
       const run = await protocol2ActivationWorkflow.createRun();
       return run.start({ inputData: p2InputData });

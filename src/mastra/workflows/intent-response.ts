@@ -25,6 +25,7 @@ const IntentResponseInput = z.object({
   difficultyTier: z.union([z.number(), z.string()]).optional(),
   setAt: z.string().datetime().optional(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const IntentResponseOutput = z.union([SduiResponseSchema, z.record(z.unknown())]);

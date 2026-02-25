@@ -18,6 +18,7 @@ const RetrievalScheduleInput = z.object({
   dueInHours: z.number(),
   minQuestions: z.number().int(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({
