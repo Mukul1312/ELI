@@ -207,6 +207,13 @@ Cross-context contracts are documented in existing DDD artifacts rather than a d
 - **Constitutional invariants + event catalog + ACL intent:** this file — invariants, event catalog, data ownership
 - **Port-level contracts + algorithms:** tactical specs — e.g. [tactical/ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md) (Session state derivation, Routing matrix, RunEiCommand orchestrator, Idempotency + event completeness at command boundary)
 
+**Context-level and cross-cutting tactical specs** (implement invariants and ACLs from this file):
+
+| Context | Tactical spec | Cross-cutting concerns |
+|---------|---------------|-------------------------|
+| CohortAccess | [tactical/cohort-access-tactical-spec.md](tactical/cohort-access-tactical-spec.md) | Server-derived identity, ACL (Neon Auth → AuthSession), RBAC |
+| Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Admin-only + tenant isolation, redaction (no raw PII in logs/traces), idempotent/auditable backfill; consumer + repair-orchestrator only |
+
 ---
 
 ### Identity → EI Runtime

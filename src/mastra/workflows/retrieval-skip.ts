@@ -17,6 +17,7 @@ const RetrievalSkipInput = z.object({
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   reason: z.string(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({

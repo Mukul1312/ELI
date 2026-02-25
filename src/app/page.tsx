@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { SduiView, resolvePayload } from '@/app/sdui/renderer';
 import type { SduiResponse } from '@/app/sdui/types';
 
 // ============================================================================
 // Styles
 // ============================================================================
+
+type AuthState = 'initializing' | 'loading' | 'unauthenticated' | 'authenticated' | 'error';
 
 const s = {
   page: { maxWidth: 480, margin: '0 auto', padding: '24px 16px', minHeight: '100vh' } as const,
@@ -23,15 +26,19 @@ const s = {
   }),
 };
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // ============================================================================
 // Main Page Component — pure SDUI renderer
 // ============================================================================
 
 export default function Home() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [authState, setAuthState] = useState<AuthState>('initializing');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentSduiResponse, setCurrentSduiResponse] = useState<SduiResponse | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
+  const [actionLoading, setActionLoading] = useState(false);
+  const [bootstrapTrigger, setBootstrapTrigger] = useState(0);
 
   // POST helper — identity via Neon Auth session cookie (credentials: 'include')
   const api = useCallback(async (path: string, body: unknown, idempotencyKey?: string) => {
@@ -53,17 +60,59 @@ export default function Home() {
     return res.json() as Promise<SduiResponse>;
   }, []);
 
-  // On mount: POST AppOpen to get initial checkin view (fires once)
+  // On mount (and Retry): ensure session exists (with retry for OAuth callback race), then POST AppOpen
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    const idempotencyKey = crypto.randomUUID();
-    api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey)
-      .then(res => { if (!cancelled) setCurrentSduiResponse(res); })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    setAuthState('loading');
+    setErrorMessage(null);
+
+    const run = async () => {
+      const retryDelays = [0, 200, 400];
+      let hasSession = false;
+      let lastErr: Error | null = null;
+
+      for (let attempt = 0; attempt <= 2 && !cancelled; attempt++) {
+        if (attempt > 0) await delay(retryDelays[attempt]);
+
+        try {
+          const sessionRes = await fetch('/api/auth/get-session', { credentials: 'include' });
+          const sessionData = sessionRes.ok ? await sessionRes.json() : null;
+          hasSession = !!sessionData?.user?.id || !!sessionData?.session;
+          if (hasSession) break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error('Connection failed');
+        }
+      }
+
+      if (cancelled) return;
+
+      if (!hasSession) {
+        if (lastErr) {
+          setAuthState('error');
+          setErrorMessage('Connection failed. Please try again.');
+        } else {
+          setAuthState('unauthenticated');
+        }
+        return;
+      }
+
+      try {
+        const idempotencyKey = crypto.randomUUID();
+        const res = await api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey);
+        if (!cancelled) {
+          setCurrentSduiResponse(res);
+          setAuthState('authenticated');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAuthState('error');
+          setErrorMessage(err instanceof Error ? err.message : 'Failed to load');
+        }
+      }
+    };
+    run();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bootstrapTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
@@ -71,17 +120,18 @@ export default function Home() {
       const action = currentSduiResponse?.actions?.[actionId];
       if (!action) return;
       const resolved = resolvePayload(action.payload, formValues);
-      setError(null);
-      setLoading(true);
+      setErrorMessage(null);
+      setActionLoading(true);
       const idempotencyKey = crypto.randomUUID();
       try {
         const result = await api(action.endpoint.path, resolved, idempotencyKey);
         setCurrentSduiResponse(result);
         setFormValues({});
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Request failed');
+        setAuthState('error');
+        setErrorMessage(err instanceof Error ? err.message : 'Request failed');
       } finally {
-        setLoading(false);
+        setActionLoading(false);
       }
     },
     [currentSduiResponse, formValues, api],
@@ -91,22 +141,47 @@ export default function Home() {
     setFormValues(prev => ({ ...prev, [id]: value }));
   }, []);
 
+  const handleDismissError = useCallback(() => {
+    setErrorMessage(null);
+    setAuthState(currentSduiResponse ? 'authenticated' : 'unauthenticated');
+  }, [currentSduiResponse]);
+
+  const handleRetry = useCallback(() => {
+    setErrorMessage(null);
+    setBootstrapTrigger(t => t + 1);
+  }, []);
+
+  const isInitialLoading = authState === 'initializing' || authState === 'loading';
+
   return (
     <div style={s.page}>
       <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
         <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
       </div>
 
-      {error && (
+      {authState === 'error' && errorMessage && (
         <div style={{ ...s.card, borderColor: '#7f1d1d' }}>
-          <p style={{ ...s.error, margin: 0 }}>{error}</p>
-          <button style={{ ...s.btn('secondary'), marginTop: 8, fontSize: 12 }} onClick={() => setError(null)}>Dismiss</button>
+          <p style={{ ...s.error, margin: 0 }}>{errorMessage}</p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button style={{ ...s.btn('secondary'), fontSize: 12 }} onClick={handleDismissError}>Dismiss</button>
+            {!currentSduiResponse && (
+              <button style={{ ...s.btn('primary'), fontSize: 12 }} onClick={handleRetry}>Retry</button>
+            )}
+          </div>
         </div>
       )}
 
       <div style={s.card}>
-        {!currentSduiResponse && loading && <p style={s.muted}>Loading…</p>}
-        {currentSduiResponse && (
+        {isInitialLoading && <p style={s.muted}>Getting started…</p>}
+        {authState === 'unauthenticated' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <p style={{ ...s.muted, margin: 0 }}>Sign in with Google to start your study session.</p>
+            <Link href="/auth/sign-in" style={{ ...s.btn('primary'), textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
+              Sign in
+            </Link>
+          </div>
+        )}
+        {authState === 'authenticated' && currentSduiResponse && (
           <>
             <SduiView
               view={currentSduiResponse.view}
@@ -115,7 +190,7 @@ export default function Home() {
               onFormChange={handleFormChange}
               onAction={handleSduiAction}
             />
-            {loading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
+            {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
           </>
         )}
       </div>

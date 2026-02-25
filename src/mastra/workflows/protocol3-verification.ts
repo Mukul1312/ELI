@@ -31,6 +31,7 @@ const P3Input = z.object({
   topic: z.string(),
   endedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 // ============================================================================

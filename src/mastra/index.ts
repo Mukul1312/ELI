@@ -6,6 +6,8 @@ import { VercelDeployer } from "@mastra/deployer-vercel";
 // Tools
 import { appendEventTool, queryEventsTool } from './tools/event-store';
 import { computeAggregatesTool, checkOverdueSchedulesTool, listStudentsTool } from './tools/signal-compute';
+import { recomputeTopicLoopTool } from './tools/recompute-topic-loop';
+import { recomputeStudentPolicyTool } from './tools/recompute-student-policy';
 import { getTopicStateTool, getAllTopicStatesTool, updateTMSTool } from './tools/tms-store';
 import { getPolicyTool, setPolicyTool } from './tools/policy-store';
 import { upsertRadarAlertTool, getRadarAlertsTool } from './tools/radar-store';
@@ -57,6 +59,8 @@ export const mastra = new Mastra({
     computeAggregatesTool,
     checkOverdueSchedulesTool,
     listStudentsTool,
+    recomputeTopicLoopTool,
+    recomputeStudentPolicyTool,
     getTopicStateTool,
     getAllTopicStatesTool,
     updateTMSTool,

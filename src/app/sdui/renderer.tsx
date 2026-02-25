@@ -11,7 +11,7 @@ const SYSTEM_TOKENS: Record<string, () => string | number> = {
   __nowEpochMs: () => Date.now(),
 };
 
-/** Recursively replace {{inputId}} in payload with formValues[inputId] or system tokens. */
+/** Recursively replace {{inputId}} in payload with formValues[inputId] or system tokens. Unresolved placeholders are omitted so optional fields are not sent as literal "{{id}}". */
 export function resolvePayload(
   payload: Record<string, unknown>,
   formValues: Record<string, string | number>
@@ -25,7 +25,8 @@ export function resolvePayload(
         out[k] = systemFn();
       } else {
         const fv = formValues[id];
-        out[k] = fv !== undefined ? fv : v;
+        if (fv !== undefined) out[k] = fv;
+        // omit key when unresolved so server optional fields (e.g. pressure) are not sent as "{{pressure}}"
       }
     } else if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
       out[k] = resolvePayload(v as Record<string, unknown>, formValues);
@@ -89,12 +90,16 @@ export function SduiView({
     onFormChange,
     onAction,
   };
+  const header = view?.header ?? [];
+  const body = view?.body ?? [];
+  const actionsSlot = view?.actions ?? [];
+  const footer = view?.footer ?? [];
   return (
     <div>
-      <SduiSlot components={view.header} {...slotProps} />
-      <SduiSlot components={view.body} {...slotProps} />
-      <SduiSlot components={view.actions} {...slotProps} />
-      <SduiSlot components={view.footer} {...slotProps} />
+      <SduiSlot components={header} {...slotProps} />
+      <SduiSlot components={body} {...slotProps} />
+      <SduiSlot components={actionsSlot} {...slotProps} />
+      <SduiSlot components={footer} {...slotProps} />
     </div>
   );
 }

@@ -3,6 +3,12 @@
  *
  * computeAggregates queries ei_events with rolling 7d windows and computes all
  * derived signals from EI_Engine_Taxonomy.md section 2.
+ *
+ * Manual backfill production baseline. Ordering rule: run TopicLoop (recomputeTopicLoopTool)
+ * before StudentAggregates (this tool) for full-student recompute. StudentAggregates derives
+ * openLoops/pendingChecks from TopicLoop state.
+ *
+ * @see docs/strategic-design/tactical/ops-observability-tactical-spec.md §7, §8
  */
 
 import { createTool } from '@mastra/core/tools';
@@ -15,10 +21,12 @@ import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persis
 import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
 import { getClock } from '../../ei/runtime/clock';
 import { getEiDb } from '../../ei/runtime/db';
+import { createCorrelationId, logBackfillAudit } from '../../ei/infrastructure/logging';
 
 export const computeAggregatesTool = createTool({
   id: 'compute-aggregates',
-  description: 'Recompute all derived signals for a student from the event log',
+  description:
+    'Recompute StudentAggregates (ei_student_aggregates) from the event log. Run TopicLoop backfill first for full-student recompute.',
   inputSchema: z.object({
     studentId: z.string(),
   }),
@@ -38,6 +46,7 @@ export const computeAggregatesTool = createTool({
     loopLatencyTrend: z.string().nullable(),
   }),
   execute: async (input, context) => {
+    const correlationId = createCorrelationId();
     const db = getEiDb(context);
     const clock = getClock(context);
 
@@ -47,7 +56,16 @@ export const computeAggregatesTool = createTool({
 
     const graceMs = SCHEDULE_GRACE_HOURS * 60 * 60 * 1000;
     const handler = new RecomputeStudentAggregatesHandler(repo, eventReader, topicReader, clock);
-    return handler.execute({ studentId: input.studentId, graceMs });
+    const result = await handler.execute({ studentId: input.studentId, graceMs });
+
+    logBackfillAudit({
+      correlationId,
+      projectionName: 'StudentAggregates',
+      studentId: input.studentId,
+      completedAt: new Date().toISOString(),
+    });
+
+    return result;
   },
 });
 

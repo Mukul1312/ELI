@@ -1,8 +1,12 @@
 import 'dotenv/config';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { PostgresStore } from '@mastra/pg';
 import type { CohortAccessDb } from '../../../infrastructure/persistence/db-types';
 import { GetInstituteScopePg } from '../../../infrastructure/persistence/get-institute-scope.pg';
+import { setupDbForTests } from '../../../../test/db-test-setup';
+import { canUseNeonBranching } from '../../../../test/neon-postgres';
+
+const shouldRunDbTests =
+  !!process.env.DATABASE_URL || canUseNeonBranching();
 
 // Use fixed UUIDs for test isolation
 const STUDENT_ID = '00000000-0000-0000-9999-000000000001';
@@ -19,7 +23,7 @@ function adaptDb(db: any): CohortAccessDb {
   };
 }
 
-async function cleanup(db: CohortAccessDb): Promise<void> {
+async function cleanupData(db: CohortAccessDb): Promise<void> {
   await db.none('DELETE FROM roles WHERE student_id = $1', [STUDENT_ID]);
   await db.none('DELETE FROM students WHERE id = $1', [STUDENT_ID]);
   await db.none('DELETE FROM cohorts WHERE id IN ($1, $2)', [COHORT_ID_A, COHORT_ID_B]);
@@ -45,32 +49,31 @@ async function seedBase(db: CohortAccessDb): Promise<void> {
   );
 }
 
-describe.skipIf(!process.env.DATABASE_URL)(
+describe.skipIf(!shouldRunDbTests)(
   'GetInstituteScopePg (integration)',
   () => {
-    let store: PostgresStore;
     let db: CohortAccessDb;
+    let cleanup: () => Promise<void>;
 
     beforeAll(async () => {
-      store = new PostgresStore({
-        id: 'cohort-access-institute-scope-integration-test',
-        connectionString: process.env.DATABASE_URL!,
-      });
-      db = adaptDb(store.db);
+      const setup = await setupDbForTests('get-institute-scope');
+      db = adaptDb(setup.store.db);
+      cleanup = setup.cleanup;
     });
 
     afterAll(async () => {
-      await store.close();
+      await cleanup();
     });
 
     beforeEach(async () => {
-      await cleanup(db);
+      await cleanupData(db);
       await seedBase(db);
     });
 
     it('unknown user returns default: empty cohortIds, student role, cohort scope', async () => {
       const adapter = new GetInstituteScopePg(db);
-      const result = await adapter.getScope('unknown-user-id');
+      // Must pass valid UUID — roles.student_id is UUID; non-UUID causes query error
+      const result = await adapter.getScope('00000000-0000-0000-0000-000000000088');
       expect(result.cohortIds).toEqual([]);
       expect(result.role.value).toBe('student');
       expect(result.accessScope.scope).toBe('cohort');

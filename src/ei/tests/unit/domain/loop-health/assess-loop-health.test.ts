@@ -27,6 +27,45 @@ function baseAggregates(overrides: Partial<StudentAggregatesInput> = {}): Studen
 describe('assessLoopHealth domain', () => {
   const computedAt = '2025-01-01T12:00:00Z';
 
+  describe('Gate-phase-primary mode resolution', () => {
+    it('P1: new user HIGH_ENERGY → Boost (reported bug fix)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 1, backlogPressure: 1 };
+      const aggregates = baseAggregates({ openLoops: 0, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('new-user', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+
+    it('P2: FLOWING at P2 gate → not overridden by P1/P3 defaults', () => {
+      const p2Context: P2Context = {
+        startLatencyMin: 2,
+        replanCount: 0,
+        hasStartSignal: true,
+        timeSinceIntentSet: 2,
+      };
+      const aggregates = baseAggregates({ verificationRate7d: 0.85, openLoops: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('p2-flow', aggregates, p2Context, undefined, 'P2', computedAt);
+      expect(snapshot.p2).toBe('FLOWING');
+      expect(snapshot.mode).toBe('Boost');
+    });
+
+    it('P3: AVOIDANT at actual P3 gate → still Rescue', () => {
+      const p3Context: P3Context = { hasRetrieval: false, hasSchedule: false };
+      const aggregates = baseAggregates({ openLoops: 3 });
+      const snapshot = assessLoopHealth('p3-avoid', aggregates, p3Context, undefined, 'P3', computedAt);
+      expect(snapshot.p3).toBe('AVOIDANT');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+
+    it('undefined gatePhase: all labels contribute (background path)', () => {
+      const p3Context: P3Context = { hasRetrieval: false, hasSchedule: false };
+      const aggregates = baseAggregates({ openLoops: 2, verificationRate7d: 0.7 });
+      const snapshot = assessLoopHealth('bg', aggregates, p3Context, undefined, undefined, computedAt);
+      expect(snapshot.p3).toBe('AVOIDANT');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+  });
+
   describe('S2 lowCapacity', () => {
     it('returns P1 LOW_ENERGY when pressure high', () => {
       const p1Context: P1Context = { energy: 4, sleepBucket: '6-7', pressure: 5, backlogPressure: 4 };
@@ -108,6 +147,147 @@ describe('assessLoopHealth domain', () => {
       );
       expect(snapshot.evidence).toHaveProperty('openLoops');
       expect(snapshot.evidence).not.toHaveProperty('events');
+    });
+  });
+
+  describe('S2 Revenge Planning — mode transition arc', () => {
+    it('Day 1 — P1 Rescue (high pressure overrides high energy)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '6-7', pressure: 5, backlogPressure: 4 };
+      const aggregates = baseAggregates({ openLoops: 0, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s2', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+
+    it('Day 2 — P1 Rescue (still high pressure)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 4, backlogPressure: 3 };
+      const aggregates = baseAggregates({ openLoops: 0, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s2', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+
+    it('Day 5–7 — P1 Neutral (pressure normalizes)', () => {
+      const p1Context: P1Context = { energy: 3, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ openLoops: 1, verificationRate7d: 0.8, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s2', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('NEUTRAL');
+      expect(snapshot.mode).toBe('Neutral');
+    });
+
+    it('Day 16–18 — P1 Boost (autonomy returns)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 1, backlogPressure: 1 };
+      const aggregates = baseAggregates({ openLoops: 1, verificationRate7d: 0.85, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s2', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+  });
+
+  describe('S5 Burnout Runway — mode transition arc', () => {
+    it('Day 1 — P1 Rescue (critical state)', () => {
+      const p1Context: P1Context = { energy: 2, sleepBucket: '<6', pressure: 4, backlogPressure: 5 };
+      const aggregates = baseAggregates({ silenceDays: 0, stateTrend7d: 'worsening', verificationRate7d: 0.5, openLoops: 2 });
+      const snapshot = assessLoopHealth('s5', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+
+    it('Day 4 — P1 Rescue (re-entry after silence, still low energy)', () => {
+      const p1Context: P1Context = { energy: 2, sleepBucket: '6-7', pressure: 3, backlogPressure: 3 };
+      const aggregates = baseAggregates({ silenceDays: 3, openLoops: 0, verificationRate7d: 1.0, stateTrend7d: 'worsening' });
+      const snapshot = assessLoopHealth('s5', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+
+    it('Day 8–10 — P1 Neutral (slow recovery)', () => {
+      const p1Context: P1Context = { energy: 3, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ silenceDays: 0, openLoops: 1, verificationRate7d: 0.8, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s5', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('NEUTRAL');
+      expect(snapshot.mode).toBe('Neutral');
+    });
+
+    it('Day 16–18 — P1 Boost (recovery complete)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 1, backlogPressure: 1 };
+      const aggregates = baseAggregates({ openLoops: 0, verificationRate7d: 0.9, silenceDays: 0, scheduleMisses7d: 0, stateTrend7d: 'improving' });
+      const snapshot = assessLoopHealth('s5', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+  });
+
+  describe('S7 Ambitious — mode transition arc', () => {
+    it('Day 1 — P1 Boost (fresh ambitious student)', () => {
+      const p1Context: P1Context = { energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 1 };
+      const aggregates = baseAggregates({ openLoops: 0, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('s7', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+
+    it('Day 3 — P1 Boost (still high energy, aggregates not yet bad)', () => {
+      const p1Context: P1Context = { energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 2 };
+      const aggregates = baseAggregates({ openLoops: 1, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 1 });
+      const snapshot = assessLoopHealth('s7', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+
+    it('Day 4 — P1 Neutral (openLoops pile up blocks Boost)', () => {
+      const p1Context: P1Context = { energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 3 };
+      const aggregates = baseAggregates({ openLoops: 3, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 3 });
+      const snapshot = assessLoopHealth('s7', aggregates, p1Context, undefined, 'P1', computedAt);
+      // openLoops >= 3 blocks HIGH_ENERGY label (assignP1Label requires openLoops < threshold)
+      expect(snapshot.p1).toBe('NEUTRAL');
+      expect(snapshot.mode).toBe('Neutral');
+    });
+
+    it('Day 5 — P1 Neutral (scheduleMisses > 1 blocks Boost)', () => {
+      const p1Context: P1Context = { energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 2 };
+      const aggregates = baseAggregates({ openLoops: 2, verificationRate7d: 1.0, silenceDays: 0, scheduleMisses7d: 2 });
+      const snapshot = assessLoopHealth('s7', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Neutral');
+    });
+
+    it('Day 8–10 — P1 Boost (sustained improvement)', () => {
+      const p1Context: P1Context = { energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 1 };
+      const aggregates = baseAggregates({ openLoops: 1, verificationRate7d: 0.85, silenceDays: 0, scheduleMisses7d: 1 });
+      const snapshot = assessLoopHealth('s7', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Boost');
+    });
+  });
+
+  describe('Gap 1 fix — stateTrend7d worsening caps at Neutral, not Rescue', () => {
+    it('worsening trend with excellent current context → Neutral (not Rescue)', () => {
+      const p1Context: P1Context = { energy: 4, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ stateTrend7d: 'worsening', openLoops: 0, scheduleMisses7d: 0 });
+      const snapshot = assessLoopHealth('gap1', aggregates, p1Context, undefined, 'P1', computedAt);
+      // HIGH_ENERGY label; hasStability=false (worsening trend) → mode=Neutral, not Rescue
+      expect(snapshot.p1).toBe('HIGH_ENERGY');
+      expect(snapshot.mode).toBe('Neutral');
+      expect(snapshot.mode).not.toBe('Rescue');
+    });
+
+    it('energy ≤ 2 alone still forces LOW_ENERGY → Rescue (no worsening needed)', () => {
+      const p1Context: P1Context = { energy: 2, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 };
+      const aggregates = baseAggregates({ stateTrend7d: 'flat' });
+      const snapshot = assessLoopHealth('gap1b', aggregates, p1Context, undefined, 'P1', computedAt);
+      expect(snapshot.p1).toBe('LOW_ENERGY');
+      expect(snapshot.mode).toBe('Rescue');
+    });
+  });
+
+  describe('S7 P3 — avoidant at SessionEnd', () => {
+    it('Day 3 SessionEnd — P3 AVOIDANT (student defers with no retrieval/schedule)', () => {
+      const p3Context: P3Context = { hasRetrieval: false, hasSchedule: false };
+      const aggregates = baseAggregates({ openLoops: 3, verificationRate7d: 0.5, silenceDays: 0, avoidantExits7d: 2 });
+      const snapshot = assessLoopHealth('s7-p3', aggregates, p3Context, undefined, 'P3', computedAt);
+      expect(snapshot.p3).toBe('AVOIDANT');
+      expect(snapshot.mode).toBe('Rescue');
     });
   });
 });

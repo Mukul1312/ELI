@@ -179,6 +179,20 @@ const SQL_STATEMENTS = [
   )`,
 ];
 
+export async function runMigration(connectionString: string): Promise<void> {
+  const store = new PostgresStore({
+    id: 'ei-migration',
+    connectionString,
+  });
+  try {
+    for (const sql of SQL_STATEMENTS) {
+      await store.db.none(sql);
+    }
+  } finally {
+    await store.close();
+  }
+}
+
 async function migrate() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -186,25 +200,15 @@ async function migrate() {
     process.exit(1);
   }
 
-  const store = new PostgresStore({
-    id: 'ei-migration',
-    connectionString,
-  });
-
   console.log('Running EI database migration...');
-
   try {
-    for (const sql of SQL_STATEMENTS) {
-      const firstLine = sql.trim().split('\n')[0].substring(0, 60);
-      console.log(`  Executing: ${firstLine}...`);
-      await store.db.none(sql);
-    }
-    console.log('Migration complete. All EI tables (including ei_idempotency_keys) and CohortAccess tables created/verified.');
+    await runMigration(connectionString);
+    console.log(
+      'Migration complete. All EI tables (including ei_idempotency_keys) and CohortAccess tables created/verified.'
+    );
   } catch (err) {
     console.error('Migration failed:', err);
     process.exit(1);
-  } finally {
-    await store.close();
   }
 }
 

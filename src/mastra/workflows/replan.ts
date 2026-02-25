@@ -17,6 +17,7 @@ const ReplanInput = z.object({
   topic: z.string(),
   reason: z.string().optional(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const appendReplanStep = createStep({
@@ -52,11 +53,11 @@ const runP2Step = createStep({
   inputSchema: ReplanInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, idempotencyKey } = inputData;
+    const { studentId, topic, idempotencyKey, correlationId } = inputData;
     const setAt = new Date().toISOString();
     const run = await protocol2ActivationWorkflow.createRun();
     const result = await run.start({
-      inputData: { studentId, topic, setAt, taskType: undefined, idempotencyKey },
+      inputData: { studentId, topic, setAt, taskType: undefined, idempotencyKey, correlationId },
     });
     return result;
   },

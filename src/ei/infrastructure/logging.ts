@@ -25,3 +25,21 @@ export function logGateCall(entry: GateLogEntry): void {
   };
   console.log(JSON.stringify(safe));
 }
+
+/** Audit log for manual backfill runs. Per ops-observability-tactical-spec §8. */
+export interface BackfillAuditEntry {
+  correlationId: string;
+  projectionName: string;
+  studentId: string;
+  topicId?: string;
+  completedAt: string;
+}
+
+export function logBackfillAudit(entry: BackfillAuditEntry): void {
+  const safe = {
+    timestamp: new Date().toISOString(),
+    type: 'backfill_audit',
+    ...entry,
+  };
+  console.log(JSON.stringify(safe));
+}

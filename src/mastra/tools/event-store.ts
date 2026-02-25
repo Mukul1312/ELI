@@ -3,6 +3,11 @@
  *
  * appendEvent writes to ei_events and updates ei_topic_state for relevant event types.
  * queryEvents reads raw event history for workflow logic.
+ *
+ * Manual backfill production baseline. Used with signal-compute and projector tools
+ * (recomputeTopicLoop, recomputeStudentPolicy) for idempotent, auditable backfill.
+ *
+ * @see docs/strategic-design/tactical/ops-observability-tactical-spec.md §7, §8
  */
 
 import { createTool } from '@mastra/core/tools';

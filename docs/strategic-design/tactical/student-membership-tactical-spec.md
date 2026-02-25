@@ -20,27 +20,31 @@
 
 ## 2) Ubiquitous Language (Tactical Terms)
 
-| Term | Definition |
-|------|------------|
-| StudentMembershipId | Identity: `{ studentId }` |
-| StudentId | Student identifier (string; server-derived from auth session) |
-| CohortId | Identifier of the cohort the student belongs to |
-| MembershipState | `active(cohortId)` or `unassigned` |
-| AdminEnroll | Command from admin to set a student's cohort |
-| MembershipChangeOnRedemption | Command triggered by BillingEntitlements on valid coupon redemption |
-| IdempotencyKey | Unique key per redemption attempt to prevent duplicate membership changes |
-| TargetCohortId | The cohort the student is being enrolled into |
+
+| Term                         | Definition                                                                |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| StudentMembershipId          | Identity: `{ studentId }`                                                 |
+| StudentId                    | Student identifier (string; server-derived from auth session)             |
+| CohortId                     | Identifier of the cohort the student belongs to                           |
+| MembershipState              | `active(cohortId)` or `unassigned`                                        |
+| AdminEnroll                  | Command from admin to set a student's cohort                              |
+| MembershipChangeOnRedemption | Command triggered by BillingEntitlements on valid coupon redemption       |
+| IdempotencyKey               | Unique key per redemption attempt to prevent duplicate membership changes |
+| TargetCohortId               | The cohort the student is being enrolled into                             |
+
 
 ---
 
 ## 3) State Model
 
-| Field | Type | Semantics |
-|-------|------|-----------|
-| studentId | string | Identity |
-| cohortId | string or null | Current cohort; null = unassigned |
-| membershipState | `active` \| `unassigned` | Derived from cohortId |
-| updatedAt | ISO datetime | When membership last changed |
+
+| Field           | Type                    | Semantics                         |
+| --------------- | ----------------------- | --------------------------------- |
+| studentId       | string                  | Identity                          |
+| cohortId        | string or null          | Current cohort; null = unassigned |
+| membershipState | `active` | `unassigned` | Derived from cohortId             |
+| updatedAt       | ISO datetime            | When membership last changed      |
+
 
 - **Lifecycle:** `unassigned` → `active(cohortId)`. Future: `active` → `unassigned` (leave/revoke; deferred).
 - **Initial:** Student row absent until first enrollment; treat as `unassigned`.
@@ -60,10 +64,12 @@ Per [agg-student-membership.md](../aggregates/agg-student-membership.md) and [05
 
 ## 5) Commands and Decisions
 
-| Command | Required fields | Preconditions | Decision logic | State change |
-|---------|-----------------|---------------|----------------|--------------|
-| AdminEnroll | studentId, cohortId, adminId | Admin role verified; scope includes cohort | Enroll student into cohort | cohortId = given; membershipState = `active` |
-| MembershipChangeOnRedemption | studentId, targetCohortId, redemptionId, idempotencyKey | BillingEntitlements has validated coupon | Check idempotency key; if duplicate → no-op; else set cohort | cohortId = targetCohortId; membershipState = `active` |
+
+| Command                      | Required fields                                         | Preconditions                              | Decision logic                                               | State change                                          |
+| ---------------------------- | ------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------ | ----------------------------------------------------- |
+| AdminEnroll                  | studentId, cohortId, adminId                            | Admin role verified; scope includes cohort | Enroll student into cohort                                   | cohortId = given; membershipState = `active`          |
+| MembershipChangeOnRedemption | studentId, targetCohortId, redemptionId, idempotencyKey | BillingEntitlements has validated coupon   | Check idempotency key; if duplicate → no-op; else set cohort | cohortId = targetCohortId; membershipState = `active` |
+
 
 ---
 
@@ -75,9 +81,11 @@ StudentMembership does not consume Ledger events (it is a command handler, not a
 
 ### Produced (optional / internal)
 
-| Event | Triggered by | Key fields | Consumers |
-|-------|-------------|------------|-----------|
+
+| Event             | Triggered by                                | Key fields                             | Consumers                            |
+| ----------------- | ------------------------------------------- | -------------------------------------- | ------------------------------------ |
 | MembershipChanged | AdminEnroll or MembershipChangeOnRedemption | studentId, cohortId, changedAt, source | Billing audit; CohortAccess internal |
+
 
 - Event emission is optional for v1; state table is source of truth.
 
@@ -85,10 +93,12 @@ StudentMembership does not consume Ledger events (it is a command handler, not a
 
 ## 7) Ports (Interfaces — Docs Level)
 
-| Port | Role | Responsibility |
-|------|------|----------------|
-| **StudentMembershipRepository** | Driven | Load by `studentId`; save membership state |
-| **IdempotencyKeyStore** | Driven | Check and record idempotency keys for redemption commands |
+
+| Port                            | Role   | Responsibility                                            |
+| ------------------------------- | ------ | --------------------------------------------------------- |
+| **StudentMembershipRepository** | Driven | Load by `studentId`; save membership state                |
+| **IdempotencyKeyStore**         | Driven | Check and record idempotency keys for redemption commands |
+
 
 - Repository interface lives in `domain/student-membership/repository.ts`.
 - Application handler lives in `application/change-student-membership/handler.ts`.
@@ -100,38 +110,44 @@ StudentMembership does not consume Ledger events (it is a command handler, not a
 
 **Use case:** `ChangeStudentMembership`
 
-| Aspect | Specification |
-|--------|---------------|
-| **Input** | `{ studentId, targetCohortId, source: 'admin' \| 'redemption', idempotencyKey? }` |
-| **Output** | Updated membership state persisted; returns new membershipState |
-| **Errors** | Missing `studentId` or `targetCohortId` (reject); idempotency key already used with different cohort (reject) |
-| **Idempotency** | Same idempotency key + same cohort → no-op and return existing state; same key + different cohort → reject |
+
+| Aspect            | Specification                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Input**         | `{ studentId, targetCohortId, source: 'admin' | 'redemption', idempotencyKey? }`                                        |
+| **Output**        | Updated membership state persisted; returns new membershipState                                                         |
+| **Errors**        | Missing `studentId` or `targetCohortId` (reject); idempotency key already used with different cohort (reject)           |
+| **Idempotency**   | Same idempotency key + same cohort → no-op and return existing state; same key + different cohort → reject              |
 | **Preconditions** | Coupon validated by BillingEntitlements before invoking for `redemption` source; admin role verified for `admin` source |
+
 
 ---
 
 ## 9) Consistency and Concurrency Rules
 
-| Rule | Description |
-|------|-------------|
+
+| Rule                      | Description                                                                       |
+| ------------------------- | --------------------------------------------------------------------------------- |
 | Single writer per student | One membership transition at a time per student; low concurrency conflict chance. |
-| Conflict handling | Idempotency key prevents duplicate membership grants from retried redemptions. |
-| Atomic join | Redemption path: validate → change membership in same transaction. |
-| Recompute | Not applicable (command handler); audit log supports investigation. |
+| Conflict handling         | Idempotency key prevents duplicate membership grants from retried redemptions.    |
+| Atomic join               | Redemption path: validate → change membership in same transaction.                |
+| Recompute                 | Not applicable (command handler); audit log supports investigation.               |
+
 
 ---
 
 ## 10) Test Strategy (Spec Tests)
 
-| Scenario | Input | Expected outcome |
-|----------|-------|------------------|
-| First enrollment | AdminEnroll; student unassigned | membershipState = active(cohortId) |
-| Re-enroll to same cohort | AdminEnroll; already active(cohortId) | Idempotent; no change |
-| Redemption path | MembershipChangeOnRedemption with new idempotencyKey | membershipState = active(targetCohortId) |
-| Duplicate redemption | Same idempotencyKey + same cohort | No-op; return existing state |
-| Conflicting duplicate | Same idempotencyKey + different cohort | Reject |
-| Missing studentId | Command without studentId | Reject; no state change |
-| Student not found | AdminEnroll for unknown studentId | Create new membership row; active(cohortId) |
+
+| Scenario                 | Input                                                | Expected outcome                            |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| First enrollment         | AdminEnroll; student unassigned                      | membershipState = active(cohortId)          |
+| Re-enroll to same cohort | AdminEnroll; already active(cohortId)                | Idempotent; no change                       |
+| Redemption path          | MembershipChangeOnRedemption with new idempotencyKey | membershipState = active(targetCohortId)    |
+| Duplicate redemption     | Same idempotencyKey + same cohort                    | No-op; return existing state                |
+| Conflicting duplicate    | Same idempotencyKey + different cohort               | Reject                                      |
+| Missing studentId        | Command without studentId                            | Reject; no state change                     |
+| Student not found        | AdminEnroll for unknown studentId                    | Create new membership row; active(cohortId) |
+
 
 ---
 
@@ -150,3 +166,4 @@ StudentMembership does not consume Ledger events (it is a command handler, not a
 - [01-ei-tactical-conventions.md](01-ei-tactical-conventions.md)
 - [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md)
 - [canvas-cohort-access.md](../canvas-cohort-access.md)
+

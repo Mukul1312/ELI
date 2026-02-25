@@ -17,6 +17,7 @@ const SessionStartInput = z.object({
   topic: z.string(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 const appendAndComposeStep = createStep({

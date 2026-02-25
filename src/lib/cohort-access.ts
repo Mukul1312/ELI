@@ -11,12 +11,22 @@ import { StudentMembershipRepositoryPg } from '@/cohort-access/infrastructure/pe
 import { IdempotencyKeyStorePg } from '@/cohort-access/infrastructure/persistence/idempotency-key-store.pg';
 import { GetInstituteScopePg } from '@/cohort-access/infrastructure/persistence/get-institute-scope.pg';
 import { NeonAuthResolverPg } from '@/cohort-access/infrastructure/auth/neon-auth-resolver.pg';
+import { ProvisionStudentIdentityPg } from '@/cohort-access/infrastructure/persistence/provision-student-identity.pg';
+import { EnsureStudentIdentityHandler } from '@/cohort-access/application/ensure-student-identity/handler';
 import type { IResolveAuthSessionUseCase } from '@/cohort-access/application/resolve-auth-session/port';
+import type { IEnsureStudentIdentityUseCase } from '@/cohort-access/application/ensure-student-identity/port';
 import type { IGetCohortScopeUseCase } from '@/cohort-access/application/get-cohort-scope/port';
 import type { IChangeStudentMembershipUseCase } from '@/cohort-access/application/change-student-membership/port';
 
 /** Session supplier for Neon Auth. When @neondatabase/auth is not set up, pass () => Promise.resolve(null). */
 export type GetSessionFn = () => Promise<{ user: { id: string }; session: { userId: string } } | null>;
+
+export function createEnsureStudentIdentityUseCase(
+  db: CohortAccessDb,
+): IEnsureStudentIdentityUseCase {
+  const provisionPort = new ProvisionStudentIdentityPg(db);
+  return new EnsureStudentIdentityHandler(provisionPort);
+}
 
 export function createResolveAuthSessionUseCase(
   db: CohortAccessDb,

@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   try {
     const queryEvents = new PostgresQueryEventsAdapter(eiStore.db);
     const handler = new RunEiCommandHandler(queryEvents);
-    const result = await handler.execute({
+    const raw = await handler.execute({
       command,
       studentId: auth.studentId,
       idempotencyKey,
@@ -85,7 +85,18 @@ export async function POST(req: Request) {
       commandType: command.commandType,
       durationMs: Math.round(performance.now() - start),
     });
-    return Response.json(result);
+    // Mastra run.start() returns { status, result }; nested workflows nest again. Unwrap until we have the payload.
+    let body: unknown = raw;
+    while (
+      body &&
+      typeof body === 'object' &&
+      'status' in body &&
+      (body as { status: string }).status === 'success' &&
+      'result' in body
+    ) {
+      body = (body as { result: unknown }).result;
+    }
+    return Response.json(body ?? raw);
   } catch (err) {
     logGateCall({
       correlationId,

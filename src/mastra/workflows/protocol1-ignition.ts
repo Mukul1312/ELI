@@ -34,6 +34,7 @@ const P1Input = z.object({
   backlogPressure: z.number().min(1).max(5),
   openedAt: z.string().datetime().optional(),
   idempotencyKey: z.string().optional(),
+  correlationId: z.string().optional(),
 });
 
 // ============================================================================
