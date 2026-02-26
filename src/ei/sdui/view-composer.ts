@@ -4,8 +4,8 @@
  * Transforms protocol domain outputs + PresentationContext into an SDUI component tree.
  * Stateless. No DB access. No side effects.
  *
- * @see docs/strategic-design/canvas-ei-runtime.md — "Gateway context: maps protocol outputs to UI steps"
- * @see docs/strategic-design/02-subdomains.md §6 — StudySessionOrchestration boundaries
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md — "Gateway context: maps protocol outputs to UI steps"
+ * @see docs/engineering-ddd-design/02-subdomains.md §6 — StudySessionOrchestration boundaries
  */
 
 import type {

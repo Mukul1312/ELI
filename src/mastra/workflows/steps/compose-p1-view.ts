@@ -6,7 +6,7 @@
  * returns wrapped response { ...domainOutput, schemaVersion, phase, view, actions }.
  *
  * @see src/ei/sdui/view-composer.ts — composeP1View pure function
- * @see docs/strategic-design/canvas-ei-runtime.md — Gateway context
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md — Gateway context
  */
 
 import { createStep } from '@mastra/core/workflows';

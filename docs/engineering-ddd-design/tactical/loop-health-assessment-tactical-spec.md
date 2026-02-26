@@ -124,7 +124,7 @@ All types are immutable and equality-by-value; none have lifecycle or identity i
 | `LoopHealthEvidence` | Structural VO | By convention | All fields equal | `loop-health-snapshot.ts` |
 | `LoopHealthSnapshot` | Structural VO | By convention | All fields equal (`studentId` = correlation field, not ORM identity) | `loop-health-snapshot.ts` |
 
-Taxonomy reference: [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (labels), §4 (precedence).
+Taxonomy reference: [EI_Engine_Taxonomy.md](../../ei/EI_Engine_Taxonomy.md) §3 (labels), §4 (precedence).
 
 ---
 
@@ -198,4 +198,4 @@ Taxonomy reference: [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (la
 - [src/ei/domain/loop-health/tunables.ts](../../src/ei/domain/loop-health/tunables.ts) — classification thresholds (canonical)
 - [src/ei/engine/classify.ts](../../src/ei/engine/classify.ts) (re-export bridge; backward compat only)
 - [src/ei/engine/tunables.ts](../../src/ei/engine/tunables.ts) (re-export bridge; backward compat only)
-- [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md)
+- [EI_Engine_Taxonomy.md](../../ei/EI_Engine_Taxonomy.md)

@@ -1,6 +1,6 @@
 /**
  * EiCommand schemas — Zod validation for command payloads.
- * Aligns with event catalog in docs/strategic-design/05-cross-cutting-concerns.md.
+ * Aligns with event catalog in docs/engineering-ddd-design/05-cross-cutting-concerns.md.
  *
  * AppOpen supports two shapes: first-touch (initial: true) for checkin view,
  * and full payload (topic, energy) for checkin submit → P1/P2.

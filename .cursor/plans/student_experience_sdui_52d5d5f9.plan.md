@@ -78,18 +78,18 @@ This section captures the post-implementation audit outcomes and the concrete co
 
 | Source doc                                                   | Alignment gate                         | Required outcome                                                                                            |
 | ------------------------------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `docs/strategic-design/00-index.md`                          | Context responsibilities remain intact | No feature code collapses context boundaries (Runtime vs Projections vs CohortAccess).                      |
-| `docs/strategic-design/tactical/00-index.md`                 | Tactical specs remain authoritative    | All runtime/presentation changes trace to EI Runtime tactical spec, not ad-hoc workflow logic.              |
+| `docs/engineering-ddd-design/00-index.md`                          | Context responsibilities remain intact | No feature code collapses context boundaries (Runtime vs Projections vs CohortAccess).                      |
+| `docs/engineering-ddd-design/tactical/00-index.md`                 | Tactical specs remain authoritative    | All runtime/presentation changes trace to EI Runtime tactical spec, not ad-hoc workflow logic.              |
 | `.agents/skills/.../HEXAGONAL.md`                            | Ports and adapters discipline          | Driver adapters remain thin; domain/application do not depend on infra typing.                              |
 | `.agents/skills/.../DDD-TACTICAL.md`                         | Aggregate and VO integrity             | StudySession invariants stay in aggregate/VOs; no migration of core business rules into UI/presenter layer. |
 | `.agents/skills/.../DDD-STRATEGIC.md`                        | Published language + ACL discipline    | Event schemas/versioning and ACL translation remain explicit and stable.                                    |
 | `.agents/skills/.../LAYERS.md`                               | Dependency rule                        | Infrastructure -> Application -> Domain only; presentation modules not typed to DB rows.                    |
-| `docs/strategic-design/09-tactical-ddd-candidates.md`        | Candidate ownership consistency        | Changes remain in expected modules (StudySession, StudentAggregates, ViewComposer).                         |
-| `docs/strategic-design/05-cross-cutting-concerns.md`         | Invariants and event catalog           | Event type strictness, idempotency, schema conformance, privacy boundaries are maintained.                  |
-| `docs/strategic-design/canvas-ei-runtime.md`                 | Execution vs gateway boundary          | ViewComposer stays pure presenter with context from application boundary, not direct persistence types.     |
-| `docs/strategic-design/tactical/ei-runtime-tactical-spec.md` | Runtime tactical conformance           | Routing, event completeness, command boundaries, and SDUI responsibilities match spec.                      |
-| `docs/strategic-design/02-subdomains.md`                     | Subdomain boundaries                   | StudySessionOrchestration remains supporting context; no metric/label computation ownership drift.          |
-| `docs/strategic-design/03-context-map.md`                    | Relationship integrity                 | Customer-supplier and published language edges are not bypassed by convenience reads/writes.                |
+| `docs/engineering-ddd-design/09-tactical-ddd-candidates.md`        | Candidate ownership consistency        | Changes remain in expected modules (StudySession, StudentAggregates, ViewComposer).                         |
+| `docs/engineering-ddd-design/05-cross-cutting-concerns.md`         | Invariants and event catalog           | Event type strictness, idempotency, schema conformance, privacy boundaries are maintained.                  |
+| `docs/engineering-ddd-design/canvas-ei-runtime.md`                 | Execution vs gateway boundary          | ViewComposer stays pure presenter with context from application boundary, not direct persistence types.     |
+| `docs/engineering-ddd-design/tactical/ei-runtime-tactical-spec.md` | Runtime tactical conformance           | Routing, event completeness, command boundaries, and SDUI responsibilities match spec.                      |
+| `docs/engineering-ddd-design/02-subdomains.md`                     | Subdomain boundaries                   | StudySessionOrchestration remains supporting context; no metric/label computation ownership drift.          |
+| `docs/engineering-ddd-design/03-context-map.md`                    | Relationship integrity                 | Customer-supplier and published language edges are not bypassed by convenience reads/writes.                |
 
 
 ---

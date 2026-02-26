@@ -8,10 +8,10 @@
 
 1. **Start here.** Read this index, then follow the reading order below.
 2. **For principles and scales:** See [`ux-design-brief.md`](../ux-design-brief.md) — that doc covers the WHAT (design principles, archetypes, UX do's/don'ts). This folder covers the HOW (experience architecture) and the WHY (psychological model).
-3. **For engineering contracts:** See [`EI_Engine_Taxonomy.md`](../../EI_Engine_Taxonomy.md) — that doc defines gate outputs, derived signals, and routing logic. This folder translates those into UX behavior. **Do not modify the Engine Taxonomy from this folder.**
+3. **For engineering contracts:** See [`EI_Engine_Taxonomy.md`](../ei/EI_Engine_Taxonomy.md) — that doc defines gate outputs, derived signals, and routing logic. This folder translates those into UX behavior. **Do not modify the Engine Taxonomy from this folder.**
 4. **For storyboard context:** The three 21-day student journeys that inform this system:
-   - [`EI_Storyboard_S2_RevengePlanning_Day1-21.md`](../../EI_Storyboard_S2_RevengePlanning_Day1-21.md) — high pressure after bad mock
-   - [`EI_Storyboard_S5_BurnoutRunway_Day1-21.md`](../../EI_Storyboard_S5_BurnoutRunway_Day1-21.md) — burnout, silence, re-entry
+   - [`EI_Storyboard_S2_RevengePlanning_Day1-21.md`](../ei/EI_Storyboard_S2_RevengePlanning_Day1-21.md) — high pressure after bad mock
+   - [`EI_Storyboard_S5_BurnoutRunway_Day1-21.md`](../ei/EI_Storyboard_S5_BurnoutRunway_Day1-21.md) — burnout, silence, re-entry
    - [`EI_Storyboard_S7_Day1-21.md`](../../EI_Storyboard_S7_Day1-21.md) — ambitious, pending checks pile up
 
 ---
@@ -47,7 +47,7 @@ The student-facing scales document (`EI_UX_Scales.md`) has been moved from the p
 ```
 ux-design-brief.md          →  Principles, archetypes, design rules (the WHAT)
                                      ↓
-docs/student-experience/     →  Experience architecture (the HOW + WHY)
+docs/student-ux-architecture/     →  Experience architecture (the HOW + WHY)
                                      ↓
 EI_Engine_Taxonomy.md        →  Gate outputs, signals, routing logic (engineering contracts)
                                      ↓

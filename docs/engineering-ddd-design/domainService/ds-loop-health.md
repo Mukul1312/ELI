@@ -110,5 +110,5 @@ Per [05-cross-cutting-concerns.md#invariants](../05-cross-cutting-concerns.md):
 - [src/ei/domain/loop-health/assess-loop-health.ts](../../src/ei/domain/loop-health/assess-loop-health.ts) — assignP1Label, assignP2Label, assignP3Label, resolveMode, classifyP1, classifyP2, classifyP3
 - [src/ei/domain/loop-health/tunables.ts](../../src/ei/domain/loop-health/tunables.ts) — threshold constants (canonical)
 - [src/ei/engine/classify.ts](../../src/ei/engine/classify.ts) (re-export bridge; backward compat only)
-- [EI_Engine_Taxonomy.md](../../EI_Engine_Taxonomy.md) §3 (labels), §4 (precedence)
+- [EI_Engine_Taxonomy.md](../../ei/EI_Engine_Taxonomy.md) §3 (labels), §4 (precedence)
 

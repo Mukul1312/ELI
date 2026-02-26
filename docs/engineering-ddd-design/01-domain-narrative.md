@@ -1,6 +1,6 @@
 # Domain Narrative
 
-> **How to fill:** Extract a one-page narrative from [Unified_Master_Doc.md](../../Unified_Master_Doc.md) and [EI_Spec.md](../../EI_Spec.md). Answer: What problem do we solve? Who are the actors? What is the EI loop? When do we say the system is "working"?
+> **How to fill:** Extract a one-page narrative from [Unified_Master_Doc.md](../ei/master/Unified_Master_Doc.md) and [EI_Spec.md](../ei/spec/EI_Spec.md). Answer: What problem do we solve? Who are the actors? What is the EI loop? When do we say the system is "working"?
 
 ---
 

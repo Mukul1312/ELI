@@ -2,7 +2,7 @@
 
 > **Subdomains = problem-space** (what the business does; how the domain is broken down). **Bounded contexts = solution-space** (how the system is built); see [03-context-map.md](03-context-map.md). Good design aligns them (carpet fits floor).
 >
-> **Source:** [EI_Spec.md](../../EI_Spec.md), [EI_Scenarios.md](../../EI_Scenarios.md), storyboards, [launch-requirements-checklist.md](../launch-requirements-checklist.md)
+> **Source:** [EI_Spec.md](../ei/spec/EI_Spec.md), [EI_Scenarios.md](../ei/scenarios/EI_Scenarios.md), storyboards, [launch-requirements-checklist.md](../launch-requirements-checklist.md)
 
 ---
 

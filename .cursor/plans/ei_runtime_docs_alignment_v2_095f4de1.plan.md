@@ -9,7 +9,7 @@ todos:
     content: Extract the specific invariants and event catalog rows needed by EI Runtime routing and command boundary rules (idempotency guidance, minimum event set, server-derived identity) from `05-cross-cutting-concerns.md`. Confirm StudySession/orchestration candidates and existing code pointers from `09-tactical-ddd-candidates.md` for consistent references.
     status: completed
   - id: add-session-state-derivation
-    content: Add Session state derivation section to `docs/strategic-design/tactical/ei-runtime-tactical-spec.md` (ledger/projection inputs, derived evidence flags, lifecycle mapping, recency/sessionId considerations). Place it right after the existing StudySession persistence note.
+    content: Add Session state derivation section to `docs/engineering-ddd-design/tactical/ei-runtime-tactical-spec.md` (ledger/projection inputs, derived evidence flags, lifecycle mapping, recency/sessionId considerations). Place it right after the existing StudySession persistence note.
     status: completed
   - id: add-routing-matrix
     content: Add Routing matrix section to `ei-runtime-tactical-spec.md` mapping command types to protocol decisions using derived state; include invalid transition handling and replan behavior. Ensure naming aligns with the cross-cutting event catalog and current command route types.
@@ -21,7 +21,7 @@ todos:
     content: Add Idempotency + event completeness at the command boundary section to `ei-runtime-tactical-spec.md` referencing `05-cross-cutting-concerns.md` invariants and mapping to P0 minimum viable event set in `docs/launch-requirements-checklist.md`.
     status: completed
   - id: strategic-doc-touchpoint
-    content: Update `docs/strategic-design/05-cross-cutting-concerns.md` under `## ACLs` with a short “Where contracts live” pointer (no new folder) and link to the updated EI Runtime tactical spec sections.
+    content: Update `docs/engineering-ddd-design/05-cross-cutting-concerns.md` under `## ACLs` with a short “Where contracts live” pointer (no new folder) and link to the updated EI Runtime tactical spec sections.
     status: completed
 isProject: false
 ---
@@ -30,8 +30,8 @@ isProject: false
 
 ## Outcomes (what “done” means)
 
-- **No new `docs/strategic-design/contracts/` folder**. Cross-context “contracts” are documented in the same places your strategic design already says are authoritative: context map + cross-cutting concerns + tactical specs.
-- `[docs/strategic-design/tactical/ei-runtime-tactical-spec.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/strategic-design/tactical/ei-runtime-tactical-spec.md)` gains four explicit sections:
+- **No new `docs/engineering-ddd-design/contracts/` folder**. Cross-context “contracts” are documented in the same places your strategic design already says are authoritative: context map + cross-cutting concerns + tactical specs.
+- `[docs/engineering-ddd-design/tactical/ei-runtime-tactical-spec.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/engineering-ddd-design/tactical/ei-runtime-tactical-spec.md)` gains four explicit sections:
   - Session state derivation
   - Routing matrix
   - Orchestrator use case spec (new explicit use case)
@@ -55,7 +55,7 @@ Use these as the anchor for the comparison:
 
 ### B. Compare the two documentation packaging options
 
-#### Option 1: Dedicated `docs/strategic-design/contracts/` folder
+#### Option 1: Dedicated `docs/engineering-ddd-design/contracts/` folder
 
 - **Strengths**
   - One file per relationship: easy to find; reduces copy/paste.
@@ -67,8 +67,8 @@ Use these as the anchor for the comparison:
 
 Your strategic design already has a contract home:
 
-- `[docs/strategic-design/03-context-map.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/strategic-design/03-context-map.md)`: relationship catalog describes **integration semantics** (ACL vs Published Language).
-- `[docs/strategic-design/05-cross-cutting-concerns.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/strategic-design/05-cross-cutting-concerns.md)`: “constitution” of **invariants**, **event contracts**, **data ownership**, and **ACL intent**.
+- `[docs/engineering-ddd-design/03-context-map.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/engineering-ddd-design/03-context-map.md)`: relationship catalog describes **integration semantics** (ACL vs Published Language).
+- `[docs/engineering-ddd-design/05-cross-cutting-concerns.md](c:/Users/Mukul/code/personal-projects/ai-study-brother/docs/engineering-ddd-design/05-cross-cutting-concerns.md)`: “constitution” of **invariants**, **event contracts**, **data ownership**, and **ACL intent**.
 - Tactical specs (like EI Runtime): define **ports**, **DTOs**, and **use case steps**.
 
 ### C. Drift prevention without a contracts folder (what we will add)

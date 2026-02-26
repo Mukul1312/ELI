@@ -7,7 +7,7 @@
  * Manual backfill production baseline. Used with signal-compute and projector tools
  * (recomputeTopicLoop, recomputeStudentPolicy) for idempotent, auditable backfill.
  *
- * @see docs/strategic-design/tactical/ops-observability-tactical-spec.md §7, §8
+ * @see docs/engineering-ddd-design/tactical/ops-observability-tactical-spec.md §7, §8
  */
 
 import { createTool } from '@mastra/core/tools';

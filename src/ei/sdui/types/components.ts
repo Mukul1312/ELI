@@ -4,7 +4,7 @@
  * 16 component types that the client renderer maps to React components.
  * Unknown types are silently skipped (forward compatibility).
  *
- * @see docs/strategic-design/canvas-ei-runtime.md — Gateway context role
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md — Gateway context role
  * @see docs/ux-design-brief.md §5–7 — scale definitions, card specs, storyboard UX
  */
 

@@ -68,7 +68,7 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 ### Student-facing scales
 
-Source: [EI_UX_Scales.md](../../EI_UX_Scales.md)
+Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
 | Scale           | Values            | Labels (student sees)                                     |
 | --------------- | ----------------- | --------------------------------------------------------- |
