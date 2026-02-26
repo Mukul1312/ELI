@@ -7,9 +7,6 @@ import {
   SensitiveDataFilter,
 } from '@mastra/observability';
 
-import { eiStore } from '@/ei/runtime/db';
-import { EI_DB_KEY } from '@/ei/runtime/request-context';
-
 // Tools
 import { appendEventTool, queryEventsTool } from './tools/event-store';
 import { computeAggregatesTool, checkOverdueSchedulesTool, listStudentsTool } from './tools/signal-compute';
@@ -84,16 +81,5 @@ export const mastra = new Mastra({
     setPolicyTool,
     upsertRadarAlertTool,
     getRadarAlertsTool,
-  },
-  server: {
-    middleware: [
-      async (context, next) => {
-        const requestContext = context.get('requestContext');
-        if (requestContext) {
-          requestContext.set(EI_DB_KEY, eiStore.db);
-        }
-        await next();
-      },
-    ],
   },
 });

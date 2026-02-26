@@ -11,8 +11,6 @@ import { InvalidCommandError } from '../../../../application/run-ei-command/erro
 // Mock DB before any workflow loads it (ei/runtime/db throws without DATABASE_URL)
 vi.mock('../../../../runtime/db', () => ({
   eiStore: { db: {} },
-  getEiRequestContext: vi.fn(),
-  getEiDb: vi.fn(),
 }));
 
 describe('RunEiCommandHandler', () => {

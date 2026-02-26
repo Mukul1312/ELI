@@ -10,7 +10,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { recomputeStudentPolicy } from '../../ei/infrastructure/projector/student-policy-projector';
-import { getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { createCorrelationId, logBackfillAudit } from '../../ei/infrastructure/logging';
 
 export const recomputeStudentPolicyTool = createTool({
@@ -26,7 +26,7 @@ export const recomputeStudentPolicyTool = createTool({
   }),
   execute: async (input, context) => {
     const correlationId = createCorrelationId();
-    const db = getEiDb(context);
+    const db = eiStore.db;
 
     await recomputeStudentPolicy(db, input.studentId);
 

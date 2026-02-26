@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { EventTypeEnum } from '../../ei/schemas/events';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import * as Q from '../../ei/db/queries';
-import { getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { isTopicLoopEventType } from '../../ei/domain/topic-loop/events';
 import { PostgresTopicLoopRepository } from '../../ei/infrastructure/persistence/topic-loop-repository.pg';
 import { ApplyEventToTopicLoopHandler } from '../../ei/application/apply-event-to-topic-loop/handler';
@@ -37,7 +37,7 @@ export const appendEventTool = createTool({
   }),
   execute: async (input, context) => {
     const { studentId, eventType, topicId, payload, occurredAt, idempotencyKey } = input;
-    const db = getEiDb(context);
+    const db = eiStore.db;
 
     const validatedPayload = validateEventPayload(eventType, payload as Record<string, unknown>);
 
@@ -93,7 +93,7 @@ export const queryEventsTool = createTool({
   }),
   execute: async (input, context) => {
     const { studentId, filters } = input;
-    const db = getEiDb(context);
+    const db = eiStore.db;
 
     const rows = await Q.queryEvents(db, studentId, {
       eventTypes: filters?.eventTypes,

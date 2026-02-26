@@ -35,8 +35,6 @@ vi.mock('@/ei/runtime/db', async (importOriginal) => {
         none: vi.fn(),
       },
     },
-    getEiRequestContext: vi.fn(),
-    getEiDb: vi.fn(),
   };
 });
 
