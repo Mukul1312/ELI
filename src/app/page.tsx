@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { SduiView, resolvePayload } from '@/app/sdui/renderer';
-import type { SduiResponse } from '@/app/sdui/types';
+import { SduiView, SduiSlot, resolvePayload } from '@/app/sdui/renderer';
+import type { SduiResponse, SduiComponent } from '@/app/sdui/types';
 
 // ============================================================================
 // Styles
@@ -36,6 +36,7 @@ export default function Home() {
   const [authState, setAuthState] = useState<AuthState>('initializing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentSduiResponse, setCurrentSduiResponse] = useState<SduiResponse | null>(null);
+  const [sessionFooter, setSessionFooter] = useState<SduiComponent[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
   const [actionLoading, setActionLoading] = useState(false);
   const [bootstrapTrigger, setBootstrapTrigger] = useState(0);
@@ -101,6 +102,10 @@ export default function Home() {
         const res = await api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey);
         if (!cancelled) {
           setCurrentSduiResponse(res);
+          const footerNodes = (res.view?.footer ?? []).filter(
+            (c) => c.type === 'session-summary-footer',
+          );
+          if (footerNodes.length > 0) setSessionFooter(footerNodes);
           setAuthState('authenticated');
         }
       } catch (err) {
@@ -114,11 +119,28 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [bootstrapTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket)
+  const hasRequiredCheckinFields = useCallback(() => {
+    const topic = formValues['topic'];
+    const energy = formValues['energy'];
+    const sleepBucket = formValues['sleepBucket'];
+    return typeof topic === 'string' && topic.trim() !== ''
+      && typeof energy === 'number' && energy >= 1 && energy <= 5
+      && typeof sleepBucket === 'string' && sleepBucket.length > 0;
+  }, [formValues]);
+
   // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
     async (actionId: string) => {
       const action = currentSduiResponse?.actions?.[actionId];
       if (!action) return;
+      // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
+      const needsCheckinFields = currentSduiResponse?.phase === 'checkin'
+        && (actionId === 'small_start' || actionId === 'submit_checkin');
+      if (needsCheckinFields && !hasRequiredCheckinFields()) {
+        setErrorMessage('Please fill in topic, energy, and sleep to continue.');
+        return;
+      }
       const resolved = resolvePayload(action.payload, formValues);
       setErrorMessage(null);
       setActionLoading(true);
@@ -126,6 +148,11 @@ export default function Home() {
       try {
         const result = await api(action.endpoint.path, resolved, idempotencyKey);
         setCurrentSduiResponse(result);
+        // Persist footer across phase transitions (Phase 2 has no footer)
+        const footerNodes = (result.view?.footer ?? []).filter(
+          (c) => c.type === 'session-summary-footer',
+        );
+        if (footerNodes.length > 0) setSessionFooter(footerNodes);
         setFormValues({});
       } catch (err: unknown) {
         setAuthState('error');
@@ -134,7 +161,7 @@ export default function Home() {
         setActionLoading(false);
       }
     },
-    [currentSduiResponse, formValues, api],
+    [currentSduiResponse, formValues, api, hasRequiredCheckinFields],
   );
 
   const handleFormChange = useCallback((id: string, value: string | number) => {
@@ -194,6 +221,16 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {/* Persisted session footer — shown across all phases, even Phase 2 (no footer in active session) */}
+      {authState === 'authenticated' && sessionFooter.length > 0 && (
+        <SduiSlot
+          components={sessionFooter}
+          formValues={formValues}
+          onFormChange={handleFormChange}
+          onAction={handleSduiAction}
+        />
+      )}
     </div>
   );
 }

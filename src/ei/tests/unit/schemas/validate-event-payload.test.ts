@@ -35,4 +35,20 @@ describe('validateEventPayload', () => {
     const result = validateEventPayload('UnknownEventType', payload);
     expect(result).toEqual(payload);
   });
+
+  it('accepts valid IdentityMomentShown payload', () => {
+    const result = validateEventPayload('IdentityMomentShown', {
+      statement: 'You came back. That matters.',
+    });
+    expect(result.statement).toBe('You came back. That matters.');
+  });
+
+  it('rejects IdentityMomentShown with unknown key', () => {
+    expect(() =>
+      validateEventPayload('IdentityMomentShown', {
+        statement: 'You came back.',
+        extraKey: 'bad',
+      }),
+    ).toThrow();
+  });
 });

@@ -74,6 +74,7 @@ const intentResponseStep = createStep({
           studentId,
           topic,
           taskType,
+          difficultyTier: inputData.difficultyTier,
           setAt: setAt ?? respondedAt,
           idempotencyKey,
         },

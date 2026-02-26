@@ -53,6 +53,8 @@ export const SessionStartPayloadSchema = z
   .object({
     topic: z.string(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    taskType: z.string().optional(),
+    difficultyTier: z.string().optional(),
   })
   .strict();
 

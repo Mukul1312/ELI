@@ -36,7 +36,30 @@ export type MicrocopySlot =
   | 'schedule_prompt'
   | 'skip_prompt'
   | 'done_title'
-  | 'celebration_message';
+  | 'celebration_message'
+  // Phase 1 "The Open" — variant-specific greeting copy (WS7)
+  | 'phase1_greeting'
+  | 'phase1_sub_greeting'
+  | 'phase1_pending_items_label'
+  | 'phase1_footer_warm_label'
+  | 'phase1_cta'
+  // Phase 3 "The Close" — scenario-specific copy (WS7)
+  | 'close_verified'
+  | 'close_reminded'
+  | 'close_skip_time'
+  | 'close_skip_fatigue'
+  | 'close_skip_confusion'
+  | 'close_milestone'
+  | 'close_first_ever'
+  | 'phase3_done_verified'
+  | 'phase3_done_milestone'
+  | 'phase3_done_first_ever'
+  | 'phase3_done_reminded'
+  | 'phase3_done_skip_time'
+  | 'phase3_done_skip_fatigue'
+  | 'phase3_done_skip_confusion'
+  | 'seed_verified'
+  | 'seed_reminded';
 
 export interface MicrocopyCatalog {
   P1: GateCatalog;

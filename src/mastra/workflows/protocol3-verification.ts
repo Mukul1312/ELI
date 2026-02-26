@@ -84,6 +84,5 @@ export const protocol3VerificationWorkflow = createWorkflow({
   outputSchema: P3WrappedResponseSchema,
 })
   .then(runP3Gate)
-  .map(async ({ inputData }) => ({ domainOutput: inputData }))
   .then(composeP3ViewStep)
   .commit();

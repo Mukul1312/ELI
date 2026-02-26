@@ -68,7 +68,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
       }
 
       case 'SessionStart': {
-        const { topic, mode } = command.payload;
+        const { topic, mode, taskType, difficultyTier } = command.payload;
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
           if (!phase.hasActivationPlan) {
@@ -76,7 +76,17 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
           }
         }
         const run = await sessionStartWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, idempotencyKey, correlationId } });
+        return run.start({
+          inputData: {
+            studentId,
+            topic,
+            mode,
+            taskType,
+            difficultyTier,
+            idempotencyKey,
+            correlationId,
+          },
+        });
       }
 
       case 'Replan': {

@@ -39,6 +39,12 @@ function baseCtx(overrides: Partial<PresentationContext> = {}): PresentationCont
     energy: 3,
     pressure: 2,
     closeOpenLoopFirst: false,
+    verificationRate7d: 0,
+    stateTrend7d: 'flat',
+    sessionsLast7d: 5,
+    loopsClosedLast7d: 2,
+    topicStates: [],
+    lastIdentityShownAt: null,
     ...overrides,
   };
 }

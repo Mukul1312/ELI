@@ -556,3 +556,131 @@ export async function listActiveStudents(
   );
   return rows.map((r: { student_id: string }) => r.student_id);
 }
+
+// ============================================================================
+// Student event counts (last 7d) — for PresentationContext hydration
+// ============================================================================
+
+export interface StudentEventCounts7d {
+  sessionsLast7d: number;
+  loopsClosedLast7d: number;
+}
+
+/** Count SessionEnd and verification events in the last 7 days for footer + identity eligibility. */
+export async function countStudentEventsLast7d(
+  db: DbClient,
+  studentId: string,
+): Promise<StudentEventCounts7d> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const row = await db.one<{ sessions: string; loops: string }>(
+    `SELECT
+       COUNT(*) FILTER (WHERE event_type = 'SessionEnd') AS sessions,
+       COUNT(*) FILTER (WHERE event_type IN ('RetrievalVerified', 'VerificationCompleted')) AS loops
+     FROM ei_events
+     WHERE student_id = $1 AND occurred_at >= $2`,
+    [studentId, since],
+  );
+  return {
+    sessionsLast7d: parseInt(row.sessions, 10),
+    loopsClosedLast7d: parseInt(row.loops, 10),
+  };
+}
+
+/** Get the timestamp of the most recent IdentityMomentShown event for rate-limiting. */
+export async function getLastIdentityShownAt(
+  db: DbClient,
+  studentId: string,
+): Promise<Date | null> {
+  const row = await db.oneOrNone<{ occurred_at: Date }>(
+    `SELECT occurred_at FROM ei_events
+     WHERE student_id = $1 AND event_type = 'IdentityMomentShown'
+     ORDER BY occurred_at DESC LIMIT 1`,
+    [studentId],
+  );
+  return row?.occurred_at ?? null;
+}
+
+/** Record that an identity moment card was shown (for 7-day rate-limiting). */
+export async function insertIdentityMomentShownEvent(
+  db: DbClient,
+  studentId: string,
+  statement: string,
+  idempotencyKey?: string,
+): Promise<void> {
+  const { validateEventPayload } = await import('../schemas/validate-event-payload');
+  const payload = validateEventPayload('IdentityMomentShown', { statement });
+  await insertEvent(db, studentId, 'IdentityMomentShown', null, payload, undefined, idempotencyKey);
+}
+
+/** Historical indicators for identity pattern detection (last 14 days). */
+export interface HistoricalIdentityIndicators {
+  hadSilenceInLast14d: boolean;
+  hadHighPressureInLast14d: boolean;
+}
+
+/**
+ * hadSilenceInLast14d: true if there was a 3+ day stretch with no SessionEnd in last 14 days.
+ * hadHighPressureInLast14d: true if any AppOpen in last 14 days had pressure >= 4.
+ */
+export async function getHistoricalIdentityIndicators(
+  db: DbClient,
+  studentId: string,
+): Promise<HistoricalIdentityIndicators> {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
+  const [silenceRow, pressureRow] = await Promise.all([
+    db.one<{ dates: Date[] }>(
+      `SELECT COALESCE(
+         (SELECT array_agg(d ORDER BY d) FROM (
+           SELECT DISTINCT (occurred_at AT TIME ZONE 'UTC')::date AS d
+           FROM ei_events
+           WHERE student_id = $1 AND event_type = 'SessionEnd' AND occurred_at >= $2
+         ) sd),
+         ARRAY[]::date[]
+       ) AS dates`,
+      [studentId, since],
+    ),
+    db.oneOrNone<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ei_events
+       WHERE student_id = $1 AND event_type = 'AppOpen' AND occurred_at >= $2
+         AND (payload->>'pressure')::int >= 4`,
+      [studentId, since],
+    ),
+  ]);
+
+  const rawDates = silenceRow?.dates ?? [];
+  const dates = rawDates.map((d) => new Date(d).getTime()).sort((a, b) => a - b);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const windowStart = since.getTime();
+  const now = Date.now();
+
+  let maxGapDays = 0;
+  const sorted = [windowStart, ...dates, now];
+  for (let i = 1; i < sorted.length; i++) {
+    const gapDays = Math.floor((sorted[i]! - sorted[i - 1]!) / dayMs);
+    maxGapDays = Math.max(maxGapDays, gapDays);
+  }
+
+  return {
+    hadSilenceInLast14d: maxGapDays >= 3,
+    hadHighPressureInLast14d: pressureRow ? parseInt(pressureRow.count, 10) > 0 : false,
+  };
+}
+
+/** Get energy and pressure from the most recent AppOpen event for P3 context. */
+export async function getLastAppOpenEnergyPressure(
+  db: DbClient,
+  studentId: string,
+): Promise<{ energy: number; pressure: number }> {
+  const row = await db.oneOrNone<{ payload: Record<string, unknown> }>(
+    `SELECT payload FROM ei_events
+     WHERE student_id = $1 AND event_type = 'AppOpen'
+     ORDER BY occurred_at DESC LIMIT 1`,
+    [studentId],
+  );
+  const payload = row?.payload ?? {};
+  return {
+    energy: (payload.energy as number) ?? 3,
+    pressure: (payload.pressure as number) ?? 1,
+  };
+}

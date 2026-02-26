@@ -8,9 +8,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvalidCommandError } from '../../../../application/run-ei-command/errors';
 
-// Mock DB before any workflow loads it (ei/runtime/db throws without DATABASE_URL)
+// Mock DB before any workflow loads it (ei/runtime/db throws without DATABASE_URL).
+// checkinViewWorkflow queries aggregates, topic states, event counts — provide mock implementations.
 vi.mock('../../../../runtime/db', () => ({
-  eiStore: { db: {} },
+  eiStore: {
+    db: {
+      oneOrNone: () => Promise.resolve(null),
+      one: () => Promise.resolve({ sessions: '0', loops: '0' }),
+      any: () => Promise.resolve([]),
+      none: () => Promise.resolve(undefined),
+    },
+  },
 }));
 
 describe('RunEiCommandHandler', () => {

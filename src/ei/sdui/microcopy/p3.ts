@@ -63,4 +63,39 @@ export const P3_CATALOG: GateCatalog = {
       Boost: 'Well done.',
     },
   },
+  // ─── Phase 3 "The Close" — scenario-specific copy (WS7) ────────────────────
+  // Scenario A: student completed verification
+  close_verified: {
+    default: 'Loop closed.',
+    byMode: {
+      Rescue: 'You proved it. That\'s enough.',
+      Neutral: 'Loop closed.',
+      Boost: 'Locked. One less pending check.',
+    },
+  },
+  // Scenario B: student scheduled a reminder
+  close_reminded: { default: 'Good session. Reminder set.' },
+  // Scenario C: student skipped — reason: Time
+  close_skip_time: { default: 'Noted. Short day.' },
+  // Scenario D: student skipped — reason: Fatigue
+  close_skip_fatigue: { default: "Noted. Rest is part of the plan." },
+  // Scenario E: student skipped — reason: Confusion
+  close_skip_confusion: { default: "That's okay. Different approach next time." },
+  // Scenario F: pendingChecks hit 0 after verification
+  close_milestone: { default: 'All clear. 0 pending checks.' },
+  // Scenario G: first ever loop close
+  close_first_ever: { default: 'First loop closed.' },
+  // Phase 3 done screen — scenario-specific message (replaces hardcoded PHASE3_MESSAGE)
+  phase3_done_verified: { default: 'Good work. You proved it.' },
+  phase3_done_milestone: { default: "Everything you've studied, you've also proved." },
+  phase3_done_first_ever: {
+    default: 'That\'s what "closing the loop" means — you studied it AND proved you remember it.',
+  },
+  phase3_done_reminded: { default: "You'll see it again soon." },
+  phase3_done_skip_time: { default: 'Time ran out — that happens.' },
+  phase3_done_skip_fatigue: { default: 'Recovery matters.' },
+  phase3_done_skip_confusion: { default: 'Confusion is a signal, not a failure.' },
+  // Forward-looking seeds
+  seed_verified: { default: "{{count}} checks left this week — you're ahead." },
+  seed_reminded: { default: 'See you tomorrow.' },
 };

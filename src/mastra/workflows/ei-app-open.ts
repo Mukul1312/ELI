@@ -50,8 +50,9 @@ const appOpenBranchStep = createStep({
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
-      // checkin view is read-only — no events appended, no idempotency needed
-      return checkinRun.start({ inputData: { studentId, isFirstOfDay, correlationId } });
+      return checkinRun.start({
+        inputData: { studentId, isFirstOfDay, correlationId, idempotencyKey },
+      });
     }
 
     const fullPayload = payload as {

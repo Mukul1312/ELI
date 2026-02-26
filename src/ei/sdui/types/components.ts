@@ -244,6 +244,105 @@ export const SduiDoneCardSchema = z.object({
 export type SduiDoneCard = z.infer<typeof SduiDoneCardSchema>;
 
 // ────────────────────────────────────────────────────────────────────────────
+// New components: Phase 1 / Phase 3 / Footer / Identity (WS2–WS6)
+// ────────────────────────────────────────────────────────────────────────────
+
+const CtaSchema = z.object({ label: z.string(), actionId: z.string() });
+
+/** Phase 1 contextual greeting card — mode-driven, replaces welcome-back-card. */
+export const SduiResumeContextCardSchema = z.object({
+  type: z.literal('resume-context-card'),
+  props: z.object({
+    variant: z.enum([
+      'SILENCE_RE_ENTRY', 'HIGH_PRESSURE', 'CHALLENGE', 'CLEAN_START',
+      'DEAL_CARD', 'PENDING_STANDARD', 'ONBOARDING', 'IDENTITY_MOMENT',
+    ]),
+    greeting: z.string(),
+    subGreeting: z.string().optional(),
+    pendingItemsLabel: z.string().optional(),
+    primaryCta: CtaSchema,
+    secondaryCta: CtaSchema.optional(),
+    tertiaryCta: CtaSchema.optional(),
+  }),
+});
+export type SduiResumeContextCard = z.infer<typeof SduiResumeContextCardSchema>;
+
+/** Phase 1 tappable list of pending topics — hidden in Rescue mode. */
+export const SduiPendingItemsListSchema = z.object({
+  type: z.literal('pending-items-list'),
+  props: z.object({
+    items: z.array(z.object({
+      topicId: z.string(),
+      topicName: z.string(),
+      daysAgo: z.number(),
+      actionId: z.string(),
+    })),
+    overflowLabel: z.string().optional(),
+  }),
+});
+export type SduiPendingItemsList = z.infer<typeof SduiPendingItemsListSchema>;
+
+/** Phase 3 scenario-specific closing card — counter animation + seed + optional clearMore. */
+export const SduiLoopClosedCardSchema = z.object({
+  type: z.literal('loop-closed-card'),
+  props: z.object({
+    scenario: z.enum([
+      'verified', 'reminded', 'skip_time', 'skip_fatigue',
+      'skip_confusion', 'milestone', 'first_ever',
+    ]),
+    title: z.string(),
+    topicName: z.string().optional(),
+    message: z.string().optional(),
+    countBefore: z.number().optional(),
+    countAfter: z.number().optional(),
+    seed: z.string().optional(),
+    clearMoreCta: CtaSchema.optional(),
+    milestone: z.boolean().default(false),
+    firstEver: z.boolean().default(false),
+  }),
+});
+export type SduiLoopClosedCard = z.infer<typeof SduiLoopClosedCardSchema>;
+
+/** "Your Week" collapsible one-line footer — persists across phase transitions. */
+export const SduiSessionSummaryFooterSchema = z.object({
+  type: z.literal('session-summary-footer'),
+  props: z.object({
+    collapsedLabel: z.string(),
+    sessions: z.number(),
+    loopsClosed: z.number(),
+    pending: z.number(),
+    rate: z.number(),
+    trend: z.enum(['improving', 'flat', 'worsening']),
+    identityStatement: z.string().optional(),
+    warmLabel: z.string().optional(),
+  }),
+});
+export type SduiSessionSummaryFooter = z.infer<typeof SduiSessionSummaryFooterSchema>;
+
+/** Weekly identity moment card — replaces resume-context-card when eligible. */
+export const SduiIdentityMomentCardSchema = z.object({
+  type: z.literal('identity-moment-card'),
+  props: z.object({
+    statement: z.string(),
+    detail: z.string(),
+    ctaLabel: z.string(),
+    ctaActionId: z.string(),
+  }),
+});
+export type SduiIdentityMomentCard = z.infer<typeof SduiIdentityMomentCardSchema>;
+
+/** Phase 2 session context bar — small muted fixed top bar showing topic/taskType/difficulty. */
+export const SduiSessionContextBarSchema = z.object({
+  type: z.literal('session-context-bar'),
+  props: z.object({
+    topic: z.string(),
+    taskType: z.string(),
+    difficultyTier: z.string(),
+  }),
+});
+export type SduiSessionContextBar = z.infer<typeof SduiSessionContextBarSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
 // Union
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -266,6 +365,12 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiActionGroupSchema,
   SduiSessionTimerSchema,
   SduiDoneCardSchema,
+  SduiResumeContextCardSchema,
+  SduiPendingItemsListSchema,
+  SduiLoopClosedCardSchema,
+  SduiSessionSummaryFooterSchema,
+  SduiIdentityMomentCardSchema,
+  SduiSessionContextBarSchema,
 ]) as z.ZodType<SduiComponent>;
 
 export type SduiComponent =
@@ -286,4 +391,10 @@ export type SduiComponent =
   | SduiWelcomeBackCard
   | SduiActionGroup
   | SduiSessionTimer
-  | SduiDoneCard;
+  | SduiDoneCard
+  | SduiResumeContextCard
+  | SduiPendingItemsList
+  | SduiLoopClosedCard
+  | SduiSessionSummaryFooter
+  | SduiIdentityMomentCard
+  | SduiSessionContextBar;

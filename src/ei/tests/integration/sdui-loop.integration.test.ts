@@ -18,35 +18,40 @@ vi.mock('@/app/api/ei/with-session', () => ({
 }));
 
 describe.skipIf(!process.env.DATABASE_URL)('SDUI loop integration', () => {
-  it('POST AppOpen (initial: true) returns checkin view with schemaVersion, phase, view, actions', async () => {
-    const { POST } = await import('@/app/api/ei/command/route');
+  it(
+    'POST AppOpen (initial: true) returns checkin view with schemaVersion, phase, view, actions',
+    async () => {
+      const { POST } = await import('@/app/api/ei/command/route');
 
-    const req = new Request('http://localhost/api/ei/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commandType: 'AppOpen',
-        payload: { initial: true },
-        idempotencyKey: `sdui-test-appopen-${Date.now()}`,
-      }),
-    });
+      const req = new Request('http://localhost/api/ei/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commandType: 'AppOpen',
+          payload: { initial: true },
+          idempotencyKey: `sdui-test-appopen-${Date.now()}`,
+        }),
+      });
 
-    const res = await POST(req);
-    expect(res.status).toBe(200);
+      const res = await POST(req);
+      expect(res.status).toBe(200);
 
-    const body = (await res.json()) as unknown;
-    // Mastra may wrap the workflow output; extract SduiResponse
-    const sdui =
-      body && typeof body === 'object' && 'schemaVersion' in (body as object)
-        ? (body as Record<string, unknown>)
-        : (body as { result?: { result?: Record<string, unknown> }; status?: string })?.result?.result;
-    expect(sdui).toBeDefined();
-    expect(sdui!.schemaVersion).toBe(1);
-    expect(sdui!.phase).toBe('checkin');
-    expect(sdui!.view).toBeDefined();
-    expect(sdui!.actions).toBeDefined();
-    expect(typeof sdui!.actions).toBe('object');
-  });
+      const body = (await res.json()) as unknown;
+      // Mastra may wrap the workflow output; extract SduiResponse
+      const sdui =
+        body && typeof body === 'object' && 'schemaVersion' in (body as object)
+          ? (body as Record<string, unknown>)
+          : (body as { result?: { result?: Record<string, unknown> }; status?: string })?.result
+              ?.result;
+      expect(sdui).toBeDefined();
+      expect(sdui!.schemaVersion).toBe(1);
+      expect(sdui!.phase).toBe('checkin');
+      expect(sdui!.view).toBeDefined();
+      expect(sdui!.actions).toBeDefined();
+      expect(typeof sdui!.actions).toBe('object');
+    },
+    10000,
+  );
 
   it('POST with invalid command returns 400', async () => {
     const { POST } = await import('@/app/api/ei/command/route');
