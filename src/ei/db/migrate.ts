@@ -147,6 +147,32 @@ const SQL_STATEMENTS = [
    ON ei_study_sessions (student_id, topic_id) WHERE status IN ('negotiating','activating','active')`,
 
   // ================================================================
+  // 5c. ops_backfill_jobs (Ops persistent job orchestration, checkpoints)
+  // ================================================================
+  `CREATE TABLE IF NOT EXISTS ops_backfill_jobs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status              TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'cancelled', 'failed')),
+    projection_names    TEXT[] NOT NULL,
+    student_ids         TEXT[] NOT NULL,
+    throttle_ops_per_sec INTEGER,
+    projection_version  TEXT,
+    total_units         INTEGER,
+    completed_units     INTEGER NOT NULL DEFAULT 0,
+    checkpoint_payload  JSONB,
+    error_message       TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at          TIMESTAMPTZ,
+    completed_at        TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_ops_backfill_jobs_status
+   ON ops_backfill_jobs (status)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_ops_backfill_jobs_created
+   ON ops_backfill_jobs (created_at DESC)`,
+
+  // ================================================================
   // 6. CohortAccess tables (institutes, cohorts, students, membership, roles)
   // ================================================================
   `CREATE TABLE IF NOT EXISTS institutes (
@@ -204,7 +230,7 @@ async function migrate() {
   try {
     await runMigration(connectionString);
     console.log(
-      'Migration complete. All EI tables (including ei_idempotency_keys) and CohortAccess tables created/verified.'
+      'Migration complete. All EI tables (including ei_idempotency_keys), ops_backfill_jobs, and CohortAccess tables created/verified.'
     );
   } catch (err) {
     console.error('Migration failed:', err);

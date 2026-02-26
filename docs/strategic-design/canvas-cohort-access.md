@@ -17,7 +17,7 @@ CohortAccess
 
 ## Purpose
 
-Enforce tenant/cohort isolation and role-based access for all EI surfaces. Own membership and enrollment semantics (including unassigned as valid state). Four access surfaces: student EI, Institute Radar, admin/ops, coupon redemption. Never trust client-provided studentId; server-derived identity only.
+Enforce tenant/cohort isolation and role-based access for all EI surfaces. Own membership and enrollment semantics (including unassigned as valid state). Four access surfaces: student EI, Institute Radar, institute admin (enrollment), coupon redemption. Platform ops (backfill, timeline, observability) is not in CohortAccess scope. Never trust client-provided studentId; server-derived identity only.
 
 ---
 
@@ -61,7 +61,7 @@ Enforce tenant/cohort isolation and role-based access for all EI surfaces. Own m
 | EI Runtime          | Command      | Auth request                                  | session, cohort scope                      | Sync (per request) | ACL (Runtime is downstream)     |
 | Institute Radar     | Query        | Cohort scope, institute role for filtering     | cohortIds, role                            | Sync               | Customer-Supplier               |
 | BillingEntitlements | Command      | Who can redeem; membership change on redemption | userId, couponCode, targetCohortId         | Sync / event       | Customer-Supplier               |
-| Admin/Ops           | Command      | Admin operations                              | scope (global/multi-cohort), role check    | —                  | Direct / ACL                    |
+| Institute admin     | Command      | Cohort-scoped enrollment                       | cohortIds, role, accessScope                | —                  | Direct / ACL                    |
 
 ---
 
@@ -80,7 +80,7 @@ Enforce tenant/cohort isolation and role-based access for all EI surfaces. Own m
 - **Never trust client-provided studentId:** All routes obtain studentId from CohortAccess (ACL); server-derived identity only.
 - **Exactly one active cohort or unassigned:** Membership invariant; no ambiguity.
 - **Zero cross-cohort visibility:** Institute views are strictly cohort-scoped.
-- **Zero privilege escalation:** Admin role and scope checks enforced; no elevation via client input.
+- **Zero privilege escalation:** Institute admin role and cohort-scope checks enforced; no elevation via client input. CohortAccess does not define platform or super-admin roles.
 - **Atomic join on valid redemption:** Coupon redemption → membership update is atomic; BillingEntitlements triggers, CohortAccess enforces.
 
 ---

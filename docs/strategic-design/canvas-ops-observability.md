@@ -89,8 +89,7 @@ Ops does not supply domain data to other bounded contexts. Replay/backfill write
 
 - **Safe replay/backfill:** Idempotent, auditable, throttled; no corruption of domain truth.
 - **Ops does not define metrics or event schema:** Ledger and Projections own; Ops reads only.
-- **Least-privilege, tenant isolation:** Ops views respect CohortAccess; no cross-tenant leakage.
-- **Admin-only:** Replay/backfill and debug tooling require admin role.
+- **Access control:** Timeline and replay/backfill use OpsAuth (API key, cron secret, dev bypass). Not CohortAccess. Least-privilege; tenant isolation where applicable.
 
 ---
 

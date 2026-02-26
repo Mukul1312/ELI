@@ -212,7 +212,7 @@ Cross-context contracts are documented in existing DDD artifacts rather than a d
 | Context | Tactical spec | Cross-cutting concerns |
 |---------|---------------|-------------------------|
 | CohortAccess | [tactical/cohort-access-tactical-spec.md](tactical/cohort-access-tactical-spec.md) | Server-derived identity, ACL (Neon Auth → AuthSession), RBAC |
-| Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Admin-only + tenant isolation, redaction (no raw PII in logs/traces), idempotent/auditable backfill; consumer + repair-orchestrator only |
+| Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Timeline and backfill: OpsAuth (API key, cron, dev bypass). No CohortAccess. Tenant isolation, redaction (no raw PII in logs/traces), idempotent/auditable backfill; consumer + repair-orchestrator only |
 
 ---
 

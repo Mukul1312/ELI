@@ -70,6 +70,7 @@ CohortAccess has no StudySession-like aggregate. StudentMembership is the only a
 | ResolveAuthSession | Use case: resolve auth session → AuthSession |
 | GetCohortScope | Use case: return cohortIds, role, accessScope for institute user |
 | ChangeStudentMembership | Use case: AdminEnroll or MembershipChangeOnRedemption |
+| Platform ops            | Out of scope. Backfill, observability, and platform operations use Ops-specific auth (API key, cron secret); CohortAccess does not own identity for platform operators. |
 
 ---
 
@@ -160,9 +161,10 @@ Per [canvas-cohort-access.md](../canvas-cohort-access.md) and [05-cross-cutting-
 1. **Server-derived identity:** All routes obtain studentId from CohortAccess; never trust client-provided studentId.
 2. **Exactly one active cohort or unassigned:** No student may have two active states simultaneously.
 3. **Zero cross-cohort visibility:** Institute views are strictly cohort-scoped.
-4. **Zero privilege escalation:** Admin role and scope checks enforced; no elevation via client input.
+4. **Zero privilege escalation:** Institute admin role and cohort-scope checks enforced; no elevation via client input.
 5. **Atomic join on valid redemption:** Coupon redemption → membership update is atomic; read-your-writes consistency.
 6. **Idempotency:** Same idempotency key + same cohort → no-op for redemption commands.
+7. **CohortAccess roles apply only to coaching institute domain:** Roles (student, admin, institute) apply only to coaching institute domain. No platform or super-admin role.
 
 ---
 

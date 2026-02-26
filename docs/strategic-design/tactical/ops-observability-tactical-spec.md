@@ -8,7 +8,7 @@
 
 - **Primary building block:** Consumer + Ops-level orchestrator. No aggregate. Value Objects, Driver Ports, Driven Ports.
 - **Scope:** Debug timeline assembly, correlation/trace propagation, repair/backfill job orchestration; observability sinks (structured logging).
-- **Responsibility:** Read from Ledger + Projections for debug; orchestrate repair/backfill by invoking normal write paths of other contexts; ensure admin-only access, tenant isolation, redaction.
+- **Responsibility:** Read from Ledger + Projections for debug; orchestrate repair/backfill by invoking normal write paths of other contexts; ensure access control: Timeline and backfill/replay use OpsAuth (API key, cron secret, dev bypass). Tenant isolation where applicable; redaction.
 - **Declare Ops as consumer + ops-level orchestrator**, not an owner of event schema or metrics.
 
 **What Ops IS:**
@@ -46,6 +46,7 @@
 | `DryRun`            | Job mode: validate without persisting. Optional later.                                                                            |
 | `Canary`            | Rollout: small scope first before full run. Optional later.                                                                       |
 | `Redaction`         | Privacy: no raw PII in logs/traces; tenant isolation for ops views. Per 05-cross-cutting-concerns.                                |
+| `OpsAuth`           | Platform-level auth for timeline, backfill, replay. API key, cron secret, dev bypass, or env var. Not CohortAccess.                |
 
 
 > **Building block note:** Ops has no aggregate. It is a consumer + orchestrator context. Value Objects capture job scope, correlation, and debug semantics. Driver ports define use cases; driven ports abstract Ledger read, Projections read/write (recompute), job state, and observability sinks.
@@ -59,7 +60,7 @@ Define the driver-side application interfaces (hexagonal):
 
 | Port                           | Responsibility                                                                                             |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `IGetStudentTimelineUseCase`   | Read-only: assemble TimelineDebug from Ledger + Projections for a student. Admin-only, RBAC-protected.     |
+| `IGetStudentTimelineUseCase`   | Read-only: assemble TimelineDebug from Ledger + Projections for a student. Platform ops only; OpsAuth-protected. Dev bypass allowed in NODE_ENV=development. Not institute admin; not CohortAccess. |
 | `IStartBackfillJobUseCase`     | Projection recompute orchestrator: scope projection(s), student(s), invoke existing recompute entrypoints. |
 | `IGetBackfillJobStatusUseCase` | Return job id, status, progress.                                                                           |
 | `ICancelBackfillJobUseCase`    | Cancel a running backfill job.                                                                             |
@@ -84,7 +85,7 @@ Define the driver-side application interfaces (hexagonal):
 
 **Output:** `{ events: EventRecord[], aggregates: StudentAggregatesRow | null }`
 
-**Errors:** Unauthorized (401), Forbidden — admin role required (403).
+**Errors:** 401 Unauthorized — missing or invalid OpsAuth. (CohortAccess not used for timeline.)
 
 ---
 
@@ -103,7 +104,7 @@ Define the driver-side application interfaces (hexagonal):
 
 **Output:** `{ jobId: string, status: "queued" | "running", createdAt: ISO8601 }`
 
-**Errors:** Invalid projection name; authz failure; invalid scope.
+**Errors:** Invalid projection name; authz failure; invalid scope. 401 Unauthorized — missing or invalid OpsAuth (API key, cron secret).
 
 ---
 
@@ -131,7 +132,7 @@ Define the driver-side application interfaces (hexagonal):
 
 Per [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) and the Ops canvas:
 
-1. **Admin-only + tenant isolation:** Timeline, backfill, replay require admin role. CohortAccess / RBAC enforce; no cross-tenant leakage.
+1. **Access control:** Timeline, backfill, replay require OpsAuth (API key, cron secret, or dev bypass). No CohortAccess roles. Tenant isolation for timeline when multi-tenant.
 2. **No raw PII in logs/traces:** Redaction policy enforced. Gate logs use `inputSummary`/`outputSummary` only; no raw event payloads.
 3. **Backfill/replay idempotent, auditable, throttled:** Jobs can be re-run without corrupting domain truth. Audit log records job start/end. Throttling protects production.
 4. **Ops writes go through standard append/recompute APIs:** No "ops-only" mutation paths. Ops invokes Ledger append, Projections recompute; does not define schemas or bypass normal write paths.
@@ -152,10 +153,10 @@ List the outbound dependencies Ops needs:
 | **IStructuredLoggerPort**              | Driven            | Emit structured log entries (correlationId, gate, duration, summaries).                                                                 |
 | **IMetricsEmitterPort**                | Driven            | Optional: emit metrics to observability sink.                                                                                           |
 | **ITracerPort**                        | Driven            | Optional: span/trace propagation.                                                                                                       |
-| **IBackfillJobRepository**             | Driven            | Job state store for BackfillJob (to-be: table + repo port).                                                                             |
+| **IBackfillJobRepository**             | Driven            | Job state store for BackfillJob. Table: `ops_backfill_jobs`. Port: `[port.ts](../../src/ops/application/start-backfill-job/port.ts)`. Adapter: `[backfill-job-repository.pg.ts](../../src/ops/infrastructure/persistence/backfill-job-repository.pg.ts)`. |
 
 
-**Current implementation:** `IGetStudentTimelineUseCase` and driven ports (`IQueryEventsPort`, `IGetStudentAggregatesPort`) exist in `[src/ops/application/get-student-timeline/port.ts](../../src/ops/application/get-student-timeline/port.ts)`. The timeline route invokes `GetStudentTimelineHandler` via `LedgerTimelineAdapter` (`[src/ops/infrastructure/persistence/ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`). Recompute via `RecomputeStudentAggregatesHandler` and Mastra tools (`signal-compute`, `recompute-topic-loop`, `recompute-student-policy`).
+**Current implementation:** `IGetStudentTimelineUseCase` and driven ports (`IQueryEventsPort`, `IGetStudentAggregatesPort`) exist in `[src/ops/application/get-student-timeline/port.ts](../../src/ops/application/get-student-timeline/port.ts)`. The timeline route invokes `GetStudentTimelineHandler` via `LedgerTimelineAdapter` (`[src/ops/infrastructure/persistence/ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`). Recompute via `RecomputeStudentAggregatesHandler` and Mastra tools (`signal-compute`, `recompute-topic-loop`, `recompute-student-policy`). Persistent backfill jobs: `IStartBackfillJobUseCase`, `IGetBackfillJobStatusUseCase`, `ICancelBackfillJobUseCase`, `BackfillJobRunner`, `IProjectorEntrypointPort`, `IResolveStudentScopePort`, `IGetTopicsForStudentsPort` in `[src/ops/application/](../../src/ops/application/)`; API routes `POST /api/admin/backfill/jobs`, `GET /api/admin/backfill/jobs/[jobId]`, `POST /api/admin/backfill/jobs/[jobId]/cancel`, `POST /api/admin/backfill/run`.
 
 **Tracing (ITracerPort):** Mastra Observability implements span/trace propagation for the Mastra layer (workflows, agents, tool calls). Configured in [src/mastra/index.ts](../../src/mastra/index.ts) via `@mastra/observability`: `DefaultExporter` (persists traces to Postgres for Mastra Studio), `SensitiveDataFilter` (redaction). Traced: workflow runs, workflow steps, agent runs, tool executions (when invoked by an agent). **Known limitation:** Direct tool invocations from Mastra Studio (e.g. "Run tool" for `compute-aggregates`) do not create traces; only agent-invoked tools and workflow steps are traced.
 
@@ -168,7 +169,7 @@ Ops has no domain aggregates. The following table documents the **runtime integr
 
 | Operation                              | Location                                                                                                                         | Responsibility                                                                                                     |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Timeline** (events + aggregates)     | `[src/app/api/admin/students/[studentId]/timeline/route.ts](../../src/app/api/admin/students/[studentId]/timeline/route.ts)`     | Admin GET; RBAC via ResolveAuthSession; tenant isolation; invokes `GetStudentTimelineHandler`; adapter calls `queryEvents`, `getAggregates`. Use case: `[src/ops/application/get-student-timeline/](../../src/ops/application/get-student-timeline/)`, adapter: `[ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`. |
+| **Timeline** (events + aggregates)     | `[src/app/api/admin/students/[studentId]/timeline/route.ts](../../src/app/api/admin/students/[studentId]/timeline/route.ts)`     | Platform ops GET; OpsAuth (API key, cron secret, dev bypass) via `[ops-auth.ts](../../src/ops/infrastructure/auth/ops-auth.ts)`; invokes `GetStudentTimelineHandler`; adapter calls `queryEvents`, `getAggregates`. No CohortAccess. Use case: `[src/ops/application/get-student-timeline/](../../src/ops/application/get-student-timeline/)`, adapter: `[ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`. |
 | **CorrelationId + structured logging** | `[src/ei/infrastructure/logging.ts](../../src/ei/infrastructure/logging.ts)`                                                     | `createCorrelationId`, `logGateCall` (GateLogEntry with correlationId, gate, duration, summaries)                  |
 | **Signal compute / recompute**         | `[src/mastra/tools/signal-compute.ts](../../src/mastra/tools/signal-compute.ts)`, `[recompute-topic-loop.ts](../../src/mastra/tools/recompute-topic-loop.ts)`, `[recompute-student-policy.ts](../../src/mastra/tools/recompute-student-policy.ts)` | `computeAggregatesTool`, `checkOverdueSchedulesTool`, `listStudentsTool`; projector backfill: `recomputeTopicLoopTool`, `recomputeStudentPolicyTool` |
 | **Tracing (ITracerPort)**              | `[src/mastra/index.ts](../../src/mastra/index.ts)`                                                                               | Mastra Observability: DefaultExporter, SensitiveDataFilter. Workflow/agent/tool spans for Studio. Aligns with §5 redaction via SensitiveDataFilter. |
@@ -177,6 +178,7 @@ Ops has no domain aggregates. The following table documents the **runtime integr
 | **Projectors**                         | `[src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)`                                                     | `topic-loop-projector.ts`, `student-aggregates-projector.ts`, `student-policy-projector.ts` — backfill entrypoints |
 | **Ledger**                             | `[src/ei/db/migrate.ts](../../src/ei/db/migrate.ts)`, `[src/ei/db/queries.ts](../../src/ei/db/queries.ts)`                       | `insertEvent`, `queryEvents` — Ledger exists                                                                       |
 | **Projections**                        | `recompute-student-aggregates`, `projector/`                                                                                     | Projections exist; Ops invokes via tools/handlers                                                                  |
+| **Backfill jobs**                      | `[src/app/api/admin/backfill/](../../src/app/api/admin/backfill/)`                                                              | POST jobs (create), GET jobs/[jobId] (status), POST cancel, POST run. OpsAuth-protected. `BackfillJobRunner` invokes `IProjectorEntrypointPort`; checkpoints via `ops_backfill_jobs.checkpoint_payload`. |
 
 **Dev-only bypass:** When `NODE_ENV === 'development'`, the timeline route may skip auth. Optional: set `OPS_DEV_BYPASS_SECRET` and send `X-Ops-Dev-Bypass` or `Authorization: Bearer <secret>` for controlled access. **Never active in production.** Use for local debugging only.
 
@@ -189,12 +191,15 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 **Launch MVP:**
 
 - Correlation id propagation + structured gate logs (`logGateCall`, `createCorrelationId`)
-- Timeline debug endpoint (`GET /api/admin/students/[studentId]/timeline`) — admin-only
-- Manual backfill tool invocations (`computeAggregatesTool`, projector entrypoints) — no persistent job orchestration yet
+- Timeline debug endpoint (`GET /api/admin/students/[studentId]/timeline`) — OpsAuth-protected
+- Manual backfill tool invocations (`computeAggregatesTool`, projector entrypoints)
+
+**Phase 2 (implemented):**
+
+- Persistent job orchestration with checkpoints (`ops_backfill_jobs` table, `IBackfillJobRepository`). API: `POST /api/admin/backfill/jobs`, `GET /api/admin/backfill/jobs/[jobId]`, `POST /api/admin/backfill/jobs/[jobId]/cancel`, `POST /api/admin/backfill/run`.
 
 **Later:**
 
-- Persistent job orchestration with checkpoints (`BackfillJob` table, `IBackfillJobRepository`)
 - Canary / dry-run modes for backfill
 - Alerting / SLOs
 - Mastra Observability (tracing) — optional ITracerPort; workflow/agent visibility in Studio
@@ -206,30 +211,54 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 
 | Scenario                     | Input                                          | Expected outcome                         |
 | ---------------------------- | ---------------------------------------------- | ---------------------------------------- |
-| Timeline RBAC — admin        | Valid admin session, studentId                 | Returns events + aggregates              |
-| Timeline RBAC — non-admin    | Valid student session                          | 403 Forbidden                            |
-| Timeline RBAC — unauthorized | No session                                     | 401 Unauthorized                         |
+| Timeline OpsAuth — valid API key | Valid OPS_API_KEY in x-ops-api-key or Bearer, studentId | Returns events + aggregates              |
+| Timeline OpsAuth — valid CRON_SECRET | Valid CRON_SECRET in x-cron-secret, studentId | Returns events + aggregates              |
+| Timeline OpsAuth — invalid key | Wrong OPS_API_KEY in header                    | 401 Unauthorized                         |
+| Timeline OpsAuth — missing auth | No OPS_API_KEY/CRON_SECRET, no valid header   | 401 Unauthorized                         |
 | Redaction                    | Gate log with PII-like input                   | No raw PII in log output                 |
 | Backfill idempotent          | Same student, same projection, run twice       | Second run: same state; no corruption    |
 | Scope validation             | Invalid projection name                        | Reject with clear error                  |
 | Throttling                   | Backfill with throttle limit                   | Respects rate limit (when implemented)   |
-| Cross-tenant                 | Admin of cohort A requests student in cohort B | Implemented: cohort-scoped admin → 403 for student outside cohort. See `[timeline-route.test.ts](../../src/ops/tests/integration/timeline-route.test.ts)`. |
-| Dev bypass disabled         | NODE_ENV !== 'development', no session        | 401 Unauthorized (bypass never active)                                                                             |
-| Dev bypass works            | NODE_ENV=development, no secret or header OK   | Returns timeline without session (local debugging)                                                                 |
+| Dev bypass disabled         | NODE_ENV !== 'development', no OpsAuth       | 401 Unauthorized (bypass never active)    |
+| Dev bypass works            | NODE_ENV=development, no secret or header OK  | Returns timeline (local debugging). See `[timeline-route.test.ts](../../src/ops/tests/integration/timeline-route.test.ts)`. |
+| Backfill API OpsAuth — valid API key | Valid OPS_API_KEY in x-ops-api-key, valid body | 200, jobId + status queued               |
+| Backfill API OpsAuth — invalid key   | Wrong OPS_API_KEY on POST /api/admin/backfill/jobs | 401 Unauthorized                       |
 
 
 **Test layers:**
 
-- **Unit:** Redaction logic, scope validation, job state transitions (when job repo exists)
-- **Integration:** Timeline endpoint RBAC; backfill calls are idempotent
-- **Safety/regression:** Throttling, audit log presence, no cross-tenant leakage
+- **Unit:** Redaction logic, scope validation, job state transitions (work-units, StartBackfillJobHandler, CancelBackfillJobHandler). See `[src/ops/tests/unit/](../../src/ops/tests/unit/)`.
+- **Integration:** Timeline endpoint OpsAuth; backfill API OpsAuth (POST jobs, run, cancel); backfill create→run→progress and failure→resume. See `[timeline-route.test.ts](../../src/ops/tests/integration/timeline-route.test.ts)`, `[backfill-routes.test.ts](../../src/ops/tests/integration/backfill-routes.test.ts)`, `[backfill-job-flow.test.ts](../../src/ops/tests/integration/backfill-job-flow.test.ts)`.
+- **Safety/regression:** Throttling, audit log presence
 
 ---
 
-## 10) Open Questions and Deferred Decisions
+## 10) BackfillJob Persistence
+
+**Table:** `ops_backfill_jobs` in [src/ei/db/migrate.ts](../../src/ei/db/migrate.ts).
+
+| Column               | Type       | Description                                                |
+| -------------------- | ---------- | ---------------------------------------------------------- |
+| id                   | UUID       | Primary key                                                |
+| status               | TEXT       | queued, running, completed, cancelled, failed              |
+| projection_names     | TEXT[]     | e.g. TopicLoop, StudentAggregates, StudentPolicy           |
+| student_ids          | TEXT[]     | Scope (empty = resolved from listActiveStudents)           |
+| throttle_ops_per_sec | INTEGER    | Optional rate limit                                        |
+| total_units           | INTEGER    | Work units (computed at start)                             |
+| completed_units      | INTEGER    | Progress counter                                            |
+| checkpoint_payload   | JSONB      | Watermark for resume (lastCompletedUnitIndex)              |
+| error_message        | TEXT       | On failure                                                 |
+| created_at, started_at, completed_at, updated_at | TIMESTAMPTZ | Lifecycle timestamps |
+
+**Checkpoint:** `checkpoint_payload` stores `{ lastCompletedUnitIndex }`. On resume, runner skips units up to that index and continues. Work units ordered deterministically: TopicLoop (all topics) → StudentAggregates → StudentPolicy per student.
+
+**Resume flow:** Worker loads job, fetches work units, parses checkpoint, loops from `lastCompletedUnitIndex + 1`, invokes `IProjectorEntrypointPort` per unit, persists progress. On error: set status `failed`, `error_message`. On cancel: set status `cancelled`.
+
+---
+
+## 11) Open Questions and Deferred Decisions
 
 - Formal port interface files (e.g. `IQueryEventsPort` in application layer) when hexagonal boundary needs explicit enforcement.
-- `BackfillJob` table schema and `IBackfillJobRepository` design.
 - SLI/SLO definitions and alerting ownership.
 - Redaction policy details for PII in logs/traces (currently GateLogEntry uses summaries only).
 
@@ -248,4 +277,6 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 - `[src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)` — Backfill entrypoints
 - `[src/ei/db/queries.ts](../../src/ei/db/queries.ts)` — queryEvents, getAggregates, insertEvent
 - [Mastra Observability](https://mastra.ai/docs/observability/overview) — Tracing, DefaultExporter, SensitiveDataFilter
+- `[src/ops/application/start-backfill-job/port.ts](../../src/ops/application/start-backfill-job/port.ts)` — IBackfillJobRepository, IProjectorEntrypointPort
+- `[src/app/api/admin/backfill/](../../src/app/api/admin/backfill/)` — Backfill API routes
 
