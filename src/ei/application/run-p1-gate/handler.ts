@@ -113,13 +113,13 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     });
 
     // ── 8. Drive StudySession aggregate ─────────────────────────────────────
+    const negotiatedIntentId = crypto.randomUUID();
     const session = StudySession.open(studentId, topicId, sessionId);
-    session.issueNegotiatedIntent(play, gateCtx, policy, stateScore);
+    session.issueNegotiatedIntent(play, gateCtx, policy, stateScore, negotiatedIntentId);
 
     // ── 9. Pull domain events + build output ─────────────────────────────────
     const domainEvents = session.pullDomainEvents();
     const negotiatedIntent = session.negotiatedIntent!;
-    const negotiatedIntentId = crypto.randomUUID();
     const issuedAt = new Date().toISOString();
 
     const output: NegotiatedIntentIssuedOutput = {
@@ -137,15 +137,11 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
 
     // ── 10. Persist to Ledger ─────────────────────────────────────────────────
     for (const event of domainEvents) {
-      const payload =
-        event.eventType === 'NegotiatedIntentIssued'
-          ? { ...event.payload, negotiatedIntentId }
-          : event.payload;
       await this.appendEvent.append({
         studentId,
         eventType: event.eventType,
         topicId,
-        payload,
+        payload: event.payload as Record<string, unknown>,
       });
     }
 

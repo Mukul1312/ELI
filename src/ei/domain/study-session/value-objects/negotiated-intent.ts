@@ -33,6 +33,7 @@ interface NegotiatedIntentProps {
   verificationPlan: { minQuestions: number; preferVerifyNow: boolean };
   constraints?: { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string };
   stateScore: number;
+  negotiatedIntentId?: string;
 }
 
 export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
@@ -44,7 +45,8 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
     play: PlaySelection,
     ctx: P1GateContext,
     policy: StudentPolicyInput,
-    stateScore: number
+    stateScore: number,
+    negotiatedIntentId?: string,
   ): NegotiatedIntent {
     // Compute scope range based on mode
     let scopeMin: number;
@@ -138,6 +140,7 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
       verificationPlan: { minQuestions, preferVerifyNow },
       constraints: Object.keys(constraints).length > 0 ? constraints : undefined,
       stateScore,
+      ...(negotiatedIntentId !== undefined && { negotiatedIntentId }),
     });
   }
 
@@ -147,13 +150,14 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
   get verificationPlan(): { minQuestions: number; preferVerifyNow: boolean } { return this.props.verificationPlan; }
   get constraints(): NegotiatedIntentProps['constraints'] { return this.props.constraints; }
   get stateScore(): number { return this.props.stateScore; }
+  get negotiatedIntentId(): string | undefined { return this.props.negotiatedIntentId; }
 
   isRescueMode(): boolean { return this.props.mode === 'Rescue'; }
   requiresVerificationNow(): boolean { return this.props.verificationPlan.preferVerifyNow; }
   closeLoopFirst(): boolean { return this.props.constraints?.closeOpenLoopFirst === true; }
 
   toEventPayload(studentId: string, topicId: string): Record<string, unknown> {
-    return {
+    const payload: Record<string, unknown> = {
       studentId,
       topicId,
       playId: this.props.playId,
@@ -163,5 +167,9 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
       constraints: this.props.constraints,
       stateScore: this.props.stateScore,
     };
+    if (this.props.negotiatedIntentId !== undefined) {
+      payload.negotiatedIntentId = this.props.negotiatedIntentId;
+    }
+    return payload;
   }
 }
