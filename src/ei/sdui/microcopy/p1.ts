@@ -45,4 +45,77 @@ export const P1_CATALOG: GateCatalog = {
   },
   welcome_back_suggestion: { default: 'Pick the smallest thing you can do right now.' },
   pending_checks_label: { default: 'Pending checks: {{count}}' },
+  // ─── Phase 1 "The Open" — variant-specific greeting copy ───────────────────
+  phase1_greeting: {
+    default: 'Good to see you.',
+    byPlay: {
+      // SILENCE_RE_ENTRY: warm, no reference to time away
+      'P1-SILENCE': 'Welcome back.',
+      // HIGH_PRESSURE: Rescue mode + high pressure
+      'P1-PRESSURE': "Today's a heavy day. Let's keep it small.",
+      // CHALLENGE: Boost mode
+      'P1-BOOST': "You're in a good rhythm. Time to raise the bar.",
+      // CLEAN_START: Rescue mode, default
+      'P1-RESCUE': "Let's keep it simple today.",
+      // DEAL_CARD: pending >= 3
+      'P1-DEAL': 'A few things are waiting. Deal: clear one, then continue.',
+      // PENDING_STANDARD: pending > 0, Neutral
+      'P1-PENDING': 'A few things to pick up.',
+      // ONBOARDING: first session ever
+      'P1-ONBOARD': "Good to have you here. Let's start small.",
+      // LOW_ENERGY: Energy 1–2, Rescue variant V2
+      'P1-LOW-ENERGY': 'Keep it small today.',
+      // CLEAR_THEN_CHALLENGE: Boost + pendingChecks >= 1, variant V8
+      'P1-CLEAR-CHALLENGE': "You've been working hard.",
+    },
+  },
+  phase1_sub_greeting: {
+    default: '',
+    byPlay: {
+      'P1-SILENCE': "Nothing to catch up on. Just where you left off.",
+      'P1-PRESSURE': 'One thing. Finish it. That\'s enough.',
+      'P1-BOOST': "Same topic, harder problems. Let's see what sticks.",
+      'P1-DEAL': 'Clear oldest check first — 5 minutes. Then go big.',
+      'P1-PENDING': 'Pick up where you left off.',
+      'P1-ONBOARD': 'Pick one topic. Start. The rest will follow.',
+      // P1-LOW-ENERGY sub-greeting is energy-level-dependent (1 vs 2) — handled in builder
+      // CLEAR_THEN_CHALLENGE: dynamic count in body copy
+      'P1-CLEAR-CHALLENGE': '{{count}} things you studied are waiting to be tested.',
+    },
+  },
+  phase1_pending_items_label: {
+    default: '{{count}} things waiting to be tested',
+    byMode: {
+      Neutral: '{{count}} pending checks',
+      Boost: '{{count}} checks in the queue',
+    },
+  },
+  phase1_footer_warm_label: { default: "Quiet week. That's okay." },
+  phase1_footer_pressure_label: { default: 'Pressure day. Smaller = better.' },
+  phase1_high_pressure_greeting_p4: { default: "Your drive is real." },
+  phase1_high_pressure_greeting_p5: {
+    default: "Your drive is real.\nBut today's pressure is high.",
+  },
+  phase1_high_pressure_body_p4: { default: 'High pressure today. One step.' },
+  phase1_high_pressure_body_p5: {
+    default: "We're not committing to hours.\nStart with one tiny step.",
+  },
+  phase1_high_pressure_cta: { default: 'Start 2 minutes, then decide' },
+  phase1_high_pressure_cta_smaller: { default: 'Make it smaller' },
+  phase1_make_it_smaller_greeting: { default: "Just 1 minute.\nAnything counts." },
+  phase1_make_it_smaller_cta: { default: '1 minute, then stop' },
+  phase1_cta: {
+    default: 'Start',
+    byPlay: {
+      'P1-ONBOARD': 'Begin',
+      'P1-SILENCE': 'Start small',
+      'P1-PRESSURE': 'Start (5 min)',
+      'P1-BOOST': 'Go',
+      'P1-RESCUE': 'Start',
+      'P1-DEAL': 'Clear one first',
+      'P1-PENDING': 'Continue',
+      'P1-LOW-ENERGY': 'Short session (15 min)',
+      'P1-CLEAR-CHALLENGE': 'Clear 1 first, then go big',
+    },
+  },
 };

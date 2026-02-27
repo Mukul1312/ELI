@@ -4,8 +4,8 @@
  * Transforms protocol domain outputs + PresentationContext into an SDUI component tree.
  * Stateless. No DB access. No side effects.
  *
- * @see docs/strategic-design/canvas-ei-runtime.md — "Gateway context: maps protocol outputs to UI steps"
- * @see docs/strategic-design/02-subdomains.md §6 — StudySessionOrchestration boundaries
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md — "Gateway context: maps protocol outputs to UI steps"
+ * @see docs/engineering-ddd-design/02-subdomains.md §6 — StudySessionOrchestration boundaries
  */
 
 import type {
@@ -14,11 +14,15 @@ import type {
   VerificationDecisionIssuedOutput,
   Mode,
 } from '../schemas/outputs';
-import type { SduiResponse } from './types/sdui-contract';
+import type { SduiResponse, SduiAction } from './types/sdui-contract';
 import type { SduiComponent } from './types/components';
 import type { PresentationContext } from './presentation-context';
 import { resolveMicrocopy, type MicrocopyKey } from './microcopy/resolver';
 import { microcopyCatalog, type MicrocopySlot } from './microcopy/catalog';
+import { getTopicDisplayName } from './topic-display-name';
+import type { IdentityEligibilityResult } from './identity/compute-identity-eligibility';
+import { detectIdentityPattern } from './identity/compute-identity-eligibility';
+import { IDENTITY_STATEMENTS } from './microcopy/identity';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Scale definitions (server-provided — replaces client hardcoded arrays)
@@ -322,6 +326,8 @@ export function composeP2View(
   output: ActivationPlanIssuedOutput,
   topic: string,
   replanCount = 0,
+  taskType?: string,
+  difficultyTier?: string,
 ): SduiResponse {
   const header: SduiComponent[] = [];
   const body: SduiComponent[] = [];
@@ -391,7 +397,12 @@ export function composeP2View(
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
           commandType: 'SessionStart',
-          payload: { topic, mode: output.mode },
+          payload: {
+            topic,
+            mode: output.mode,
+            ...(taskType && { taskType }),
+            ...(difficultyTier && { difficultyTier }),
+          },
         },
       },
       replan: {
@@ -414,6 +425,10 @@ export interface SessionViewInput {
   topic: string;
   mode: 'Rescue' | 'Neutral' | 'Boost';
   playId: string;
+  /** Task type selected by student during P1 (e.g. 'Learn', 'Practice', 'Revise'). */
+  taskType?: string;
+  /** Difficulty tier selected during P1 (e.g. 'Easy (1)', 'Hard (3)'). */
+  difficultyTier?: string;
 }
 
 export function composeSessionView(input: SessionViewInput): SduiResponse {
@@ -421,6 +436,16 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
   const body: SduiComponent[] = [];
   const actions: SduiComponent[] = [];
   const footer: SduiComponent[] = [];
+
+  // Session context bar (WS5) — subtle one-line topic/difficulty reminder
+  header.push({
+    type: 'session-context-bar',
+    props: {
+      topic: input.topic,
+      taskType: input.taskType ?? 'Practice',
+      difficultyTier: input.difficultyTier ?? 'Medium',
+    },
+  });
 
   header.push({
     type: 'message',
@@ -745,15 +770,356 @@ export function composeDoneView(input: DoneViewInput): SduiResponse {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 3 Close — scenario-driven done screen (replaces generic composeDoneView)
+// ────────────────────────────────────────────────────────────────────────────
+
 /**
- * Compose the checkin phase view (before P1 runs).
- * This is the initial screen the student sees when opening the app.
+ * Compose the Phase 3 close screen with scenario-specific copy and counter animation.
+ *
+ * Called by verification-complete, retrieval-schedule, and retrieval-skip workflows
+ * after the terminal event is appended. Replaces composeDoneView for those workflows.
+ *
+ * @param topic - the topic that was just studied/verified
+ * @param mode  - current session mode (Rescue/Neutral/Boost)
+ * @param scenario - one of 7 scenarios determined by the calling workflow
+ * @param ctx   - PresentationContext with real aggregates (pre-event snapshot)
  */
-export function composeCheckinView(ctx: PresentationContext): SduiResponse {
+export function composePhase3View(
+  topic: string,
+  mode: Mode,
+  scenario: Phase3Scenario,
+  ctx: PresentationContext,
+): SduiResponse {
   const header: SduiComponent[] = [];
   const body: SduiComponent[] = [];
   const actions: SduiComponent[] = [];
   const footer: SduiComponent[] = [];
+
+  const title = p3Copy(PHASE3_SLOT[scenario], mode, 'P3-N1');
+  const message = p3Copy(PHASE3_MESSAGE_SLOT[scenario], mode, 'P3-N1');
+
+  // Counter: scenarios A/F/G close a loop (pending decreases by 1)
+  const closesLoop =
+    scenario === 'verified' || scenario === 'milestone' || scenario === 'first_ever';
+  const countBefore = ctx.pendingChecks;
+  const countAfter = closesLoop ? Math.max(0, ctx.pendingChecks - 1) : ctx.pendingChecks;
+
+  // Seed per spec: verified=count-based, reminded=time-based, skip=none, milestone=identity, first_ever=none
+  let seed: string | undefined;
+  if (scenario === 'verified' && countAfter >= 1) {
+    seed = `${countAfter} check${countAfter !== 1 ? 's' : ''} left this week — you're ahead.`;
+  } else if (scenario === 'reminded') {
+    seed = 'See you tomorrow.';
+  } else if (scenario === 'milestone') {
+    seed = "Everything you've studied, you've also proved.";
+  }
+  // skip_* and first_ever: no seed
+
+  // "Clear one more" CTA: only when verified + energy >= 4 + still has pending
+  const showClearMore = scenario === 'verified' && ctx.energy >= 4 && countAfter >= 1;
+
+  body.push({
+    type: 'loop-closed-card',
+    props: {
+      scenario,
+      title,
+      topicName: topic,
+      message,
+      countBefore: closesLoop ? countBefore : undefined,
+      countAfter: closesLoop ? countAfter : undefined,
+      seed,
+      clearMoreCta: showClearMore
+        ? { label: 'Clear one more', actionId: 'clear_more' }
+        : undefined,
+      milestone: scenario === 'milestone',
+      firstEver: scenario === 'first_ever',
+    },
+  });
+
+  // Footer with updated pending count + optional identity statement
+  const p3Pattern = detectIdentityPattern(ctx);
+  const p3IdentityStatement =
+    ctx.sessionsLast7d >= 3 && ctx.verificationRate7d >= 0.5
+      ? IDENTITY_STATEMENTS[p3Pattern].statement
+      : undefined;
+  footer.push(buildSessionSummaryFooter(ctx, {
+    pendingOverride: countAfter,
+    identityStatement: p3IdentityStatement,
+  }));
+
+  actions.push({
+    type: 'action-group',
+    props: {
+      layout: 'row',
+      buttons: [
+        { label: 'Start New Session', actionId: 'new_session', variant: 'primary' },
+      ],
+    },
+  });
+
+  const actionsMap: Record<string, SduiAction> = {
+    new_session: {
+      id: 'new_session',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: { commandType: 'AppOpen', payload: { initial: true } },
+    },
+  };
+
+  if (showClearMore) {
+    actionsMap['clear_more'] = {
+      id: 'clear_more',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: {
+        commandType: 'AppOpen',
+        payload: { topic, energy: ctx.energy, pressure: ctx.pressure, initial: false },
+      },
+    };
+  }
+
+  return {
+    schemaVersion: 1,
+    phase: 'done',
+    view: { header, body, actions, footer },
+    domain: { topic, mode, scenario },
+    actions: actionsMap,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 1 Open — contextual greeting helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+type Phase1Variant =
+  | 'ONBOARDING'
+  | 'SILENCE_RE_ENTRY'
+  | 'LOW_ENERGY'
+  | 'HIGH_PRESSURE'
+  | 'CHALLENGE'
+  | 'CLEAR_THEN_CHALLENGE'
+  | 'CLEAN_START'
+  | 'DEAL_CARD'
+  | 'PENDING_STANDARD';
+
+const VARIANT_TO_PLAY: Record<Phase1Variant, string> = {
+  ONBOARDING: 'P1-ONBOARD',
+  SILENCE_RE_ENTRY: 'P1-SILENCE',
+  LOW_ENERGY: 'P1-LOW-ENERGY',
+  HIGH_PRESSURE: 'P1-PRESSURE',
+  CHALLENGE: 'P1-BOOST',
+  CLEAR_THEN_CHALLENGE: 'P1-CLEAR-CHALLENGE',
+  CLEAN_START: 'P1-RESCUE',
+  DEAL_CARD: 'P1-DEAL',
+  PENDING_STANDARD: 'P1-PENDING',
+};
+
+/** Phase 1 variant precedence: Onboarding > Silence > Low-energy Rescue > High-pressure Rescue > Boost variants > Neutral deal/pending > default. */
+export function selectPhase1Variant(ctx: PresentationContext): Phase1Variant {
+  if (!ctx.hasPriorOpen) return 'ONBOARDING';
+  if (ctx.silenceDays >= 3) return 'SILENCE_RE_ENTRY';
+  if (ctx.energy <= 2) return 'LOW_ENERGY';
+  if (ctx.mode === 'Rescue' && ctx.pressure >= 4) return 'HIGH_PRESSURE';
+  if (ctx.mode === 'Boost' && ctx.pendingChecks >= 1) return 'CLEAR_THEN_CHALLENGE';
+  if (ctx.mode === 'Boost') return 'CHALLENGE';
+  if (ctx.pendingChecks >= 3 && ctx.closeOpenLoopFirst) return 'DEAL_CARD';
+  if (ctx.pendingChecks > 0) return 'PENDING_STANDARD';
+  return 'CLEAN_START';
+}
+
+const PHASE3_MESSAGE_SLOT: Record<Phase3Scenario, MicrocopySlot> = {
+  verified: 'phase3_done_verified',
+  milestone: 'phase3_done_milestone',
+  first_ever: 'phase3_done_first_ever',
+  reminded: 'phase3_done_reminded',
+  skip_time: 'phase3_done_skip_time',
+  skip_fatigue: 'phase3_done_skip_fatigue',
+  skip_confusion: 'phase3_done_skip_confusion',
+};
+
+function buildPhase1OpenComponents(ctx: PresentationContext): {
+  components: SduiComponent[];
+  pendingTopicActions: Record<string, SduiAction>;
+  variant: Phase1Variant;
+} {
+  const variant = selectPhase1Variant(ctx);
+  const playId = VARIANT_TO_PLAY[variant];
+  const variantCtx = { ...ctx, playId };
+
+  let greeting: string;
+  let subGreeting: string | undefined;
+  let primaryCtaLabel: string;
+  let secondaryCta: { label: string; actionId: string } | undefined;
+  let showGreetingAfterEnergySelected: boolean | undefined;
+  let makeItSmallerContent: { greeting: string; subGreeting?: string; primaryCta: { label: string; actionId: string } } | undefined;
+
+  if (variant === 'HIGH_PRESSURE') {
+    greeting = ctx.pressure >= 5
+      ? resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_greeting_p5', mode: ctx.mode, playId }, {})
+      : resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_greeting_p4', mode: ctx.mode, playId }, {});
+    subGreeting = ctx.pressure >= 5
+      ? resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_body_p5', mode: ctx.mode, playId }, {})
+      : resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_body_p4', mode: ctx.mode, playId }, {});
+    primaryCtaLabel = resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_cta', mode: ctx.mode, playId }, {});
+    secondaryCta = { label: resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_cta_smaller', mode: ctx.mode, playId }, {}), actionId: 'make_it_smaller' };
+    makeItSmallerContent = {
+      greeting: resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_make_it_smaller_greeting', mode: ctx.mode, playId }, {}),
+      primaryCta: { label: resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_make_it_smaller_cta', mode: ctx.mode, playId }, {}), actionId: 'micro_start' },
+    };
+  } else {
+    greeting = p1Copy('phase1_greeting', variantCtx);
+    subGreeting = variant === 'LOW_ENERGY'
+      ? (ctx.energy <= 1 ? "One tiny thing. That's enough." : "Small tasks, short blocks. Let's go.")
+      : p1Copy('phase1_sub_greeting', variantCtx, { count: ctx.pendingChecks });
+    primaryCtaLabel = p1Copy('phase1_cta', variantCtx);
+    secondaryCta =
+      variant === 'LOW_ENERGY' && ctx.pendingChecks > 0
+        ? { label: 'Just 1 pending check', actionId: 'one_pending_check' }
+        : variant === 'CLEAR_THEN_CHALLENGE'
+          ? { label: 'Start something new', actionId: 'small_start' }
+          : undefined;
+    showGreetingAfterEnergySelected = variant === 'LOW_ENERGY' ? true : undefined;
+  }
+
+  const pendingItemsLabel =
+    ctx.pendingChecks > 0
+      ? p1Copy('phase1_pending_items_label', variantCtx, { count: ctx.pendingChecks })
+      : undefined;
+
+  const components: SduiComponent[] = [];
+  const pendingTopicActions: Record<string, SduiAction> = {};
+
+  components.push({
+    type: 'resume-context-card',
+    props: {
+      variant,
+      greeting,
+      subGreeting: subGreeting || undefined,
+      pendingItemsLabel,
+      primaryCta: { label: primaryCtaLabel, actionId: 'small_start' },
+      secondaryCta,
+      showGreetingAfterEnergySelected,
+      makeItSmallerContent,
+    },
+  });
+
+  // Pending items list: only topics that are pending checks (effort done, retrieval not done)
+  // Filter matches StudentAggregates pendingChecks definition.
+  if (ctx.pendingChecks > 0 && ctx.mode !== 'Rescue' && ctx.topicStates.length > 0) {
+    const now = Date.now();
+    const pendingTopics = ctx.topicStates.filter(
+      (t) => t.lastEffortAt != null && (!t.lastRetrievalAt || t.lastEffortAt > t.lastRetrievalAt),
+    );
+    const items = pendingTopics.slice(0, 5).map((t) => {
+      const refDate = t.lastScheduledDueAt ?? t.lastEffortAt ?? new Date();
+      const daysAgo = Math.max(
+        0,
+        Math.floor((now - refDate.getTime()) / (1000 * 60 * 60 * 24)),
+      );
+      const actionId = `intent_topic_${t.topicId}`;
+      pendingTopicActions[actionId] = {
+        id: actionId,
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: {
+          commandType: 'IntentSet',
+          payload: {
+            topic: t.topicId,
+            taskType: 'Revise',
+            setAt: new Date().toISOString(),
+          },
+        },
+      };
+      const topicName = getTopicDisplayName(t.topicId);
+      return { topicId: t.topicId, topicName, daysAgo, actionId };
+    });
+
+    if (items.length > 0) {
+      const overflowCount = Math.max(0, pendingTopics.length - items.length);
+      components.push({
+        type: 'pending-items-list',
+        props: {
+          items,
+          overflowLabel: overflowCount > 0 ? `and ${overflowCount} more` : undefined,
+        },
+      });
+    }
+  }
+
+  return { components, pendingTopicActions, variant };
+}
+
+function buildSessionSummaryFooter(
+  ctx: PresentationContext,
+  options?: { pendingOverride?: number; identityStatement?: string; variant?: Phase1Variant },
+): SduiComponent {
+  const trendLabel =
+    ctx.stateTrend7d === 'improving' ? '↑' :
+    ctx.stateTrend7d === 'worsening' ? '↓' :
+    'steady';
+  const pending = options?.pendingOverride ?? ctx.pendingChecks;
+  const useWarmLabel = ctx.silenceDays >= 3 || options?.variant === 'HIGH_PRESSURE' || options?.variant === 'ONBOARDING';
+  const warmLabelText = options?.variant === 'ONBOARDING'
+    ? "Your first session starts now."
+    : options?.variant === 'HIGH_PRESSURE'
+      ? resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_footer_pressure_label', mode: ctx.mode, playId: ctx.playId }, {})
+      : p1Copy('phase1_footer_warm_label', ctx);
+  const collapsedLabel = useWarmLabel
+    ? warmLabelText
+    : `This week: ${ctx.sessionsLast7d} sessions · ${ctx.loopsClosedLast7d} loops closed · ${trendLabel}`;
+  return {
+    type: 'session-summary-footer',
+    props: {
+      collapsedLabel,
+      sessions: ctx.sessionsLast7d,
+      loopsClosed: ctx.loopsClosedLast7d,
+      pending,
+      rate: ctx.verificationRate7d,
+      trend: ctx.stateTrend7d,
+      identityStatement: options?.identityStatement,
+      warmLabel: useWarmLabel ? warmLabelText : undefined,
+      expandable: !useWarmLabel,
+    },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 3 Close — scenario types
+// ────────────────────────────────────────────────────────────────────────────
+
+export type Phase3Scenario =
+  | 'verified'     // A: loop closed (VerifyNow, pending > 0 after)
+  | 'milestone'    // F: pendingChecks hits 0
+  | 'first_ever'   // G: first loop ever closed
+  | 'reminded'     // B: ScheduleVerify
+  | 'skip_time'    // C: Skip (time)
+  | 'skip_fatigue' // D: Skip (fatigue)
+  | 'skip_confusion'; // E: Skip (confusion)
+
+const PHASE3_SLOT: Record<Phase3Scenario, MicrocopySlot> = {
+  verified: 'close_verified',
+  reminded: 'close_reminded',
+  skip_time: 'close_skip_time',
+  skip_fatigue: 'close_skip_fatigue',
+  skip_confusion: 'close_skip_confusion',
+  milestone: 'close_milestone',
+  first_ever: 'close_first_ever',
+};
+
+/**
+ * Compose the checkin phase view (before P1 runs).
+ * This is the initial screen the student sees when opening the app.
+ *
+ * @param identityEligibility - pre-computed identity check from the Mastra step.
+ *   When eligible, renders identity-moment-card in place of the greeting section.
+ */
+export function composeCheckinView(
+  ctx: PresentationContext,
+  identityEligibility?: IdentityEligibilityResult,
+): SduiResponse {
+  const header: SduiComponent[] = [];
+  const body: SduiComponent[] = [];
+  const actions: SduiComponent[] = [];
+  const footer: SduiComponent[] = [];
+  const pendingActions: Record<string, SduiAction> = {};
 
   header.push({
     type: 'message',
@@ -763,6 +1129,51 @@ export function composeCheckinView(ctx: PresentationContext): SduiResponse {
     type: 'message',
     props: { text: "Let's set up your study session", variant: 'subheading' },
   });
+
+  // ── Greeting section + form ──────────────────────────────────────────────
+
+  let phase1Variant: Phase1Variant = selectPhase1Variant(ctx);
+  const showNumber = ctx.sessionsLast7d <= 3;
+
+  const energyScaleComponent: SduiComponent = {
+    type: 'scale-input',
+    props: {
+      inputId: 'energy',
+      label: p1Copy('checkin_energy_label', ctx),
+      chips: [...ENERGY_CHIPS],
+      required: true,
+      showNumber,
+    },
+  };
+
+  if (identityEligibility?.eligible && identityEligibility.statement) {
+    // Identity moment — replaces regular greeting; footer hidden
+    body.push({
+      type: 'identity-moment-card',
+      props: {
+        statement: identityEligibility.statement.statement,
+        detail: identityEligibility.statement.detail,
+        ctaLabel: "Let's keep going",
+        ctaActionId: 'submit_checkin',
+      },
+    });
+    body.push({ type: 'divider', props: {} });
+  } else {
+    const { components, pendingTopicActions, variant } = buildPhase1OpenComponents(ctx);
+    phase1Variant = variant;
+    // V2 LOW_ENERGY: energy scale first, then greeting (client reveals greeting after energy selected)
+    if (variant === 'LOW_ENERGY') {
+      body.push(energyScaleComponent);
+      body.push({ type: 'spacer', props: { size: 'sm' } });
+    }
+    body.push(...components);
+    if (components.length > 0) {
+      body.push({ type: 'divider', props: {} });
+    }
+    Object.assign(pendingActions, pendingTopicActions);
+  }
+
+  // ── Form elements ─────────────────────────────────────────────────────────
 
   // Topic input
   body.push({
@@ -776,19 +1187,13 @@ export function composeCheckinView(ctx: PresentationContext): SduiResponse {
   });
   body.push({ type: 'spacer', props: { size: 'md' } });
 
-  // Energy scale (always shown)
-  body.push({
-    type: 'scale-input',
-    props: {
-      inputId: 'energy',
-      label: p1Copy('checkin_energy_label', ctx),
-      chips: [...ENERGY_CHIPS],
-      required: true,
-    },
-  });
+  // Energy scale (skip if already added for LOW_ENERGY)
+  if (phase1Variant !== 'LOW_ENERGY') {
+    body.push(energyScaleComponent);
+  }
 
-  // Sleep scale (conditional: first of day)
-  if (ctx.isFirstOfDay) {
+  // Sleep scale (conditional: first of day, skip for V1 silence)
+  if (ctx.isFirstOfDay && phase1Variant !== 'SILENCE_RE_ENTRY') {
     body.push({ type: 'spacer', props: { size: 'sm' } });
     body.push({
       type: 'scale-input',
@@ -800,7 +1205,7 @@ export function composeCheckinView(ctx: PresentationContext): SduiResponse {
       },
     });
 
-    // BacklogPressure scale (conditional: first of day)
+    // BacklogPressure scale (conditional: first of day, skip for V1 silence)
     body.push({ type: 'spacer', props: { size: 'sm' } });
     body.push({
       type: 'scale-input',
@@ -813,21 +1218,23 @@ export function composeCheckinView(ctx: PresentationContext): SduiResponse {
     });
   }
 
-  // Pressure scale (collapsible "More context")
-  body.push({ type: 'spacer', props: { size: 'sm' } });
-  body.push({
-    type: 'scale-input',
-    props: {
-      inputId: 'pressure',
-      label: p1Copy('checkin_pressure_label', ctx),
-      chips: [...PRESSURE_CHIPS],
-      required: false,
-      collapsible: {
-        toggleLabel: p1Copy('checkin_pressure_toggle', ctx),
-        defaultOpen: false,
+  // Pressure scale (collapsible "More context", skip for V1 silence)
+  if (phase1Variant !== 'SILENCE_RE_ENTRY') {
+    body.push({ type: 'spacer', props: { size: 'sm' } });
+    body.push({
+      type: 'scale-input',
+      props: {
+        inputId: 'pressure',
+        label: p1Copy('checkin_pressure_label', ctx),
+        chips: [...PRESSURE_CHIPS],
+        required: false,
+        collapsible: {
+          toggleLabel: p1Copy('checkin_pressure_toggle', ctx),
+          defaultOpen: false,
+        },
       },
-    },
-  });
+    });
+  }
 
   // Submit
   actions.push({
@@ -840,23 +1247,248 @@ export function composeCheckinView(ctx: PresentationContext): SduiResponse {
     },
   });
 
+  // ── Footer: session summary (hidden when identity card is shown) ──────────
+
+  if (!identityEligibility?.eligible) {
+    const pattern = detectIdentityPattern(ctx);
+    const identityStatement =
+      ctx.sessionsLast7d >= 3 && ctx.verificationRate7d >= 0.5
+        ? IDENTITY_STATEMENTS[pattern].statement
+        : undefined;
+    footer.push(buildSessionSummaryFooter(ctx, { identityStatement, variant: phase1Variant }));
+  }
+
+  // ── Build response ────────────────────────────────────────────────────────
+
+  const checkinPayload = {
+    commandType: 'AppOpen',
+    payload: {
+      topic: '{{topic}}',
+      energy: '{{energy}}',
+      sleepBucket: '{{sleepBucket}}',
+      pressure: '{{pressure}}',
+      backlogPressure: '{{backlogPressure}}',
+    },
+  };
+
+  const microStartPayload = {
+    commandType: 'AppOpen',
+    payload: {
+      topic: '{{topic}}',
+      energy: '{{energy}}',
+      sleepBucket: '{{sleepBucket}}',
+      pressure: '{{pressure}}',
+      backlogPressure: '{{backlogPressure}}',
+      timeboxMin: 1,
+    },
+  };
+
+  const actionsMap: Record<string, SduiAction> = {
+    submit_checkin: {
+      id: 'submit_checkin',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: checkinPayload,
+    },
+    small_start: {
+      id: 'small_start',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: checkinPayload,
+    },
+    one_pending_check: {
+      id: 'one_pending_check',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: checkinPayload,
+    },
+    ...pendingActions,
+  };
+
+  // V3 HIGH_PRESSURE: make_it_smaller is client-only (transforms card); micro_start fires IntentSet with timeboxMin=1
+  if (phase1Variant === 'HIGH_PRESSURE') {
+    actionsMap['micro_start'] = {
+      id: 'micro_start',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: microStartPayload,
+    };
+  }
+
+  const mode = phase1VariantToMode(phase1Variant);
   return {
     schemaVersion: 1,
     phase: 'checkin',
     view: { header, body, actions, footer },
-    domain: null,
+    domain: { mode },
+    actions: actionsMap,
+  };
+}
+
+/** Map Phase1 variant to Mode for page-level styling (background, top padding). */
+function phase1VariantToMode(v: Phase1Variant): Mode {
+  if (v === 'SILENCE_RE_ENTRY' || v === 'LOW_ENERGY' || v === 'HIGH_PRESSURE') return 'Rescue';
+  if (v === 'CHALLENGE' || v === 'CLEAR_THEN_CHALLENGE') return 'Boost';
+  return 'Neutral'; // CLEAN_START, PENDING_STANDARD, DEAL_CARD, IDENTITY_MOMENT, ONBOARDING
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Onboarding flow — Screen 1 (Welcome) and Screen 2 (Topic + Task type)
+// ────────────────────────────────────────────────────────────────────────────
+
+const ONBOARDING_WELCOME_COPY = {
+  title: 'ELI',
+  tagline: 'Your study companion.',
+  bodyLines: ['No schedules. No tracking.', 'Just 3 moments — open, study, close the loop.'],
+  momentsHighlight: 'open, study, close the loop',
+  ctaLabel: 'Get started',
+  ctaActionId: 'onboarding_next',
+} as const;
+
+const ONBOARDING_TOPIC_TASK_COPY = {
+  topicLabel: "What topic are you working on today?",
+  topicPlaceholder: 'e.g. Integration, Cell Division, Electrostatics',
+  subjectChips: [
+    { value: 'P', label: 'P' },
+    { value: 'C', label: 'C' },
+    { value: 'M', label: 'M' },
+    { value: 'B', label: 'B' },
+  ],
+  taskTypeLabel: "What kind of work?",
+  taskTypeChips: [
+    { label: 'Learn', value: 'Learn' },
+    { label: 'Practice', value: 'Practice' },
+    { label: 'Revise', value: 'Revise' },
+  ],
+  submitCtaLabel: "Let's go",
+  submitActionId: 'submit_onboarding',
+} as const;
+
+/** Compose onboarding Screen 1 — Welcome. Client advances to Screen 2 on CTA tap. */
+export function composeOnboardingWelcomeView(): SduiResponse {
+  const body: SduiComponent[] = [
+    {
+      type: 'onboarding-welcome-card',
+      props: {
+        ...ONBOARDING_WELCOME_COPY,
+        bodyLines: [...ONBOARDING_WELCOME_COPY.bodyLines],
+      },
+    },
+  ];
+  return {
+    schemaVersion: 1,
+    phase: 'checkin',
+    view: { header: [], body, actions: [], footer: [] },
+    domain: { mode: 'Neutral' as Mode, onboardingStep: 1 },
     actions: {
-      submit_checkin: {
-        id: 'submit_checkin',
+      onboarding_next: {
+        id: 'onboarding_next',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: { commandType: 'OnboardingAdvance', payload: { step: 2 } },
+      },
+    },
+  };
+}
+
+/** Compose onboarding Screen 3 (ELI's first response) — after topic+taskType submitted. */
+export function composeOnboardingResponseView(
+  topic: string,
+  taskType: string,
+): SduiResponse {
+  const topicDisplay = getTopicDisplayName(topic);
+  const primaryLabel = `Start ${taskType.toLowerCase()} (15–20 min)`;
+  const alternates = ['Learn', 'Practice', 'Revise'].filter((t) => t !== taskType);
+  const alternateTaskType = alternates[0];
+  const secondaryCta = alternateTaskType
+    ? { label: `Start ${alternateTaskType.toLowerCase()}`, actionId: 'small_start_alternate' as const }
+    : undefined;
+
+  const body: SduiComponent[] = [
+    {
+      type: 'resume-context-card',
+      props: {
+        variant: 'ONBOARDING',
+        greeting: 'Welcome.',
+        subGreeting: `ELI helps you study smarter — not longer.\n\nYou're working on ${topicDisplay}.`,
+        primaryCta: { label: primaryLabel, actionId: 'small_start' },
+        secondaryCta,
+      },
+    },
+  ];
+
+  const minCtx = {
+    mode: 'Neutral' as Mode,
+    playId: 'P1-ONBOARD',
+    silenceDays: 0,
+    pendingChecks: 0,
+    sessionsLast7d: 0,
+    loopsClosedLast7d: 0,
+    verificationRate7d: 0,
+    stateTrend7d: 'flat' as const,
+  } as PresentationContext;
+  const footer: SduiComponent[] = [
+    buildSessionSummaryFooter(minCtx, { variant: 'ONBOARDING' as Phase1Variant }),
+  ];
+
+  const actions: Record<string, SduiAction> = {
+    small_start: {
+      id: 'small_start',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: {
+        commandType: 'IntentSet',
+        payload: { topic, taskType, setAt: new Date().toISOString() },
+      },
+    },
+  };
+  if (alternateTaskType) {
+    actions['small_start_alternate'] = {
+      id: 'small_start_alternate',
+      endpoint: { method: 'POST', path: '/api/ei/command' },
+      payload: {
+        commandType: 'IntentSet',
+        payload: { topic, taskType: alternateTaskType, setAt: new Date().toISOString() },
+      },
+    };
+  }
+
+  return {
+    schemaVersion: 1,
+    phase: 'checkin',
+    view: { header: [], body, actions: [], footer },
+    domain: { mode: 'Neutral' as Mode, topic, taskType },
+    actions,
+  };
+}
+
+/** Compose onboarding Screen 2 — Topic + Task type. Client POSTs AppOpen on submit. */
+export function composeOnboardingTopicTaskView(): SduiResponse {
+  const body: SduiComponent[] = [
+    {
+      type: 'onboarding-topic-task-form',
+      props: {
+        topicInputId: 'topic',
+        topicLabel: ONBOARDING_TOPIC_TASK_COPY.topicLabel,
+        topicPlaceholder: ONBOARDING_TOPIC_TASK_COPY.topicPlaceholder,
+        subjectChips: [...ONBOARDING_TOPIC_TASK_COPY.subjectChips],
+        taskTypeInputId: 'taskType',
+        taskTypeLabel: ONBOARDING_TOPIC_TASK_COPY.taskTypeLabel,
+        taskTypeChips: [...ONBOARDING_TOPIC_TASK_COPY.taskTypeChips],
+        submitCtaLabel: ONBOARDING_TOPIC_TASK_COPY.submitCtaLabel,
+        submitActionId: ONBOARDING_TOPIC_TASK_COPY.submitActionId,
+      },
+    },
+  ];
+  return {
+    schemaVersion: 1,
+    phase: 'checkin',
+    view: { header: [], body, actions: [], footer: [] },
+    domain: { mode: 'Neutral' as Mode, onboardingStep: 2 },
+    actions: {
+      submit_onboarding: {
+        id: 'submit_onboarding',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
           commandType: 'AppOpen',
           payload: {
             topic: '{{topic}}',
-            energy: '{{energy}}',
-            sleepBucket: '{{sleepBucket}}',
-            pressure: '{{pressure}}',
-            backlogPressure: '{{backlogPressure}}',
+            taskType: '{{taskType}}',
+            subject: '{{subject}}',
           },
         },
       },

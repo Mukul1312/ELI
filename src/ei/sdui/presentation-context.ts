@@ -1,14 +1,17 @@
 /**
- * PresentationContext — derived entirely from domain output fields.
+ * PresentationContext — derived from domain output fields + real student aggregates.
  *
  * The ViewComposer needs this to decide which components to include
  * (deal card, welcome-back, guardrails) and which microcopy to resolve.
  *
- * ZERO DB calls — all fields are extracted from the protocol handler output
- * and the workflow input that was already loaded.
+ * Builders receive application-mapped DTOs from the calling Mastra step.
+ * ZERO DB calls in this file — all data passed in from the step's execute().
+ * No persistence row types — use AggregatesForPresentation and TopicStateSnapshot.
  */
 
 import type { Mode } from '../schemas/outputs';
+import type { StateTrend, TopicStateSnapshot } from '../domain/student-aggregates/student-aggregates';
+import type { AggregatesForPresentation } from './types/aggregates-for-presentation';
 
 export interface PresentationContext {
   readonly studentId: string;
@@ -23,14 +26,35 @@ export interface PresentationContext {
   readonly energy: number;
   readonly pressure: number;
   readonly closeOpenLoopFirst: boolean;
+  /** Real verification rate from ei_student_aggregates (0–1). */
+  readonly verificationRate7d: number;
+  /** Real state trend from ei_student_aggregates. */
+  readonly stateTrend7d: StateTrend;
+  /** Number of SessionEnd events in the last 7 days. */
+  readonly sessionsLast7d: number;
+  /** Number of verification events in the last 7 days. */
+  readonly loopsClosedLast7d: number;
+  /** Per-topic state snapshots ordered by lastScheduledDueAt ASC (due soonest first). */
+  readonly topicStates: TopicStateSnapshot[];
+  /** Date of most recent IdentityMomentShown event; null if never shown. */
+  readonly lastIdentityShownAt: Date | null;
+  /** True if there was a 3+ day stretch with no SessionEnd in the last 14 days (resolution signal). */
+  readonly hadSilenceInLast14d: boolean;
+  /** True if any AppOpen in the last 14 days had pressure >= 4 (resolution signal). */
+  readonly hadHighPressureInLast14d: boolean;
+  /** True if the user has ever opened the app before. */
+  readonly hasPriorOpen: boolean;
+}
+
+function sortedTopicSnapshots(snapshots?: TopicStateSnapshot[]): TopicStateSnapshot[] {
+  return [...(snapshots ?? [])].sort(
+    (a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0),
+  );
 }
 
 /**
  * Build a PresentationContext from the P1 domain output and workflow input.
- *
- * The domain output already contains mode, playId, stateScore, and constraints.
- * The remaining fields (pendingChecks, silenceDays, etc.) are approximated from
- * what the domain output tells us — e.g. if closeOpenLoopFirst is set, pendingChecks >= 3.
+ * Pass real aggregates/topicRows/eventCounts loaded by the compose step.
  */
 export function buildP1PresentationContext(
   domainOutput: {
@@ -45,33 +69,53 @@ export function buildP1PresentationContext(
     energy: number;
     pressure: number;
   },
+  aggregates?: AggregatesForPresentation | null,
+  topicSnapshots?: TopicStateSnapshot[],
+  eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
+  lastIdentityShownAt?: Date | null,
+  historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
+  hasPriorOpen: boolean = true,
 ): PresentationContext {
+  const closeOpenLoopFirst = domainOutput.constraints?.closeOpenLoopFirst ?? false;
   return {
     studentId: domainOutput.studentId,
     topicId: domainOutput.topic,
     mode: domainOutput.mode,
     playId: domainOutput.playId,
     stateScore: domainOutput.stateScore,
-    // When closeOpenLoopFirst is set, we know pendingChecks >= 3 (from domain invariant)
-    pendingChecks: domainOutput.constraints?.closeOpenLoopFirst ? 3 : 0,
-    // Approximate: if Rescue mode + low stateScore, may have silence — but we don't know exact days
-    // For v1, silenceDays is not available in P1 output; default 0
-    silenceDays: 0,
-    isFirstOfDay: true, // For v1, assume first-of-day (server can refine later)
-    tightnessLevel: 'Normal', // Not in P1 output; default Normal
+    pendingChecks: aggregates?.pendingChecks ?? (closeOpenLoopFirst ? 3 : 0),
+    silenceDays: aggregates?.silenceDays ?? 0,
+    isFirstOfDay: true,
+    tightnessLevel: 'Normal',
     energy: workflowInput.energy,
     pressure: workflowInput.pressure,
-    closeOpenLoopFirst: domainOutput.constraints?.closeOpenLoopFirst ?? false,
+    closeOpenLoopFirst,
+    verificationRate7d: aggregates?.verificationRate7d ?? 0,
+    stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
+    sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
+    loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    topicStates: sortedTopicSnapshots(topicSnapshots),
+    lastIdentityShownAt: lastIdentityShownAt ?? null,
+    hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
+    hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
+    hasPriorOpen,
   };
 }
 
 /**
  * Build minimal PresentationContext for the checkin view (before P1 runs).
  * Used when client sends AppOpen with initial: true — no domain output yet.
+ * Pass real aggregates/topicRows/eventCounts loaded by the compose step.
  */
 export function buildCheckinPresentationContext(
   isFirstOfDay: boolean,
-  studentId = ''
+  studentId = '',
+  aggregates?: AggregatesForPresentation | null,
+  topicSnapshots?: TopicStateSnapshot[],
+  eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
+  lastIdentityShownAt?: Date | null,
+  historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
+  hasPriorOpen = true,
 ): PresentationContext {
   return {
     studentId,
@@ -79,19 +123,28 @@ export function buildCheckinPresentationContext(
     mode: 'Neutral',
     playId: 'P1-N1',
     stateScore: 0,
-    pendingChecks: 0,
-    silenceDays: 0,
+    pendingChecks: aggregates?.pendingChecks ?? 0,
+    silenceDays: aggregates?.silenceDays ?? 0,
     isFirstOfDay,
     tightnessLevel: 'Normal',
     energy: 3,
     pressure: 1,
     closeOpenLoopFirst: false,
+    verificationRate7d: aggregates?.verificationRate7d ?? 0,
+    stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
+    sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
+    loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    topicStates: sortedTopicSnapshots(topicSnapshots),
+    lastIdentityShownAt: lastIdentityShownAt ?? null,
+    hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
+    hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
+    hasPriorOpen,
   };
 }
 
 /**
  * Build PresentationContext from P2 (Activation) domain output.
- * Zero I/O — all fields derived from ActivationPlanIssuedOutput.
+ * Phase 2 is the active session — topicStates/identity fields are unused here.
  */
 export function buildP2PresentationContext(
   domainOutput: {
@@ -114,12 +167,21 @@ export function buildP2PresentationContext(
     energy: 3,
     pressure: 1,
     closeOpenLoopFirst: false,
+    verificationRate7d: 0,
+    stateTrend7d: 'flat',
+    sessionsLast7d: 0,
+    loopsClosedLast7d: 0,
+    topicStates: [],
+    lastIdentityShownAt: null,
+    hadSilenceInLast14d: false,
+    hadHighPressureInLast14d: false,
+    hasPriorOpen: true,
   };
 }
 
 /**
  * Build PresentationContext from P3 (Verification) domain output.
- * Zero I/O — all fields derived from VerificationDecisionIssuedOutput.
+ * Pass real aggregates + workflowInput (energy/pressure) so Phase 3 can compute the "clearMore" CTA and footer.
  */
 export function buildP3PresentationContext(
   domainOutput: {
@@ -128,7 +190,9 @@ export function buildP3PresentationContext(
     playId: string;
     topic: string;
   },
-  _workflowInput?: Record<string, unknown>,
+  workflowInput: { energy: number; pressure: number },
+  aggregates?: AggregatesForPresentation | null,
+  eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
 ): PresentationContext {
   return {
     studentId: domainOutput.studentId,
@@ -136,12 +200,21 @@ export function buildP3PresentationContext(
     mode: domainOutput.mode,
     playId: domainOutput.playId,
     stateScore: 0,
-    pendingChecks: 0,
-    silenceDays: 0,
+    pendingChecks: aggregates?.pendingChecks ?? 0,
+    silenceDays: aggregates?.silenceDays ?? 0,
     isFirstOfDay: true,
     tightnessLevel: 'Normal',
-    energy: 3,
-    pressure: 1,
+    energy: workflowInput.energy,
+    pressure: workflowInput.pressure,
     closeOpenLoopFirst: false,
+    verificationRate7d: aggregates?.verificationRate7d ?? 0,
+    stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
+    sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
+    loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    topicStates: [],
+    lastIdentityShownAt: null,
+    hadSilenceInLast14d: false,
+    hadHighPressureInLast14d: false,
+    hasPriorOpen: true,
   };
 }

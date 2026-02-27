@@ -14,6 +14,7 @@ const CheckinViewInput = z.object({
   studentId: z.string(),
   isFirstOfDay: z.boolean(),
   correlationId: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export const checkinViewWorkflow = createWorkflow({

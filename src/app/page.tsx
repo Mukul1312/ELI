@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { SduiView, resolvePayload } from '@/app/sdui/renderer';
-import type { SduiResponse } from '@/app/sdui/types';
+import { SduiView, SduiSlot, resolvePayload } from '@/app/sdui/renderer';
+import type { SduiResponse, SduiComponent } from '@/app/sdui/types';
+import { composeOnboardingTopicTaskView } from '@/ei/sdui/view-composer';
 
 // ============================================================================
 // Styles
@@ -11,18 +12,42 @@ import type { SduiResponse } from '@/app/sdui/types';
 
 type AuthState = 'initializing' | 'loading' | 'unauthenticated' | 'authenticated' | 'error';
 
+function pageLayoutStyles(mode?: 'Rescue' | 'Neutral' | 'Boost') {
+  const topPadding = mode === 'Rescue' ? 'var(--sp-12)' : 'var(--sp-10)'; // 48px Rescue, 40px Neutral/Boost
+  const background = mode === 'Rescue' ? 'var(--color-bg-rescue)' : 'var(--color-bg)';
+  return {
+    maxWidth: 480,
+    margin: '0 auto',
+    padding: `${topPadding} var(--sp-4) var(--sp-10)`,
+    minHeight: '100vh',
+    background,
+  } as const;
+}
+
 const s = {
-  page: { maxWidth: 480, margin: '0 auto', padding: '24px 16px', minHeight: '100vh' } as const,
   card: {
-    background: '#1a1b23', borderRadius: 12, padding: '24px 20px', marginBottom: 16,
-    border: '1px solid #2a2b35',
+    background: 'var(--color-surface)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--sp-6) var(--sp-5)',
+    marginBottom: 'var(--sp-4)',
+    border: '1px solid var(--color-border)',
+    boxShadow: 'var(--shadow-card)',
   } as const,
-  muted: { color: '#71717a', fontSize: 13 } as const,
-  error: { color: '#f87171', fontSize: 13, marginTop: 8 } as const,
+  muted: { color: 'var(--color-text-tertiary)', fontSize: 13 } as const,
+  error: { color: '#c0392b', fontSize: 13, marginTop: 8 } as const,
   btn: (variant: 'primary' | 'secondary' = 'secondary') => ({
-    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    ...(variant === 'primary' ? { background: '#4f46e5', color: '#fff', border: 'none' } :
-        { background: '#27272a', color: '#a1a1aa', border: '1px solid #3f3f46' }),
+    padding: '8px 16px',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    ...(variant === 'primary'
+      ? { background: 'var(--color-accent)', color: '#fff', border: 'none' }
+      : {
+          background: 'var(--color-surface-subtle)',
+          color: 'var(--color-text-secondary)',
+          border: '1px solid var(--color-border-strong)',
+        }),
   }),
 };
 
@@ -36,6 +61,7 @@ export default function Home() {
   const [authState, setAuthState] = useState<AuthState>('initializing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentSduiResponse, setCurrentSduiResponse] = useState<SduiResponse | null>(null);
+  const [sessionFooter, setSessionFooter] = useState<SduiComponent[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
   const [actionLoading, setActionLoading] = useState(false);
   const [bootstrapTrigger, setBootstrapTrigger] = useState(0);
@@ -101,6 +127,10 @@ export default function Home() {
         const res = await api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey);
         if (!cancelled) {
           setCurrentSduiResponse(res);
+          const footerNodes = (res.view?.footer ?? []).filter(
+            (c) => c.type === 'session-summary-footer',
+          );
+          if (footerNodes.length > 0) setSessionFooter(footerNodes);
           setAuthState('authenticated');
         }
       } catch (err) {
@@ -114,11 +144,58 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [bootstrapTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket)
+  const hasRequiredCheckinFields = useCallback(() => {
+    const topic = formValues['topic'];
+    const energy = formValues['energy'];
+    const sleepBucket = formValues['sleepBucket'];
+    return typeof topic === 'string' && topic.trim() !== ''
+      && typeof energy === 'number' && energy >= 1 && energy <= 5
+      && typeof sleepBucket === 'string' && sleepBucket.length > 0;
+  }, [formValues]);
+
   // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
     async (actionId: string) => {
+      if (actionId === 'onboarding_next') {
+        setCurrentSduiResponse(composeOnboardingTopicTaskView());
+        setFormValues({});
+        return;
+      }
+
       const action = currentSduiResponse?.actions?.[actionId];
       if (!action) return;
+      
+      const isAppOpen = action.payload?.commandType === 'AppOpen';
+      const isIntentSet = action.payload?.commandType === 'IntentSet';
+      const isFirstTouch = isAppOpen && (action.payload.payload as any)?.initial === true;
+      const isMicroStart = isAppOpen && (action.payload.payload as any)?.timeboxMin === 1;
+      const isOnboardingSubmit = isAppOpen && (action.payload.payload as any)?.taskType !== undefined && (action.payload.payload as any)?.energy === undefined;
+      
+      // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
+      if (isAppOpen && !isFirstTouch && !isOnboardingSubmit && !isMicroStart) {
+        if (!hasRequiredCheckinFields()) {
+          setErrorMessage('Please fill in topic, energy, and sleep to continue.');
+          return;
+        }
+      }
+      
+      // Onboarding submit: only topic + taskType required (no energy/sleep)
+      if (isOnboardingSubmit || isIntentSet) {
+        const topic = formValues['topic'] || (action.payload.payload as any)?.topic;
+        const taskType = formValues['taskType'] || (action.payload.payload as any)?.taskType;
+        
+        // Only validate if these fields are expected to be filled from the form
+        const needsTopic = (action.payload.payload as any)?.topic === '{{topic}}';
+        const needsTaskType = (action.payload.payload as any)?.taskType === '{{taskType}}';
+        
+        if ((needsTopic && (!topic || typeof topic !== 'string' || !topic.trim())) || 
+            (needsTaskType && (!taskType || typeof taskType !== 'string' || !taskType))) {
+          setErrorMessage('Please enter a topic and select a task type.');
+          return;
+        }
+      }
+      
       const resolved = resolvePayload(action.payload, formValues);
       setErrorMessage(null);
       setActionLoading(true);
@@ -126,6 +203,11 @@ export default function Home() {
       try {
         const result = await api(action.endpoint.path, resolved, idempotencyKey);
         setCurrentSduiResponse(result);
+        // Persist footer across phase transitions (Phase 2 has no footer)
+        const footerNodes = (result.view?.footer ?? []).filter(
+          (c) => c.type === 'session-summary-footer',
+        );
+        if (footerNodes.length > 0) setSessionFooter(footerNodes);
         setFormValues({});
       } catch (err: unknown) {
         setAuthState('error');
@@ -134,7 +216,7 @@ export default function Home() {
         setActionLoading(false);
       }
     },
-    [currentSduiResponse, formValues, api],
+    [currentSduiResponse, formValues, api, hasRequiredCheckinFields],
   );
 
   const handleFormChange = useCallback((id: string, value: string | number) => {
@@ -152,9 +234,13 @@ export default function Home() {
   }, []);
 
   const isInitialLoading = authState === 'initializing' || authState === 'loading';
+  // Checkin: domain.mode; P1/P2: mode at top level
+  const pageMode = (currentSduiResponse?.domain as { mode?: 'Rescue' | 'Neutral' | 'Boost' } | null)?.mode
+    ?? (currentSduiResponse as { mode?: 'Rescue' | 'Neutral' | 'Boost' })?.mode;
+  const pageStyles = pageLayoutStyles(pageMode);
 
   return (
-    <div style={s.page}>
+    <div style={pageStyles}>
       <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
         <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
       </div>
@@ -194,6 +280,16 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {/* Persisted session footer — shown across all phases, even Phase 2 (no footer in active session) */}
+      {authState === 'authenticated' && sessionFooter.length > 0 && (
+        <SduiSlot
+          components={sessionFooter}
+          formValues={formValues}
+          onFormChange={handleFormChange}
+          onAction={handleSduiAction}
+        />
+      )}
     </div>
   );
 }

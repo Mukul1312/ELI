@@ -8,11 +8,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvalidCommandError } from '../../../../application/run-ei-command/errors';
 
-// Mock DB before any workflow loads it (ei/runtime/db throws without DATABASE_URL)
+// Mock DB before any workflow loads it (ei/runtime/db throws without DATABASE_URL).
+// checkinViewWorkflow queries aggregates, topic states, event counts — provide mock implementations.
 vi.mock('../../../../runtime/db', () => ({
-  eiStore: { db: {} },
-  getEiRequestContext: vi.fn(),
-  getEiDb: vi.fn(),
+  eiStore: {
+    db: {
+      oneOrNone: () => Promise.resolve(null),
+      one: () => Promise.resolve({ sessions: '0', loops: '0' }),
+      any: () => Promise.resolve([]),
+      none: () => Promise.resolve(undefined),
+    },
+  },
 }));
 
 describe('RunEiCommandHandler', () => {
@@ -41,6 +47,25 @@ describe('RunEiCommandHandler', () => {
     expect((sdui as Record<string, unknown>).phase).toBe('checkin');
     expect((sdui as Record<string, unknown>).view).toBeDefined();
     expect((sdui as Record<string, unknown>).actions).toBeDefined();
+  });
+
+  it('AppOpen (initial:true) first-ever returns onboarding Screen 1 (onboarding-welcome-card)', async () => {
+    const result = await handler.execute({
+      command: { commandType: 'AppOpen', payload: { initial: true } },
+      studentId: 'student-1',
+    });
+
+    const data = result as Record<string, unknown>;
+    const payload = data.result ?? data;
+    const sdui = (typeof payload === 'object' && payload !== null && 'result' in payload)
+      ? (payload as { result: Record<string, unknown> }).result
+      : payload;
+
+    const view = (sdui as { view?: { body?: Array<{ type: string }> } })?.view;
+    const body = view?.body ?? [];
+    const welcomeCard = body.find((c: { type: string }) => c.type === 'onboarding-welcome-card');
+    expect(welcomeCard).toBeDefined();
+    expect((sdui as { actions?: Record<string, unknown> })?.actions?.onboarding_next).toBeDefined();
   });
 
   it('AppOpen accepts optional idempotencyKey', async () => {

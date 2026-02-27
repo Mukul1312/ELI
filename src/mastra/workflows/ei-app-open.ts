@@ -17,11 +17,14 @@ import {
   type EiCommandWithStudent,
   type AppOpenPayload,
   isAppOpenFirstTouch,
+  isAppOpenOnboarding,
+  isAppOpenMicro,
 } from '../../ei/application/ei-protocol-router';
 import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { protocol1IgnitionWorkflow } from './protocol1-ignition';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
+import { composeOnboardingResponseView } from '../../ei/sdui/view-composer';
 
 const AppOpenWorkflowInput = z.object({
   command: z.object({
@@ -50,8 +53,47 @@ const appOpenBranchStep = createStep({
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
-      // checkin view is read-only — no events appended, no idempotency needed
-      return checkinRun.start({ inputData: { studentId, isFirstOfDay, correlationId } });
+      return checkinRun.start({
+        inputData: { studentId, isFirstOfDay, correlationId, idempotencyKey },
+      });
+    }
+
+    if (isAppOpenOnboarding(payload as AppOpenPayload)) {
+      const onboardingPayload = payload as { topic: string; taskType: string; subject?: string };
+      const p1InputData = {
+        studentId,
+        topic: onboardingPayload.topic,
+        energy: 3,
+        sleepBucket: '7-8' as const,
+        pressure: 1,
+        backlogPressure: 1,
+        idempotencyKey,
+        correlationId,
+      };
+      const run = await protocol1IgnitionWorkflow.createRun();
+      await run.start({ inputData: p1InputData });
+      return composeOnboardingResponseView(onboardingPayload.topic, onboardingPayload.taskType);
+    }
+
+    if (isAppOpenMicro(payload as AppOpenPayload)) {
+      const microPayload = payload as {
+        topic: string;
+        energy: number;
+        sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
+        pressure?: number;
+        backlogPressure?: number;
+        openedAt?: string;
+      };
+      const p2InputData = {
+        studentId,
+        topic: microPayload.topic,
+        setAt: new Date().toISOString(),
+        taskType: 'micro', // Treat as micro task
+        idempotencyKey,
+        correlationId,
+      };
+      const run = await protocol2ActivationWorkflow.createRun();
+      return run.start({ inputData: p2InputData });
     }
 
     const fullPayload = payload as {

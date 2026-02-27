@@ -8,7 +8,7 @@
  * before StudentAggregates (this tool) for full-student recompute. StudentAggregates derives
  * openLoops/pendingChecks from TopicLoop state.
  *
- * @see docs/strategic-design/tactical/ops-observability-tactical-spec.md §7, §8
+ * @see docs/engineering-ddd-design/tactical/ops-observability-tactical-spec.md §7, §8
  */
 
 import { createTool } from '@mastra/core/tools';
@@ -20,7 +20,7 @@ import { PostgresStudentAggregatesRepository } from '../../ei/infrastructure/per
 import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persistence/student-event-stream-reader.pg';
 import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
 import { getClock } from '../../ei/runtime/clock';
-import { getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { createCorrelationId, logBackfillAudit } from '../../ei/infrastructure/logging';
 
 export const computeAggregatesTool = createTool({
@@ -47,7 +47,7 @@ export const computeAggregatesTool = createTool({
   }),
   execute: async (input, context) => {
     const correlationId = createCorrelationId();
-    const db = getEiDb(context);
+    const db = eiStore.db;
     const clock = getClock(context);
 
     const repo = new PostgresStudentAggregatesRepository(db);
@@ -86,7 +86,7 @@ export const checkOverdueSchedulesTool = createTool({
   }),
   execute: async (input, context) => {
     const { studentId, graceHours } = input;
-    const db = getEiDb(context);
+    const db = eiStore.db;
     const now = getClock(context).now();
     const graceMs = graceHours * 60 * 60 * 1000;
 
@@ -127,7 +127,7 @@ export const listStudentsTool = createTool({
     studentIds: z.array(z.string()),
   }),
   execute: async (input, context) => {
-    const db = getEiDb(context);
+    const db = eiStore.db;
     const studentIds = await Q.listActiveStudents(db, input.activeWithinDays);
     return { studentIds };
   },

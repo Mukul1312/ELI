@@ -1,6 +1,6 @@
 /**
  * EiCommand schemas — Zod validation for command payloads.
- * Aligns with event catalog in docs/strategic-design/05-cross-cutting-concerns.md.
+ * Aligns with event catalog in docs/engineering-ddd-design/05-cross-cutting-concerns.md.
  *
  * AppOpen supports two shapes: first-touch (initial: true) for checkin view,
  * and full payload (topic, energy) for checkin submit → P1/P2.
@@ -13,6 +13,28 @@ export const AppOpenFirstTouchSchema = z
   .object({
     initial: z.literal(true),
     isFirstOfDay: z.boolean().optional(),
+  })
+  .strict();
+
+/** Onboarding submit: first-ever, topic + taskType only (no energy). */
+export const AppOpenOnboardingPayloadSchema = z
+  .object({
+    topic: z.string(),
+    taskType: z.string(),
+    subject: z.string().optional(),
+  })
+  .strict();
+
+/** Micro-start: V3 HIGH_PRESSURE "make it smaller" sub-state. */
+export const AppOpenMicroPayloadSchema = z
+  .object({
+    topic: z.string(),
+    energy: z.number().min(1).max(5),
+    sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
+    pressure: z.number().min(1).max(5).optional(),
+    backlogPressure: z.number().min(1).max(5).optional(),
+    timeboxMin: z.literal(1),
+    openedAt: z.string().datetime().optional(),
   })
   .strict();
 
@@ -30,6 +52,8 @@ export const AppOpenFullPayloadSchema = z
 
 export const AppOpenPayloadSchema = z.union([
   AppOpenFirstTouchSchema,
+  AppOpenOnboardingPayloadSchema,
+  AppOpenMicroPayloadSchema,
   AppOpenFullPayloadSchema,
 ]);
 
@@ -53,6 +77,8 @@ export const SessionStartPayloadSchema = z
   .object({
     topic: z.string(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
+    taskType: z.string().optional(),
+    difficultyTier: z.string().optional(),
   })
   .strict();
 
@@ -178,6 +204,8 @@ export type EiCommandEnvelope = z.infer<typeof EiCommandEnvelopeSchema>;
 
 export type AppOpenPayload = z.infer<typeof AppOpenPayloadSchema>;
 export type AppOpenFirstTouchPayload = z.infer<typeof AppOpenFirstTouchSchema>;
+export type AppOpenOnboardingPayload = z.infer<typeof AppOpenOnboardingPayloadSchema>;
+export type AppOpenMicroPayload = z.infer<typeof AppOpenMicroPayloadSchema>;
 export type AppOpenFullPayload = z.infer<typeof AppOpenFullPayloadSchema>;
 
 /** Type guard: true when payload is first-touch (checkin view request). */
@@ -185,6 +213,20 @@ export function isAppOpenFirstTouch(
   payload: AppOpenPayload
 ): payload is AppOpenFirstTouchPayload {
   return 'initial' in payload && payload.initial === true;
+}
+
+/** Type guard: true when payload is onboarding submit (topic + taskType, first-ever). */
+export function isAppOpenOnboarding(
+  payload: AppOpenPayload
+): payload is AppOpenOnboardingPayload {
+  return 'taskType' in payload && typeof payload.taskType === 'string' && !('energy' in payload);
+}
+
+/** Type guard: true when payload is micro-start (timeboxMin: 1). */
+export function isAppOpenMicro(
+  payload: AppOpenPayload
+): payload is AppOpenMicroPayload {
+  return 'timeboxMin' in payload && payload.timeboxMin === 1;
 }
 export type IntentSetPayload = z.infer<typeof IntentSetPayloadSchema>;
 export type SessionEndPayload = z.infer<typeof SessionEndPayloadSchema>;

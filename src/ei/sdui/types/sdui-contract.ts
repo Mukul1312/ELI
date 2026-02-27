@@ -8,8 +8,8 @@
  * P1WrappedResponseSchema: backward-compat shape so existing client gets domain fields
  * at top level (result.topic, result.mode, ...) plus view, schemaVersion, phase, actions.
  *
- * @see docs/strategic-design/02-subdomains.md §6 StudySessionOrchestration
- * @see docs/strategic-design/canvas-ei-runtime.md — Gateway context
+ * @see docs/engineering-ddd-design/02-subdomains.md §6 StudySessionOrchestration
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md — Gateway context
  */
 
 import { z } from 'zod';

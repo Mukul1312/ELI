@@ -36,7 +36,7 @@ isProject: false
 
 ## Layer-first structure (from skill)
 
-All new code lives under `src/ei/` in layer folders. TopicLoop is an aggregate inside those layers, not a top-level folder. See [01-ei-tactical-conventions.md](docs/strategic-design/tactical/01-ei-tactical-conventions.md) §2 for the strategic→tactical mapping (9 contexts → 3–5 modules).
+All new code lives under `src/ei/` in layer folders. TopicLoop is an aggregate inside those layers, not a top-level folder. See [01-ei-tactical-conventions.md](docs/engineering-ddd-design/tactical/01-ei-tactical-conventions.md) §2 for the strategic→tactical mapping (9 contexts → 3–5 modules).
 
 ```
 src/ei/
@@ -116,7 +116,7 @@ Create `src/ei/domain/topic-loop/value-objects.ts`:
 Create `src/ei/domain/topic-loop/topic-loop.ts`:
 
 - Class `TopicLoop` (aggregate root, identified by `TopicLoopId`).
-- Pure `applyEvent(eventType, payload)` method enforcing all invariants from [topic-loop-tactical-spec.md](docs/strategic-design/tactical/topic-loop-tactical-spec.md):
+- Pure `applyEvent(eventType, payload)` method enforcing all invariants from [topic-loop-tactical-spec.md](docs/engineering-ddd-design/tactical/topic-loop-tactical-spec.md):
   - `SessionEnd` → `lastEffortAt = max(current, endedAt)`
   - `RetrievalVerified` / `VerificationCompleted` → `lastRetrievalAt = max(current, verifiedAt/completedAt)`
   - `RetrievalScheduled` → `lastScheduledDueAt = max(current, dueAt)`

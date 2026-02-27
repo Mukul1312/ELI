@@ -5,7 +5,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import * as Q from '../../ei/db/queries';
-import { getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { PostgresStudentPolicyRepository } from '../../ei/infrastructure/persistence/student-policy-repository.pg';
 import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
@@ -42,7 +42,7 @@ export const getPolicyTool = createTool({
   }),
   outputSchema: policyOutput.nullable(),
   execute: async (input, context) => {
-    const db = getEiDb(context);
+    const db = eiStore.db;
     const row = await Q.getPolicy(db, input.studentId);
     return row ? formatRow(row) : null;
   },
@@ -60,7 +60,7 @@ export const setPolicyTool = createTool({
   }),
   outputSchema: policyOutput,
   execute: async (input, context) => {
-    const db = getEiDb(context);
+    const db = eiStore.db;
     const issuedAt = new Date();
     const dialsRaw = { ...DEFAULT_DIALS, ...input.dials } as Record<string, unknown>;
     const dials = Object.fromEntries(

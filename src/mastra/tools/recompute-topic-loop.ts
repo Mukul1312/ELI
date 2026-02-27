@@ -8,13 +8,13 @@
  * run TopicLoop before StudentAggregates. StudentAggregates derives openLoops/pendingChecks
  * from TopicLoop state.
  *
- * @see docs/strategic-design/tactical/ops-observability-tactical-spec.md §7, §8
+ * @see docs/engineering-ddd-design/tactical/ops-observability-tactical-spec.md §7, §8
  */
 
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
-import { getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { createCorrelationId, logBackfillAudit } from '../../ei/infrastructure/logging';
 
 export const recomputeTopicLoopTool = createTool({
@@ -32,7 +32,7 @@ export const recomputeTopicLoopTool = createTool({
   }),
   execute: async (input, context) => {
     const correlationId = createCorrelationId();
-    const db = getEiDb(context);
+    const db = eiStore.db;
 
     await recomputeTopicLoop(db, input.studentId, input.topicId);
 

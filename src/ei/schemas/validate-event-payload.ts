@@ -15,6 +15,7 @@ import {
   VerificationCompletedSchema,
   FirstActionStartedSchema,
   ReplanSchema,
+  IdentityMomentShownSchema,
 } from './events';
 import {
   NegotiatedIntentIssuedSchema,
@@ -47,6 +48,7 @@ const EVENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   VerificationDecisionIssued: VerificationDecisionIssuedSchema.strict(),
   StrategicAdjustmentDecision: StrategicAdjustmentDecisionSchema.strict(),
   ScheduleMissed: ScheduleMissedSchema,
+  IdentityMomentShown: IdentityMomentShownSchema,
 };
 
 export function validateEventPayload(

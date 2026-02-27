@@ -1,1 +1,71 @@
 @import '@neondatabase/auth/ui/css';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Design Tokens — Phase 1 visual language
+   Source: docs/phase1-design/01-visual-language.md
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Backgrounds */
+  --color-bg: #F9F8F6;
+  --color-bg-rescue: #FDF7F2;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F3F2EF;
+  --color-border: #E4E3DE;
+  --color-border-strong: #C9C8C2;
+
+  /* Text */
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #68675F;
+  --color-text-tertiary: #A5A49C;
+  --color-text-accent: #3B4FD8;
+
+  /* Accent — indigo (focused, intelligent, calm) */
+  --color-accent: #3B4FD8;
+  --color-accent-hover: #2E40C4;
+  --color-accent-soft: #EEF1FB;
+  --color-accent-border: #B4BFEF;
+
+  /* State — loop-closed green (used ONLY for the counter drop moment) */
+  --color-closed: #2D7A52;
+  --color-closed-soft: #EBF6F0;
+  /* State — skip (neutral grey, no judgment) */
+  --color-skip: #8A8880;
+
+  /* Spacing — 4px base unit */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* Shadows — soft, low-contrast; never hard borders */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-display: 1.75rem;    /* 28px — counter animation, milestone numbers */
+  --font-size-greeting: 1.375rem;  /* 22px — Phase 1 greeting (hero line) */
+  --font-size-body: 1rem;          /* 16px — supporting copy, button labels */
+  --font-size-label: 0.875rem;     /* 14px — scale labels, pending item text, footer */
+  --font-size-caption: 0.75rem;    /* 12px — timestamps, personalization hints */
+}
+
+/* Disable all transitions/animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

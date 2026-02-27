@@ -1,7 +1,7 @@
 /**
  * LoopHealthSnapshot and LoopHealthEvidence types.
  * Output contract for LHA; consumed by Runtime, SA, Radar.
- * Per tactical/loop-health-assessment-tactical-spec.md, docs/strategic-design/05-cross-cutting-concerns.md.
+ * Per tactical/loop-health-assessment-tactical-spec.md, docs/engineering-ddd-design/05-cross-cutting-concerns.md.
  */
 
 export type P1Label = 'LOW_ENERGY' | 'HIGH_ENERGY' | 'NEUTRAL';
