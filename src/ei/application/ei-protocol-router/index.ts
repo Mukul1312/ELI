@@ -6,6 +6,7 @@ export {
   IntentSetPayloadSchema,
   SessionEndPayloadSchema,
   isAppOpenFirstTouch,
+  isAppOpenOnboarding,
   type EiCommand,
   type EiCommandEnvelope,
   type AppOpenPayload,

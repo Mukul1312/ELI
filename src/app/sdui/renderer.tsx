@@ -63,6 +63,7 @@ export function SduiSlot({
             value={value}
             onChange={onFormChange}
             onAction={onAction}
+            formValues={formValues}
           />
         );
       })}

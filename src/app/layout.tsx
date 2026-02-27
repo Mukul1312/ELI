@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import { AuthProvider } from './auth-provider';
 import { UserButton } from '@neondatabase/auth/react/ui';
 import './globals.css';
+
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'AI Study Brother — ELI',
@@ -16,13 +19,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.className} suppressHydrationWarning>
       <body
         style={{
           margin: 0,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          background: '#0f1117',
-          color: '#e4e4e7',
+          fontFamily: 'var(--font-family)',
+          background: 'var(--color-bg)',
+          color: 'var(--color-text-primary)',
           minHeight: '100vh',
         }}
       >

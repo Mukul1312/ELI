@@ -42,6 +42,8 @@ export interface PresentationContext {
   readonly hadSilenceInLast14d: boolean;
   /** True if any AppOpen in the last 14 days had pressure >= 4 (resolution signal). */
   readonly hadHighPressureInLast14d: boolean;
+  /** True if the user has ever opened the app before. */
+  readonly hasPriorOpen: boolean;
 }
 
 function sortedTopicSnapshots(snapshots?: TopicStateSnapshot[]): TopicStateSnapshot[] {
@@ -72,6 +74,7 @@ export function buildP1PresentationContext(
   eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
   lastIdentityShownAt?: Date | null,
   historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
+  hasPriorOpen: boolean = true,
 ): PresentationContext {
   const closeOpenLoopFirst = domainOutput.constraints?.closeOpenLoopFirst ?? false;
   return {
@@ -95,6 +98,7 @@ export function buildP1PresentationContext(
     lastIdentityShownAt: lastIdentityShownAt ?? null,
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
     hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
+    hasPriorOpen,
   };
 }
 
@@ -111,6 +115,7 @@ export function buildCheckinPresentationContext(
   eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
   lastIdentityShownAt?: Date | null,
   historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
+  hasPriorOpen = true,
 ): PresentationContext {
   return {
     studentId,
@@ -133,6 +138,7 @@ export function buildCheckinPresentationContext(
     lastIdentityShownAt: lastIdentityShownAt ?? null,
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
     hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
+    hasPriorOpen,
   };
 }
 
@@ -169,6 +175,7 @@ export function buildP2PresentationContext(
     lastIdentityShownAt: null,
     hadSilenceInLast14d: false,
     hadHighPressureInLast14d: false,
+    hasPriorOpen: true,
   };
 }
 
@@ -208,5 +215,6 @@ export function buildP3PresentationContext(
     lastIdentityShownAt: null,
     hadSilenceInLast14d: false,
     hadHighPressureInLast14d: false,
+    hasPriorOpen: true,
   };
 }

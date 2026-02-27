@@ -71,6 +71,8 @@ export const SduiScaleInputSchema = z.object({
       value: z.union([z.string(), z.number()]),
     })),
     required: z.boolean(),
+    /** Show numeric value below label. Server-controlled: true on Day 1–3, false after 7+ sessions. */
+    showNumber: z.boolean().optional(),
     collapsible: z.object({
       toggleLabel: z.string(),
       defaultOpen: z.boolean(),
@@ -254,8 +256,9 @@ export const SduiResumeContextCardSchema = z.object({
   type: z.literal('resume-context-card'),
   props: z.object({
     variant: z.enum([
-      'SILENCE_RE_ENTRY', 'HIGH_PRESSURE', 'CHALLENGE', 'CLEAN_START',
-      'DEAL_CARD', 'PENDING_STANDARD', 'ONBOARDING', 'IDENTITY_MOMENT',
+      'SILENCE_RE_ENTRY', 'LOW_ENERGY', 'HIGH_PRESSURE', 'CHALLENGE',
+      'CLEAR_THEN_CHALLENGE', 'CLEAN_START', 'DEAL_CARD', 'PENDING_STANDARD',
+      'ONBOARDING', 'IDENTITY_MOMENT',
     ]),
     greeting: z.string(),
     subGreeting: z.string().optional(),
@@ -263,6 +266,14 @@ export const SduiResumeContextCardSchema = z.object({
     primaryCta: CtaSchema,
     secondaryCta: CtaSchema.optional(),
     tertiaryCta: CtaSchema.optional(),
+    /** When true, client hides greeting until energy scale has a selection (V2 LOW_ENERGY). */
+    showGreetingAfterEnergySelected: z.boolean().optional(),
+    /** V3 HIGH_PRESSURE: alternate content shown when "Make it smaller" is tapped. */
+    makeItSmallerContent: z.object({
+      greeting: z.string(),
+      subGreeting: z.string().optional(),
+      primaryCta: CtaSchema,
+    }).optional(),
   }),
 });
 export type SduiResumeContextCard = z.infer<typeof SduiResumeContextCardSchema>;
@@ -315,6 +326,7 @@ export const SduiSessionSummaryFooterSchema = z.object({
     trend: z.enum(['improving', 'flat', 'worsening']),
     identityStatement: z.string().optional(),
     warmLabel: z.string().optional(),
+    expandable: z.boolean().optional(),
   }),
 });
 export type SduiSessionSummaryFooter = z.infer<typeof SduiSessionSummaryFooterSchema>;
@@ -341,6 +353,43 @@ export const SduiSessionContextBarSchema = z.object({
   }),
 });
 export type SduiSessionContextBar = z.infer<typeof SduiSessionContextBarSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
+// Onboarding (first-session flow — Screen 1 and Screen 2)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Screen 1: Welcome — ELI intro, "Get started" CTA. */
+export const SduiOnboardingWelcomeCardSchema = z.object({
+  type: z.literal('onboarding-welcome-card'),
+  props: z.object({
+    title: z.string(),
+    tagline: z.string(),
+    bodyLines: z.array(z.string()),
+    /** Fragment in primary color within body (e.g. "open, study, close the loop"). */
+    momentsHighlight: z.string().optional(),
+    ctaLabel: z.string(),
+    ctaActionId: z.string(),
+  }),
+});
+export type SduiOnboardingWelcomeCard = z.infer<typeof SduiOnboardingWelcomeCardSchema>;
+
+/** Screen 2: Topic + task type — text input, optional subject chips, required task type chips. */
+export const SduiOnboardingTopicTaskFormSchema = z.object({
+  type: z.literal('onboarding-topic-task-form'),
+  props: z.object({
+    topicInputId: z.string(),
+    topicLabel: z.string(),
+    topicPlaceholder: z.string(),
+    /** Optional P/C/M/B subject chips. */
+    subjectChips: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+    taskTypeInputId: z.string(),
+    taskTypeLabel: z.string(),
+    taskTypeChips: z.array(z.object({ label: z.string(), value: z.string() })),
+    submitCtaLabel: z.string(),
+    submitActionId: z.string(),
+  }),
+});
+export type SduiOnboardingTopicTaskForm = z.infer<typeof SduiOnboardingTopicTaskFormSchema>;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Union
@@ -371,6 +420,8 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiSessionSummaryFooterSchema,
   SduiIdentityMomentCardSchema,
   SduiSessionContextBarSchema,
+  SduiOnboardingWelcomeCardSchema,
+  SduiOnboardingTopicTaskFormSchema,
 ]) as z.ZodType<SduiComponent>;
 
 export type SduiComponent =
@@ -397,4 +448,6 @@ export type SduiComponent =
   | SduiLoopClosedCard
   | SduiSessionSummaryFooter
   | SduiIdentityMomentCard
-  | SduiSessionContextBar;
+  | SduiSessionContextBar
+  | SduiOnboardingWelcomeCard
+  | SduiOnboardingTopicTaskForm;

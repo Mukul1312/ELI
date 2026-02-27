@@ -14,7 +14,7 @@ import { eiStore } from '../../../ei/runtime/db';
 import * as Q from '../../../ei/db/queries';
 import { SduiResponseSchema } from '../../../ei/sdui/types/sdui-contract';
 import { buildCheckinPresentationContext } from '../../../ei/sdui/presentation-context';
-import { composeCheckinView } from '../../../ei/sdui/view-composer';
+import { composeCheckinView, composeOnboardingWelcomeView } from '../../../ei/sdui/view-composer';
 import { computeIdentityEligibility } from '../../../ei/sdui/identity/compute-identity-eligibility';
 import type { AggregatesForPresentation } from '../../../ei/sdui/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
@@ -56,13 +56,14 @@ export const composeCheckinViewStep = createStep({
     const { studentId, isFirstOfDay, idempotencyKey } = inputData;
     const db = eiStore.db;
 
-    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators] =
+    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen] =
       await Promise.all([
         Q.getAggregates(db, studentId),
         Q.getAllTopicStates(db, studentId),
         Q.countStudentEventsLast7d(db, studentId),
         Q.getLastIdentityShownAt(db, studentId),
         Q.getHistoricalIdentityIndicators(db, studentId),
+        Q.hasPriorAppOpen(db, studentId),
       ]);
 
     const ctx = buildCheckinPresentationContext(
@@ -73,7 +74,13 @@ export const composeCheckinViewStep = createStep({
       eventCounts,
       lastIdentityShownAt,
       historicalIndicators,
+      hasPriorOpen,
     );
+
+    // First-ever: show onboarding welcome (Screen 1) — no identity card, no energy/sleep
+    if (!hasPriorOpen) {
+      return composeOnboardingWelcomeView();
+    }
 
     // Identity eligibility check — if eligible, persist the event (rate-limits future cards)
     const identityEligibility = computeIdentityEligibility(ctx);

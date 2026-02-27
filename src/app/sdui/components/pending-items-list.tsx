@@ -14,35 +14,36 @@ export function SduiPendingItemsList({
   const visible = items.slice(0, MAX_VISIBLE);
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 'var(--sp-4)' }}>
       {visible.map((item) => (
         <button
           key={item.topicId}
           type="button"
           onClick={() => onAction?.(item.actionId)}
           style={{
-            display: 'block',
+            display: 'flex',
+            alignItems: 'center',
             width: '100%',
+            minHeight: 44,
             textAlign: 'left',
-            padding: '10px 12px',
-            marginBottom: 6,
-            borderRadius: 8,
-            border: '1px solid #3f3f46',
+            padding: '0 var(--sp-3)',
+            border: 'none',
+            borderBottom: '1px solid var(--color-border)',
             background: 'transparent',
             cursor: 'pointer',
-            color: '#e4e4e7',
-            fontSize: 14,
+            fontSize: 'var(--font-size-label)',
+            fontWeight: 400,
           }}
         >
-          <span style={{ marginRight: 6, color: '#71717a' }}>▸</span>
-          {item.topicName}
-          <span style={{ color: '#52525b', fontSize: 12, marginLeft: 8 }}>
+          <span style={{ marginRight: 'var(--sp-2)', color: 'var(--color-text-tertiary)', flexShrink: 0 }}>▸</span>
+          <span style={{ color: 'var(--color-text-primary)', flex: 1 }}>{item.topicName}</span>
+          <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-label)', marginLeft: 'var(--sp-2)' }}>
             · {item.daysAgo}d ago
           </span>
         </button>
       ))}
       {overflowLabel && items.length > MAX_VISIBLE && (
-        <div style={{ color: '#71717a', fontSize: 12, paddingLeft: 12 }}>
+        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-caption)', padding: 'var(--sp-3)' }}>
           {overflowLabel}
         </div>
       )}

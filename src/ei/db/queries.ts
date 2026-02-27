@@ -557,6 +557,20 @@ export async function listActiveStudents(
   return rows.map((r: { student_id: string }) => r.student_id);
 }
 
+export async function hasPriorAppOpen(
+  db: DbClient,
+  studentId: string,
+): Promise<boolean> {
+  const row = await db.oneOrNone<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM ei_events 
+       WHERE student_id = $1 AND event_type = 'AppOpen'
+     ) as exists`,
+    [studentId],
+  );
+  return row?.exists ?? false;
+}
+
 // ============================================================================
 // Student event counts (last 7d) — for PresentationContext hydration
 // ============================================================================
