@@ -1,31 +1,22 @@
 /**
  * GET /api/admin/students/[studentId]/timeline
  *
- * Admin debug: returns last N events + aggregates for a student.
- * Requires admin role. RBAC-protected.
+ * Platform ops debug: returns last N events + aggregates for a student.
+ * OpsAuth-protected (API key, cron secret, dev bypass). No CohortAccess.
  * Events returned in chronological order (occurred_at ASC).
+ *
+ * Dev-only bypass: when NODE_ENV=development, auth may be skipped. If
+ * OPS_DEV_BYPASS_SECRET is set, send X-Ops-Dev-Bypass or Authorization: Bearer.
+ * Never active in production.
  */
 
 import { NextRequest } from 'next/server';
 import { eiStore } from '@/ei/runtime/db';
-import { createResolveAuthSessionUseCase } from '@/lib/cohort-access';
-import { createServerGetSession } from '@/lib/auth/server';
-import type { CohortAccessDb } from '@/cohort-access/infrastructure/persistence/db-types';
+import { validateOpsAuth } from '@/ops/infrastructure/auth/ops-auth';
 import { GetStudentTimelineHandler } from '@/ops/application/get-student-timeline/handler';
 import { LedgerTimelineAdapter } from '@/ops/infrastructure/persistence/ledger-timeline-adapter';
 
 export const dynamic = 'force-dynamic';
-
-function adaptDb(db: typeof eiStore.db): CohortAccessDb {
-  return {
-    one: db.one.bind(db),
-    oneOrNone: db.oneOrNone.bind(db),
-    many: db.many.bind(db),
-    none: async (q, p) => {
-      await db.none(q, p);
-    },
-  };
-}
 
 export async function GET(
   req: NextRequest,
@@ -33,33 +24,8 @@ export async function GET(
 ) {
   const { studentId } = await params;
 
-  const db = adaptDb(eiStore.db);
-  const getSession = createServerGetSession();
-  const resolveAuth = createResolveAuthSessionUseCase(db, getSession);
-  const authSession = await resolveAuth.execute({ sessionContext: req });
-
-  if (!authSession) {
+  if (!validateOpsAuth(req)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (authSession.role.value !== 'admin') {
-    return Response.json({ error: 'Forbidden: admin role required' }, { status: 403 });
-  }
-
-  // Tenant isolation: cohort-scoped admins may only access students in their cohorts.
-  const { accessScope } = authSession;
-  if (accessScope.scope === 'cohort' && accessScope.cohortIds.length > 0) {
-    const membershipRow = await db.oneOrNone<{ cohort_id: string | null }>(
-      'SELECT cohort_id FROM student_cohort_membership WHERE student_id = $1',
-      [studentId],
-    );
-    const studentCohortId = membershipRow?.cohort_id ?? null;
-    if (!studentCohortId || !accessScope.cohortIds.includes(studentCohortId)) {
-      return Response.json(
-        { error: 'Forbidden: student not in your cohort scope' },
-        { status: 403 },
-      );
-    }
   }
 
   const raw = parseInt(req.nextUrl.searchParams.get('limit') ?? '200', 10);

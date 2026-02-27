@@ -9,7 +9,7 @@ isProject: false
 
 ## Context
 
-LHA is documented as a stateless domain service in [docs/strategic-design/tactical/loop-health-assessment-tactical-spec.md](docs/strategic-design/tactical/loop-health-assessment-tactical-spec.md). Current logic lives in [src/ei/engine/classify.ts](src/ei/engine/classify.ts). Callers (protocol-runner, SA, Radar) fetch signals via Mastra tools, adapt types, then call `assignP1Label`, `assignP2Label`, `assignP3Label`, `resolveMode` directly.
+LHA is documented as a stateless domain service in [docs/engineering-ddd-design/tactical/loop-health-assessment-tactical-spec.md](docs/engineering-ddd-design/tactical/loop-health-assessment-tactical-spec.md). Current logic lives in [src/ei/engine/classify.ts](src/ei/engine/classify.ts). Callers (protocol-runner, SA, Radar) fetch signals via Mastra tools, adapt types, then call `assignP1Label`, `assignP2Label`, `assignP3Label`, `resolveMode` directly.
 
 **Constraint:** `domain/` must not import `engine/`. Pure classification logic belongs in domain; we move it and have engine delegate.
 
@@ -151,7 +151,7 @@ For each protocol (P1, P2, P3):
 4. **Infrastructure:** Add `GetStudentSignalsAdapter`
 5. **Wire:** Refactor protocol-runner to use `IAssessLoopHealthUseCase` (and optionally SA/Radar if they call classify)
 6. **Tests:** Add domain + application unit tests
-7. **Docs:** Update [docs/strategic-design/00-index.md](docs/strategic-design/00-index.md) "Implemented vs planned (code pointers)" — add `LoopHealth (domain):` [src/ei/domain/loop-health/](../../src/ei/domain/loop-health/), `AssessLoopHealth (use case):` [src/ei/application/assess-loop-health/](../../src/ei/application/assess-loop-health/)
+7. **Docs:** Update [docs/engineering-ddd-design/00-index.md](docs/engineering-ddd-design/00-index.md) "Implemented vs planned (code pointers)" — add `LoopHealth (domain):` [src/ei/domain/loop-health/](../../src/ei/domain/loop-health/), `AssessLoopHealth (use case):` [src/ei/application/assess-loop-health/](../../src/ei/application/assess-loop-health/)
 
 ---
 

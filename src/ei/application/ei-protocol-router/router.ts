@@ -3,8 +3,8 @@
  * based on command type and session state derived from event history.
  *
  * Per strategic design: Runtime orchestrates; client sends commands.
- * @see docs/strategic-design/canvas-ei-runtime.md
- * @see docs/strategic-design/05-domain-message-flows-storyboards.md (S2 Day 2-21)
+ * @see docs/engineering-ddd-design/canvas-ei-runtime.md
+ * @see docs/engineering-ddd-design/05-domain-message-flows-storyboards.md (S2 Day 2-21)
  */
 
 import type { EiCommand } from './command-schema';

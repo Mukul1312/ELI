@@ -21,12 +21,21 @@ import { SduiActionGroup } from './components/action-group';
 import { SduiPendingChecks } from './components/pending-checks';
 import { SduiSessionTimer } from './components/session-timer';
 import { SduiDoneCard } from './components/done-card';
+import { SduiResumeContextCard } from './components/resume-context-card';
+import { SduiPendingItemsList } from './components/pending-items-list';
+import { SduiLoopClosedCard } from './components/loop-closed-card';
+import { SduiSessionSummaryFooter } from './components/session-summary-footer';
+import { SduiIdentityMomentCard } from './components/identity-moment-card';
+import { SduiSessionContextBar } from './components/session-context-bar';
+import { SduiOnboardingWelcomeCard } from './components/onboarding-welcome-card';
+import { SduiOnboardingTopicTaskForm } from './components/onboarding-topic-task-form';
 
-type SduiComponentProps = {
+export type SduiComponentProps = {
   node: SduiComponent;
   value?: string | number;
   onChange?: (id: string, v: string | number) => void;
   onAction?: (actionId: string) => void;
+  formValues?: Record<string, string | number>;
 };
 
 const REGISTRY: Record<string, ComponentType<SduiComponentProps>> = {
@@ -48,6 +57,14 @@ const REGISTRY: Record<string, ComponentType<SduiComponentProps>> = {
   'pending-checks': SduiPendingChecks as ComponentType<SduiComponentProps>,
   'session-timer': SduiSessionTimer as ComponentType<SduiComponentProps>,
   'done-card': SduiDoneCard as ComponentType<SduiComponentProps>,
+  'resume-context-card': SduiResumeContextCard as ComponentType<SduiComponentProps>,
+  'pending-items-list': SduiPendingItemsList as ComponentType<SduiComponentProps>,
+  'loop-closed-card': SduiLoopClosedCard as ComponentType<SduiComponentProps>,
+  'session-summary-footer': SduiSessionSummaryFooter as ComponentType<SduiComponentProps>,
+  'identity-moment-card': SduiIdentityMomentCard as ComponentType<SduiComponentProps>,
+  'session-context-bar': SduiSessionContextBar as ComponentType<SduiComponentProps>,
+  'onboarding-welcome-card': SduiOnboardingWelcomeCard as ComponentType<SduiComponentProps>,
+  'onboarding-topic-task-form': SduiOnboardingTopicTaskForm as ComponentType<SduiComponentProps>,
 };
 
 export function getSduiComponent(type: string): ComponentType<SduiComponentProps> | null {

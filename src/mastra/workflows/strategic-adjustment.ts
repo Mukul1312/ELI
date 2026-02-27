@@ -21,7 +21,7 @@ import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persis
 import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
 import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
 import { RecomputeStudentAggregatesHandler } from '../../ei/application/recompute-student-aggregates/handler';
-import { eiStore, getEiDb } from '../../ei/runtime/db';
+import { eiStore } from '../../ei/runtime/db';
 import { getClock } from '../../ei/runtime/clock';
 import * as Q from '../../ei/db/queries';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
@@ -67,12 +67,9 @@ const loadFullEvidence = createStep({
   inputSchema: SAInput,
   outputSchema: Loaded,
   execute: async (params): Promise<any> => {
-    const { inputData, requestContext } = params as {
-      inputData: z.infer<typeof SAInput>;
-      requestContext?: unknown;
-    };
-    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
-    const clock = getClock({ requestContext });
+    const { inputData } = params as { inputData: z.infer<typeof SAInput> };
+    const db = eiStore.db;
+    const clock = getClock({});
 
     const signalsAdapter = new PostgresGetStudentSignalsAdapter(db);
     let signals = await signalsAdapter.getSignals(inputData.studentId);
@@ -171,8 +168,8 @@ const computeTightnessStep = createStep({
 const persistAndEmit = createStep({
   id: 'persist-and-emit', inputSchema: Tightened, outputSchema: FinalOutput,
   execute: async (params): Promise<any> => {
-    const { inputData, requestContext } = params as { inputData: z.infer<typeof Tightened>; requestContext?: unknown };
-    const db = requestContext ? getEiDb({ requestContext }) : eiStore.db;
+    const { inputData } = params as { inputData: z.infer<typeof Tightened> };
+    const db = eiStore.db;
     const issuedAt = new Date();
 
     const dials = inputData.saDecision.dials as Record<string, unknown>;

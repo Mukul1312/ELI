@@ -77,6 +77,10 @@ describe.skipIf(!shouldRunDbTests)(
       expect(sdui).toBeDefined();
       expect(sdui!.schemaVersion).toBe(1);
       expect(sdui!.phase).toBe('checkin');
+      const view = (sdui as { view?: { body?: Array<{ type: string }> } })?.view;
+      const welcomeCard = view?.body?.find((c: { type: string }) => c.type === 'onboarding-welcome-card');
+      expect(welcomeCard).toBeDefined();
+      expect((sdui as { actions?: Record<string, unknown> })?.actions?.onboarding_next).toBeDefined();
       },
     );
   },

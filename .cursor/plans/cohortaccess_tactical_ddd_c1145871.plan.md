@@ -14,12 +14,12 @@ isProject: false
 
 | Document                                                                                                  | CohortAccess content                                                                                                                             | Status  |
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| [02-subdomains.md](docs/strategic-design/02-subdomains.md)                                                | Full subdomain definition: capability, boundaries, A+B+C+D check, classification (Generic, Focus: Now), access surfaces table                    | Aligned |
-| [03-context-map.md](docs/strategic-design/03-context-map.md)                                              | Context in map; relationships: CohortAccess → EI Runtime (ACL), → Institute Radar (Customer-Supplier), → BillingEntitlements (Customer-Supplier) | Aligned |
-| [canvas-cohort-access.md](docs/strategic-design/canvas-cohort-access.md)                                  | Purpose, UL, inbound/outbound comm, business decisions, verification metrics, open questions                                                     | Aligned |
-| [05-cross-cutting-concerns.md](docs/strategic-design/05-cross-cutting-concerns.md)                        | ACL table (Identity → EI Runtime); invariants (server-derived identity, privacy boundary); future tables list                                    | Aligned |
-| [agg-student-membership.md](docs/strategic-design/aggregates/agg-student-membership.md)                   | Full aggregate canvas; commands, invariants, storage                                                                                             | Aligned |
-| [student-membership-tactical-spec.md](docs/strategic-design/tactical/student-membership-tactical-spec.md) | Tactical spec for StudentMembership aggregate                                                                                                    | Aligned |
+| [02-subdomains.md](docs/engineering-ddd-design/02-subdomains.md)                                                | Full subdomain definition: capability, boundaries, A+B+C+D check, classification (Generic, Focus: Now), access surfaces table                    | Aligned |
+| [03-context-map.md](docs/engineering-ddd-design/03-context-map.md)                                              | Context in map; relationships: CohortAccess → EI Runtime (ACL), → Institute Radar (Customer-Supplier), → BillingEntitlements (Customer-Supplier) | Aligned |
+| [canvas-cohort-access.md](docs/engineering-ddd-design/canvas-cohort-access.md)                                  | Purpose, UL, inbound/outbound comm, business decisions, verification metrics, open questions                                                     | Aligned |
+| [05-cross-cutting-concerns.md](docs/engineering-ddd-design/05-cross-cutting-concerns.md)                        | ACL table (Identity → EI Runtime); invariants (server-derived identity, privacy boundary); future tables list                                    | Aligned |
+| [agg-student-membership.md](docs/engineering-ddd-design/aggregates/agg-student-membership.md)                   | Full aggregate canvas; commands, invariants, storage                                                                                             | Aligned |
+| [student-membership-tactical-spec.md](docs/engineering-ddd-design/tactical/student-membership-tactical-spec.md) | Tactical spec for StudentMembership aggregate                                                                                                    | Aligned |
 
 
 ### Alignment gaps
@@ -36,7 +36,7 @@ Strategic design is **largely rigid**; the main gaps are (1) domain flows omitti
 
 ## Part 2: CohortAccess Tactical DDD Spec
 
-Create [docs/strategic-design/tactical/cohort-access-tactical-spec.md](docs/strategic-design/tactical/cohort-access-tactical-spec.md) following the structure of [ei-runtime-tactical-spec.md](docs/strategic-design/tactical/ei-runtime-tactical-spec.md).
+Create [docs/engineering-ddd-design/tactical/cohort-access-tactical-spec.md](docs/engineering-ddd-design/tactical/cohort-access-tactical-spec.md) following the structure of [ei-runtime-tactical-spec.md](docs/engineering-ddd-design/tactical/ei-runtime-tactical-spec.md).
 
 ### Structural mapping (EI Runtime → CohortAccess)
 
@@ -75,7 +75,7 @@ Per [CHEATSHEET](.agents/skills/clean-ddd-hexagonal/references/CHEATSHEET.md): p
 2. **StudentMembership** — One aggregate, already specified in [student-membership-tactical-spec](tactical/student-membership-tactical-spec.md). The cohort-access spec references it and adds context: it lives in `src/cohort-access/domain/student-membership/`.
 3. **Module placement** — Per [01-ei-tactical-conventions](tactical/01-ei-tactical-conventions.md) Section 2: `src/cohort-access/` is the CohortAccess bounded-context module. EI API routes depend on `IResolveAuthSessionUseCase` (injected), which returns `AuthSession` with server-derived `studentId`. See **EI import boundaries** (below) for what EI may import.
 4. **ACL integration** — EI route handlers receive `AuthSession` from a middleware or wrapper that calls `ResolveAuthSessionHandler.execute(sessionCookie)`. The handler passes `authSession.studentId` to RunP1Gate, RunP2Gate, etc. Body must NOT contain `studentId` for authorization; it may remain for backward compatibility during migration but must be ignored for auth.
-5. **IdempotencyKeyStore** — `ChangeStudentMembershipHandler` depends on `IIdempotencyKeyStore` for redemption idempotency (same idempotency key + same cohort → no-op). Adapter uses `ei_idempotency_keys` (or equivalent) table per [05-cross-cutting-concerns](docs/strategic-design/05-cross-cutting-concerns.md).
+5. **IdempotencyKeyStore** — `ChangeStudentMembershipHandler` depends on `IIdempotencyKeyStore` for redemption idempotency (same idempotency key + same cohort → no-op). Adapter uses `ei_idempotency_keys` (or equivalent) table per [05-cross-cutting-concerns](docs/engineering-ddd-design/05-cross-cutting-concerns.md).
 6. **GetCohortScope** — Reads cohort scope for institute users from roles / cohort assignments; uses `IGetInstituteScopePort` (driven) to avoid query logic in the aggregate repository; returns `{ cohortIds, role, accessScope }`.
 7. **AuthSession layer placement** — AuthSession lives in `domain/shared/` as a value object because it represents a domain concept ("Server-validated session; yields student_id and scope") from the canvas UL; EI consumes the type but never imports CohortAccess infrastructure.
 8. **EI import boundaries** — EI route handlers import `IResolveAuthSessionUseCase` from `src/cohort-access/application/resolve-auth-session/port.ts` and `AuthSession` from `src/cohort-access/domain/shared/auth-session.ts` (or re-exported from `src/cohort-access/application/` for a single public API). EI must never import from `src/cohort-access/infrastructure/`.
@@ -170,7 +170,7 @@ flowchart LR
 ## Deliverables
 
 1. **Strategic alignment report** — Document the alignment check (gaps above) in the tactical spec’s opening section or a short addendum.
-2. **cohort-access-tactical-spec.md** — Full tactical spec at `docs/strategic-design/tactical/cohort-access-tactical-spec.md` following the ei-runtime template but adapted for CohortAccess.
+2. **cohort-access-tactical-spec.md** — Full tactical spec at `docs/engineering-ddd-design/tactical/cohort-access-tactical-spec.md` following the ei-runtime template but adapted for CohortAccess.
 3. **Optional strategic doc updates** — After spec approval: (a) add CohortAccess to one DMF in 05-domain-message-flows; (b) rename "Identity" to "CohortAccess" in 05-cross-cutting data ownership.
 
 ---

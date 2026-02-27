@@ -9,7 +9,9 @@ import { eiStore } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composeDoneView } from '../../ei/sdui/view-composer';
+import { composePhase3View, type Phase3Scenario } from '../../ei/sdui/view-composer';
+import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
+import * as Q from '../../ei/db/queries';
 
 const VerificationCompleteInput = z.object({
   studentId: z.string(),
@@ -40,6 +42,14 @@ const appendAndComposeStep = createStep({
     });
 
     const db = eiStore.db;
+
+    // Load aggregates + energy/pressure before appending event (pre-event snapshot for counter display)
+    const [aggregates, eventCounts, energyPressure] = await Promise.all([
+      Q.getAggregates(db, studentId),
+      Q.countStudentEventsLast7d(db, studentId),
+      Q.getLastAppOpenEnergyPressure(db, studentId),
+    ]);
+
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
       studentId,
@@ -57,8 +67,33 @@ const appendAndComposeStep = createStep({
       await sessionRepo.save(activeSession);
     }
 
-    const sdui = composeDoneView({ topic, mode });
+    const aggregatesForPresentation = aggregates
+      ? {
+          pendingChecks: aggregates.pending_checks,
+          silenceDays: aggregates.silence_days,
+          verificationRate7d: aggregates.verification_rate_7d,
+          stateTrend7d: aggregates.state_trend_7d as 'improving' | 'flat' | 'worsening',
+        }
+      : null;
+    const ctx = buildP3PresentationContext(
+      { studentId, mode, playId: 'P3-N1', topic },
+      energyPressure,
+      aggregatesForPresentation,
+      eventCounts,
+    );
 
+    // Determine scenario: milestone if this closes last loop, first_ever if first loop ever
+    const countAfter = Math.max(0, ctx.pendingChecks - 1);
+    let scenario: Phase3Scenario;
+    if (countAfter === 0 && ctx.pendingChecks > 0) {
+      scenario = 'milestone';
+    } else if (eventCounts.loopsClosedLast7d === 0) {
+      scenario = 'first_ever';
+    } else {
+      scenario = 'verified';
+    }
+
+    const sdui = composePhase3View(topic, mode, scenario, ctx);
     return sdui;
   },
 });

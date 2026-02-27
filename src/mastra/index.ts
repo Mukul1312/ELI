@@ -1,7 +1,11 @@
 import { Mastra } from '@mastra/core';
 import { PostgresStore } from '@mastra/pg';
 import { VercelDeployer } from "@mastra/deployer-vercel";
-
+import {
+  Observability,
+  DefaultExporter,
+  SensitiveDataFilter,
+} from '@mastra/observability';
 
 // Tools
 import { appendEventTool, queryEventsTool } from './tools/event-store';
@@ -32,6 +36,15 @@ const storage = new PostgresStore({
 });
 
 export const mastra = new Mastra({
+  observability: new Observability({
+    configs: {
+      default: {
+        serviceName: 'ai-study-brother',
+        exporters: [new DefaultExporter()],
+        spanOutputProcessors: [new SensitiveDataFilter()],
+      },
+    },
+  }),
   deployer: new VercelDeployer({
     // optional but useful for longer workflows/batches
     // maxDuration: 300,

@@ -1,6 +1,6 @@
 ---
 name: StudentPolicy slice
-overview: "Implement StudentPolicy per strategic design: Strategic Adjustment writes directly to EI Projections (sync write); no Ledger involvement. Code reflects [docs/strategic-design/03-context-map.md](docs/strategic-design/03-context-map.md) relationship: SA → Projections."
+overview: "Implement StudentPolicy per strategic design: Strategic Adjustment writes directly to EI Projections (sync write); no Ledger involvement. Code reflects [docs/engineering-ddd-design/03-context-map.md](docs/engineering-ddd-design/03-context-map.md) relationship: SA → Projections."
 todos:
   - id: sp-domain
     content: "Create domain/student-policy: id VO, aggregate apply-decision logic, repository port, errors"
@@ -25,7 +25,7 @@ isProject: false
 
 ## Context and target behavior
 
-Per [docs/strategic-design/03-context-map.md](docs/strategic-design/03-context-map.md):
+Per [docs/engineering-ddd-design/03-context-map.md](docs/engineering-ddd-design/03-context-map.md):
 
 - **Strategic Adjustment → EI Projections**: Customer-Supplier, **Sync write** of `StrategicAdjustmentDecision`; persisted as policy.
 - **No SA → Ledger**: The context map does not show Strategic Adjustment writing to the EI Event Ledger. SA owns policy semantics; Projections own storage.
@@ -51,21 +51,21 @@ sequenceDiagram
 
 ## Doc alignment note
 
-- **Event Catalog** ([05-cross-cutting-concerns.md](docs/strategic-design/05-cross-cutting-concerns.md)) lists StrategicAdjustmentDecision as Producer=SA, Consumer=Ledger. The **context map** instead shows SA → Projections direct. This plan follows the **context map** as the canonical relationship document.
+- **Event Catalog** ([05-cross-cutting-concerns.md](docs/engineering-ddd-design/05-cross-cutting-concerns.md)) lists StrategicAdjustmentDecision as Producer=SA, Consumer=Ledger. The **context map** instead shows SA → Projections direct. This plan follows the **context map** as the canonical relationship document.
 - **Replaceability** for policy: Without StrategicAdjustmentDecision in the Ledger, we cannot replay from events. For now, policy is current-state only; SA can re-run and overwrite. If future design adds SA → Ledger, a projector can be introduced later.
 
 ---
 
 ## Scope (what changes)
 
-- Add a **StudentPolicy** aggregate slice under `src/ei/` per [docs/strategic-design/tactical/01-ei-tactical-conventions.md](docs/strategic-design/tactical/01-ei-tactical-conventions.md).
+- Add a **StudentPolicy** aggregate slice under `src/ei/` per [docs/engineering-ddd-design/tactical/01-ei-tactical-conventions.md](docs/engineering-ddd-design/tactical/01-ei-tactical-conventions.md).
 - Wire the Strategic Adjustment workflow `persist-and-emit` step to call `ApplyStrategicAdjustmentDecisionHandler` (inject repository, execute command).
 - Optionally refactor `setPolicyTool` to use the handler instead of raw `Q.upsertPolicy`.
 - Add unit tests (domain + application) and a PG integration test (skip if `DATABASE_URL` missing).
 
 ## 1) Domain (pure): `src/ei/domain/student-policy/`
 
-Implement per [docs/strategic-design/tactical/student-policy-tactical-spec.md](docs/strategic-design/tactical/student-policy-tactical-spec.md).
+Implement per [docs/engineering-ddd-design/tactical/student-policy-tactical-spec.md](docs/engineering-ddd-design/tactical/student-policy-tactical-spec.md).
 
 - `value-objects.ts`
   - `StudentPolicyId` (VO: `{ studentId: string }`, validates non-empty).

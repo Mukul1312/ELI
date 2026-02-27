@@ -28,6 +28,7 @@ export class StudySession extends AggregateRoot<string> {
   private _topicId: string;
   private _status: SessionStatus;
   private _negotiatedIntent: NegotiatedIntent | null;
+  private _negotiatedIntentId: string | null;
   private _activationPlan: ActivationPlan | null;
   private _verificationDecision: VerificationDecision | null;
 
@@ -38,13 +39,15 @@ export class StudySession extends AggregateRoot<string> {
     status: SessionStatus,
     negotiatedIntent: NegotiatedIntent | null,
     activationPlan: ActivationPlan | null,
-    verificationDecision: VerificationDecision | null
+    verificationDecision: VerificationDecision | null,
+    negotiatedIntentId?: string | null
   ) {
     super(sessionId);
     this._studentId = studentId;
     this._topicId = topicId;
     this._status = status;
     this._negotiatedIntent = negotiatedIntent;
+    this._negotiatedIntentId = negotiatedIntentId ?? null;
     this._activationPlan = activationPlan;
     this._verificationDecision = verificationDecision;
   }
@@ -53,7 +56,7 @@ export class StudySession extends AggregateRoot<string> {
    * Open a new study session. Call on AppOpen.
    */
   static open(studentId: string, topicId: string, sessionId: string): StudySession {
-    return new StudySession(sessionId, studentId, topicId, 'negotiating', null, null, null);
+    return new StudySession(sessionId, studentId, topicId, 'negotiating', null, null, null, null);
   }
 
   /**
@@ -66,11 +69,13 @@ export class StudySession extends AggregateRoot<string> {
     status: SessionStatus,
     negotiatedIntent: NegotiatedIntent | null,
     activationPlan: ActivationPlan | null,
-    verificationDecision: VerificationDecision | null
+    verificationDecision: VerificationDecision | null,
+    negotiatedIntentId?: string | null
   ): StudySession {
     return new StudySession(
       sessionId, studentId, topicId, status,
-      negotiatedIntent, activationPlan, verificationDecision
+      negotiatedIntent, activationPlan, verificationDecision,
+      negotiatedIntentId ?? null
     );
   }
 
@@ -81,6 +86,9 @@ export class StudySession extends AggregateRoot<string> {
   get topicId(): string { return this._topicId; }
   get status(): SessionStatus { return this._status; }
   get negotiatedIntent(): NegotiatedIntent | null { return this._negotiatedIntent; }
+  get negotiatedIntentId(): string | null {
+    return this._negotiatedIntent?.negotiatedIntentId ?? this._negotiatedIntentId ?? null;
+  }
   get activationPlan(): ActivationPlan | null { return this._activationPlan; }
   get verificationDecision(): VerificationDecision | null { return this._verificationDecision; }
 
@@ -110,12 +118,14 @@ export class StudySession extends AggregateRoot<string> {
     play: PlaySelection,
     ctx: P1GateContext,
     policy: StudentPolicyInput,
-    stateScore: number
+    stateScore: number,
+    negotiatedIntentId: string,
   ): void {
     this.assertStatus('negotiating');
 
     // NegotiatedIntent.create() enforces all P1 invariants
-    this._negotiatedIntent = NegotiatedIntent.create(play, ctx, policy, stateScore);
+    this._negotiatedIntent = NegotiatedIntent.create(play, ctx, policy, stateScore, negotiatedIntentId);
+    this._negotiatedIntentId = negotiatedIntentId;
     this._status = 'activating';
 
     this.addDomainEvent({

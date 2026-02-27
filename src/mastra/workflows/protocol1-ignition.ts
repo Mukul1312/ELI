@@ -11,6 +11,7 @@ import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
 import { eiStore } from '../../ei/runtime/db';
+import * as Q from '../../ei/db/queries';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
@@ -98,12 +99,29 @@ export const protocol1IgnitionWorkflow = createWorkflow({
   .then(runP1Gate)
   .map(async ({ inputData, getInitData }) => {
     const workflowInput = getInitData() as z.infer<typeof P1Input>;
+    const db = eiStore.db;
+
+    const [aggregates, topicStates, eventCounts, lastIdentityShownAt, historicalIndicators] =
+      await Promise.all([
+        Q.getAggregates(db, workflowInput.studentId),
+        Q.getAllTopicStates(db, workflowInput.studentId),
+        Q.countStudentEventsLast7d(db, workflowInput.studentId),
+        Q.getLastIdentityShownAt(db, workflowInput.studentId),
+        Q.getHistoricalIdentityIndicators(db, workflowInput.studentId),
+      ]);
+
     return {
       domainOutput: inputData,
       workflowInput: {
         energy: workflowInput.energy,
         pressure: workflowInput.pressure,
       },
+      aggregates: aggregates ?? null,
+      topicStates: topicStates,
+      sessionsLast7d: eventCounts.sessionsLast7d,
+      loopsClosedLast7d: eventCounts.loopsClosedLast7d,
+      lastIdentityShownAt: lastIdentityShownAt,
+      historicalIndicators,
     };
   })
   .then(composeP1ViewStep)

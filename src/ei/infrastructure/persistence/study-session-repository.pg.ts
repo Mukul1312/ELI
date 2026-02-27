@@ -29,6 +29,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
       null,
       null,
       null,
+      row.negotiated_intent_id ?? null,
     );
   }
 
@@ -39,7 +40,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
       session.studentId,
       session.topicId,
       session.status,
-      undefined,
+      session.negotiatedIntentId ?? undefined,
     );
   }
 
@@ -55,6 +56,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
       null,
       null,
       null,
+      row.negotiated_intent_id ?? null,
     );
   }
 
@@ -77,6 +79,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
         null,
         null,
         null,
+        existing.negotiated_intent_id ?? null,
       );
     }
 
@@ -91,6 +94,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
         null,
         null,
         null,
+        row.negotiated_intent_id ?? null,
       );
     } catch (err: unknown) {
       // Unique violation (concurrent insert won the race) — re-select.
@@ -110,6 +114,7 @@ export class StudySessionRepositoryPg implements IStudySessionRepository {
             null,
             null,
             null,
+            winner.negotiated_intent_id ?? null,
           );
         }
       }

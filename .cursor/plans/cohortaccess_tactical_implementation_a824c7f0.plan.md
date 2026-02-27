@@ -31,7 +31,7 @@ Create CohortAccess tables. Add a new migration file (or extend `src/ei/db/migra
 
 **Migration location:** Add to [src/ei/db/migrate.ts](src/ei/db/migrate.ts) (shared monolith DB) or create `src/cohort-access/db/migrate.ts` for clarity. Recommend extending existing migrate.ts to keep one migration entrypoint.
 
-**Idempotency:** IIdempotencyKeyStore uses existing `ei_idempotency_keys` with key format `cohort-access:MembershipChangeOnRedemption:{redemptionId}` (or equivalent per [05-cross-cutting-concerns.md](docs/strategic-design/05-cross-cutting-concerns.md)).
+**Idempotency:** IIdempotencyKeyStore uses existing `ei_idempotency_keys` with key format `cohort-access:MembershipChangeOnRedemption:{redemptionId}` (or equivalent per [05-cross-cutting-concerns.md](docs/engineering-ddd-design/05-cross-cutting-concerns.md)).
 
 **Neon / DB:** Use **parameterized queries** only for any raw SQL (no string concatenation of user input). Use existing `DATABASE_URL` / shared DB handle; no hardcoded credentials. Reference: [.cursor/rules/neon-serverless.mdc](.cursor/rules/neon-serverless.mdc).
 
@@ -39,7 +39,7 @@ Create CohortAccess tables. Add a new migration file (or extend `src/ei/db/migra
 
 ## Phase 2: Module Structure
 
-Create folder structure per [cohort-access-tactical-spec.md §9](docs/strategic-design/tactical/cohort-access-tactical-spec.md):
+Create folder structure per [cohort-access-tactical-spec.md §9](docs/engineering-ddd-design/tactical/cohort-access-tactical-spec.md):
 
 ```
 src/cohort-access/
@@ -100,7 +100,7 @@ Pattern: `private constructor`, `static create(props)`, `equals(other)`, getters
 
 ### 3b) StudentMembership Aggregate
 
-Per [student-membership-tactical-spec.md](docs/strategic-design/tactical/student-membership-tactical-spec.md):
+Per [student-membership-tactical-spec.md](docs/engineering-ddd-design/tactical/student-membership-tactical-spec.md):
 
 - **Identity:** studentId
 - **State:** cohortId (string | null), membershipState (active | unassigned)
@@ -237,7 +237,7 @@ export function createResolveAuthSessionUseCase(db: EiDb): IResolveAuthSessionUs
 
 ## Phase 8: Tests
 
-Per [cohort-access-tactical-spec.md §12](docs/strategic-design/tactical/cohort-access-tactical-spec.md):
+Per [cohort-access-tactical-spec.md §12](docs/engineering-ddd-design/tactical/cohort-access-tactical-spec.md):
 
 
 | Scenario                                            | Layer       | Approach                             |

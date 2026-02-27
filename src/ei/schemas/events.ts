@@ -165,6 +165,17 @@ export const EffortStartSchema = z.object({
 export type EffortStart = z.infer<typeof EffortStartSchema>;
 
 // ============================================================================
+// Identity moment (rate-limiting / eligibility tracking)
+// ============================================================================
+
+export const IdentityMomentShownSchema = z
+  .object({
+    statement: z.string(),
+  })
+  .strict();
+export type IdentityMomentShown = z.infer<typeof IdentityMomentShownSchema>;
+
+// ============================================================================
 // All event types enum (for ei_events.event_type column)
 // ============================================================================
 
@@ -184,5 +195,6 @@ export const EventTypeEnum = z.enum([
   'VerificationCompleted',
   'StrategicAdjustmentDecision',
   'ScheduleMissed',
+  'IdentityMomentShown',
 ]);
 export type EventType = z.infer<typeof EventTypeEnum>;

@@ -30,6 +30,7 @@ const P2Input = z.object({
   studentId: z.string(),
   topic: z.string(),
   taskType: z.string().optional(),
+  difficultyTier: z.union([z.number(), z.string()]).optional(),
   setAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -88,9 +89,14 @@ export const protocol2ActivationWorkflow = createWorkflow({
   .then(runP2Gate)
   .map(async ({ inputData, getInitData }) => {
     const initData = getInitData() as z.infer<typeof P2Input>;
+    const difficultyTier = initData.difficultyTier != null
+      ? String(initData.difficultyTier)
+      : undefined;
     return {
       domainOutput: inputData,
       topic: initData.topic,
+      taskType: initData.taskType,
+      difficultyTier,
       replanCount: 0, // TODO: pass from context when Replan workflow re-runs P2
     };
   })

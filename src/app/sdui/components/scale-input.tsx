@@ -3,17 +3,30 @@
 import * as React from 'react';
 import type { SduiScaleInput } from '@/ei/sdui/types/components';
 
-const chipStyle = (selected: boolean): React.CSSProperties => ({
-  padding: '7px 14px',
-  borderRadius: 20,
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: 'pointer',
-  border: selected ? '2px solid #818cf8' : '1px solid #3f3f46',
-  background: selected ? '#312e81' : '#1a1b23',
-  color: selected ? '#c7d2fe' : '#a1a1aa',
-  transition: 'all 0.15s',
-});
+/** Chip style per Phase 1 spec: 44px height, 12px radius, 12px/10px padding, flex:1 for row fill. */
+function chipStyle(selected: boolean, index: number, total: number): React.CSSProperties {
+  const flexBasis = total > 0 ? `calc(${100 / total}% - var(--sp-1) * ${(total - 1) / total})` : undefined;
+  return {
+    flex: 1,
+    minWidth: 0,
+    ...(flexBasis && { flexBasis }),
+    padding: '10px 12px',
+    height: 44,
+    borderRadius: 'var(--radius-md)',
+    fontSize: 'var(--font-size-label)',
+    fontWeight: 500,
+    cursor: 'pointer',
+    border: selected ? '1.5px solid var(--color-accent-border)' : '1px solid var(--color-border)',
+    background: selected ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+    color: selected ? 'var(--color-accent)' : 'var(--color-text-primary)',
+    transition: 'background 120ms, border 120ms',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  };
+}
 
 export function SduiScaleInput({
   node,
@@ -24,37 +37,50 @@ export function SduiScaleInput({
   value?: string | number;
   onChange?: (id: string, v: string | number) => void;
 }) {
-  const { inputId, label, chips, required, collapsible } = node.props;
+  const { inputId, label, chips, required, collapsible, showNumber } = node.props;
   const [collapsed, setCollapsed] = React.useState(!collapsible?.defaultOpen);
 
   const chipRow = (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-      {chips.map((c) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-1)', marginBottom: 'var(--sp-4)' }}>
+      {chips.map((c, i) => (
         <button
           key={String(c.value)}
           type="button"
-          style={chipStyle(value === c.value)}
+          style={chipStyle(value === c.value, i, chips.length)}
           onClick={() => onChange?.(inputId, c.value)}
         >
-          {c.label}
+          <span>{c.label}</span>
+          {showNumber && (
+            <span style={{ fontSize: 'var(--font-size-caption)', fontWeight: 400, color: 'var(--color-text-tertiary)' }}>
+              ({String(c.value)})
+            </span>
+          )}
         </button>
       ))}
     </div>
   );
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 'var(--font-size-label)',
+    fontWeight: 500,
+    color: 'var(--color-text-secondary)',
+    marginBottom: 'var(--sp-3)',
+  };
+
   if (collapsible) {
     return (
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 'var(--sp-4)' }}>
         <button
           type="button"
           style={{
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            marginBottom: 12,
+            marginBottom: 'var(--sp-3)',
             textDecoration: 'underline',
-            color: '#71717a',
-            fontSize: 13,
+            color: 'var(--color-text-tertiary)',
+            fontSize: 'var(--font-size-caption)',
           }}
           onClick={() => setCollapsed(!collapsed)}
         >
@@ -62,7 +88,7 @@ export function SduiScaleInput({
         </button>
         {!collapsed && (
           <>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a1a1aa', marginBottom: 6 }}>
+            <label style={labelStyle}>
               {label}
               {required && ' *'}
             </label>
@@ -74,8 +100,8 @@ export function SduiScaleInput({
   }
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a1a1aa', marginBottom: 6 }}>
+    <div style={{ marginBottom: 'var(--sp-4)' }}>
+      <label style={labelStyle}>
         {label}
         {required && ' *'}
       </label>

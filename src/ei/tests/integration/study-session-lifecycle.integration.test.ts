@@ -80,6 +80,7 @@ describe.skipIf(!process.env.DATABASE_URL)(
         {} as never,
         {},
         3,
+        'ni-test-123',
       );
       await repo.save(session);
 

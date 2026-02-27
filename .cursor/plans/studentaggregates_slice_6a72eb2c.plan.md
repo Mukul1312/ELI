@@ -30,17 +30,17 @@ isProject: false
 
 ## Goals (from EI Projections canvas + tactical spec)
 
-- Implement **StudentAggregates** (projection aggregate, id = `studentId`) inside `src/ei/` using the **layer-first** structure from [docs/strategic-design/tactical/01-ei-tactical-conventions.md](docs/strategic-design/tactical/01-ei-tactical-conventions.md).
-- Make StudentAggregates **replaceable/recomputable** from the ledger + topic state (invariant from [docs/strategic-design/05-cross-cutting-concerns.md](docs/strategic-design/05-cross-cutting-concerns.md)).
+- Implement **StudentAggregates** (projection aggregate, id = `studentId`) inside `src/ei/` using the **layer-first** structure from [docs/engineering-ddd-design/tactical/01-ei-tactical-conventions.md](docs/engineering-ddd-design/tactical/01-ei-tactical-conventions.md).
+- Make StudentAggregates **replaceable/recomputable** from the ledger + topic state (invariant from [docs/engineering-ddd-design/05-cross-cutting-concerns.md](docs/engineering-ddd-design/05-cross-cutting-concerns.md)).
 - Keep existing runtime/tool entrypoints working:
   - `computeAggregatesTool` in [src/mastra/tools/signal-compute.ts](src/mastra/tools/signal-compute.ts)
   - callers in [src/ei/protocol-runner.ts](src/ei/protocol-runner.ts) and [src/app/api/ei/aggregates/route.ts](src/app/api/ei/aggregates/route.ts)
 
 ## Reference sources (business + tactical)
 
-- Bounded context: [docs/strategic-design/canvas-ei-projections.md](docs/strategic-design/canvas-ei-projections.md)
-- Aggregate canvas: [docs/strategic-design/aggregates/agg-student-aggregates.md](docs/strategic-design/aggregates/agg-student-aggregates.md)
-- Tactical spec: [docs/strategic-design/tactical/student-aggregates-tactical-spec.md](docs/strategic-design/tactical/student-aggregates-tactical-spec.md)
+- Bounded context: [docs/engineering-ddd-design/canvas-ei-projections.md](docs/engineering-ddd-design/canvas-ei-projections.md)
+- Aggregate canvas: [docs/engineering-ddd-design/aggregates/agg-student-aggregates.md](docs/engineering-ddd-design/aggregates/agg-student-aggregates.md)
+- Tactical spec: [docs/engineering-ddd-design/tactical/student-aggregates-tactical-spec.md](docs/engineering-ddd-design/tactical/student-aggregates-tactical-spec.md)
 - Current implementation to migrate: [src/mastra/tools/signal-compute.ts](src/mastra/tools/signal-compute.ts)
 
 ## Target code layout (inside `src/ei/`)
@@ -78,7 +78,7 @@ Notes:
 
 ### 2) Application: ports needed by the use case
 
-Add ports per [student-aggregates-tactical-spec.md](docs/strategic-design/tactical/student-aggregates-tactical-spec.md) §7:
+Add ports per [student-aggregates-tactical-spec.md](docs/engineering-ddd-design/tactical/student-aggregates-tactical-spec.md) §7:
 
 - `src/ei/application/shared/port-student-event-stream-reader.ts`
   - `readEventsForStudentInWindow(studentId, since, until?)` returning snapshots including:
