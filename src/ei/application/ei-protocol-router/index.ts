@@ -7,6 +7,7 @@ export {
   SessionEndPayloadSchema,
   isAppOpenFirstTouch,
   isAppOpenOnboarding,
+  isAppOpenMicro,
   type EiCommand,
   type EiCommandEnvelope,
   type AppOpenPayload,
