@@ -14,13 +14,13 @@ export function SduiDoneCard({ node }: { node: SduiDoneCard }) {
           <SduiModeBadge node={{ type: 'mode-badge', props: badge }} />
         </div>
       )}
-      <div style={{ color: '#a1a1aa', fontSize: 14 }}>
+      <div style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
         {summary.map((line, i) => (
           <p key={i} style={{ margin: '4px 0' }}>{line}</p>
         ))}
       </div>
       {celebrationMessage && (
-        <p style={{ marginTop: 12, fontSize: 14, color: '#71717a' }}>{celebrationMessage}</p>
+        <p style={{ marginTop: 12, fontSize: 14, color: 'var(--color-text-tertiary)' }}>{celebrationMessage}</p>
       )}
     </div>
   );

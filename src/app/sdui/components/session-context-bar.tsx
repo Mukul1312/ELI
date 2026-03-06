@@ -1,20 +1,50 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type { SduiSessionContextBar } from '@/ei/sdui/types/components';
 
 export function SduiSessionContextBar({ node }: { node: SduiSessionContextBar }) {
-  const { topic, taskType, difficultyTier } = node.props;
+  const { topic, taskType, difficultyTier, sessionStartedAt } = node.props;
+
+  // Elapsed minutes — computed from sessionStartedAt, updates every 60s
+  const [elapsedMin, setElapsedMin] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!sessionStartedAt) return;
+    const startMs = new Date(sessionStartedAt).getTime();
+    const compute = () => Math.floor((Date.now() - startMs) / 60_000);
+    setElapsedMin(compute());
+    const id = setInterval(() => setElapsedMin(compute()), 60_000);
+    return () => clearInterval(id);
+  }, [sessionStartedAt]);
 
   return (
     <div
       style={{
-        fontSize: 12,
-        color: '#52525b',
-        padding: '4px 0',
-        letterSpacing: '0.04em',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'var(--color-surface-subtle, var(--color-accent-soft))',
+        borderBottom: '1px solid var(--color-border, var(--color-accent-border))',
+        padding: '10px var(--sp-4)',
       }}
     >
-      {topic} · {taskType} · {difficultyTier}
+      <span style={{
+        fontSize: 'var(--font-size-label)',
+        fontWeight: 400,
+        color: 'var(--color-text-secondary)',
+      }}>
+        {topic} · {taskType} · {difficultyTier}
+      </span>
+      {elapsedMin !== null && elapsedMin > 0 && (
+        <span style={{
+          fontSize: 'var(--font-size-caption)',
+          fontWeight: 400,
+          color: 'var(--color-text-tertiary)',
+        }}>
+          {elapsedMin} min
+        </span>
+      )}
     </div>
   );
 }

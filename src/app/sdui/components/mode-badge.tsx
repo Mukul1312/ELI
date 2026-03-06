@@ -3,9 +3,9 @@
 import type { SduiModeBadge } from '@/ei/sdui/types/components';
 
 const badgeStyles: Record<string, React.CSSProperties> = {
-  Rescue: { background: '#7f1d1d', color: '#fca5a5' },
-  Boost: { background: '#14532d', color: '#86efac' },
-  Neutral: { background: '#1e3a5f', color: '#93c5fd' },
+  Rescue: { background: '#FEE2E2', color: '#B91C1C' },
+  Boost: { background: 'var(--color-closed-soft)', color: 'var(--color-closed)' },
+  Neutral: { background: 'var(--color-accent-soft)', color: 'var(--color-accent)' },
 };
 
 export function SduiModeBadge({ node }: { node: SduiModeBadge }) {

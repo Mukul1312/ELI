@@ -62,6 +62,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
     // ── 2. Load cross-protocol session events ────────────────────────────────
     const rawEvents = await this.queryEvents.queryEvents(studentId, {
       eventTypes: [
+        'FirstActionStarted',
         'NegotiatedIntentIssued', 'ActivationPlanIssued',
         'RetrievalVerified', 'RetrievalScheduled', 'VerificationCompleted',
       ],
@@ -77,13 +78,21 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
       occurredAt: e.occurredAt,
     }));
 
-    // ── 3. Extract cross-protocol constraints ────────────────────────────────
+    // ── 3. Compute session duration from FirstActionStarted event ────────────
+    const firstActionEvent = storedEvents.find(e => e.eventType === 'FirstActionStarted');
+    const sessionDurationSec = firstActionEvent?.payload?.startedAt
+      ? Math.max(0, Math.round(
+          (new Date(endedAt).getTime() - new Date(firstActionEvent.payload.startedAt as string).getTime()) / 1000,
+        ))
+      : undefined;
+
+    // ── 5. Extract cross-protocol constraints ────────────────────────────────
     const p1VerificationFloor = findP1VerificationFloorFromEvents(storedEvents);
     const p2WatchOnlyFlag = findP2WatchOnlyFlagFromEvents(storedEvents);
     const hasRetrieval = storedEvents.some(e => e.eventType === 'RetrievalVerified');
     const hasSchedule = storedEvents.some(e => e.eventType === 'RetrievalScheduled');
 
-    // ── 4. Assess loop health (mode) ─────────────────────────────────────────
+    // ── 6. Assess loop health (mode) ─────────────────────────────────────────
     const p3LhaContext = { hasRetrieval, hasSchedule };
     const snapshot = await this.assessLoopHealth.execute({
       studentId,
@@ -160,10 +169,20 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
           }
         : undefined,
       reason: verificationDecision.skipReason,
+      sessionDurationSec,
       issuedAt: new Date().toISOString(),
     };
 
     // ── 10. Persist to Ledger ─────────────────────────────────────────────────
+    // SessionEnd appended first (chronologically before VerificationDecisionIssued).
+    // Per context-map.md, EI Runtime owns appending SessionEnd to the Ledger.
+    // TopicLoop projection consumes SessionEnd → last_effort_at → drives pending_checks.
+    await this.appendEvent.append({
+      studentId,
+      eventType: 'SessionEnd',
+      topicId,
+      payload: { studentId, topic: topicId, endedAt },
+    });
     for (const event of domainEvents) {
       await this.appendEvent.append({
         studentId,

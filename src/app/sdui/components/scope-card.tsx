@@ -11,10 +11,10 @@ export function SduiScopeCard({ node }: { node: SduiScopeCard }) {
         <div style={{ fontSize: 20, fontWeight: 700 }}>{title}</div>
         {badge && <SduiModeBadge node={{ type: 'mode-badge', props: badge }} />}
       </div>
-      <div style={{ background: '#0f1117', borderRadius: 8, padding: '12px 14px' }}>
+      <div style={{ background: 'var(--color-surface-subtle)', borderRadius: 8, padding: '12px 14px' }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{topic}</div>
-        <div style={{ color: '#71717a', fontSize: 13 }}>{scopeSummary}</div>
-        <div style={{ color: '#71717a', fontSize: 13, marginTop: 4 }}>{verificationSummary}</div>
+        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13 }}>{scopeSummary}</div>
+        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13, marginTop: 4 }}>{verificationSummary}</div>
       </div>
     </div>
   );
