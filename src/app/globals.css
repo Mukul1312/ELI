@@ -62,10 +62,55 @@
   --font-size-caption: 0.75rem;    /* 12px — timestamps, personalization hints */
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Counter animation — Phase 3 loop-closed drop (02-counter-animation.md)
+   Total: ~1900ms from first number exit to fully settled.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Old number exits: fades out + shrinks down */
+@keyframes counterExit {
+  from { opacity: 1; transform: scale(1.0); }
+  to   { opacity: 0; transform: scale(0.85); }
+}
+
+/* New number enters: fades in + grows to rest */
+@keyframes counterEnter {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1.0); }
+}
+
+/* Pulse after settle — "lock click" feel */
+@keyframes counterPulse {
+  0%   { transform: scale(1.0); }
+  50%  { transform: scale(1.06); }
+  100% { transform: scale(1.0); }
+}
+
+/* Fade-slide-in for nudge card */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* .counter-old: delay 200ms → exits at t=200ms, done at t=360ms */
+.counter-old {
+  animation: counterExit 160ms ease-in 200ms forwards;
+}
+
+/* .counter-new: enters at t=340ms, pulses at t=540ms */
+.counter-new {
+  animation:
+    counterEnter 200ms ease-out 340ms both,
+    counterPulse 140ms ease-in-out 540ms;
+  transition: color 200ms ease;
+}
+
 /* Disable all transitions/animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+  .counter-old { display: none; }
+  .counter-new { opacity: 1; transform: none; }
 }

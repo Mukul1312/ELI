@@ -96,9 +96,9 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
       }
 
       case 'VerificationComplete': {
-        const { topic, mode, questionsAttempted, correct, completedAt } = command.payload;
+        const { topic, mode, result, completedAt } = command.payload;
         const run = await verificationCompleteWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, mode, questionsAttempted, correct, completedAt, idempotencyKey, correlationId } });
+        return run.start({ inputData: { studentId, topic, mode, result, completedAt, idempotencyKey, correlationId } });
       }
 
       case 'RetrievalSchedule': {

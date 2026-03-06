@@ -113,10 +113,7 @@ export const VerificationCompletedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
   completedAt: z.string().datetime(),
-  result: z.object({
-    questionsAttempted: z.number().int().optional(),
-    score: z.number().optional(),
-  }).optional(),
+  result: z.enum(['confident', 'partial', 'needs_review']).optional(),
 });
 export type VerificationCompleted = z.infer<typeof VerificationCompletedSchema>;
 

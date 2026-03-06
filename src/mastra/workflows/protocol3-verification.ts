@@ -21,6 +21,8 @@ import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
 import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { composeP3ViewStep } from './steps/compose-p3-view';
+import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
+import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
 
 // ============================================================================
 // Schemas
@@ -65,12 +67,20 @@ const runP3Gate = createStep({
       protocolEngine,
       sessionRepo,
     );
-    return handler.execute({
+    const result = await handler.execute({
       studentId,
       topicId: topic,
       sessionId: session.sessionId,
       endedAt,
     });
+
+    // Sync-on-append: update projections after SessionEnd + VerificationDecisionIssued
+    // are written to the Ledger. This ensures pending_checks is accurate when
+    // verification-complete workflow reads pre-event aggregates.
+    await recomputeTopicLoop(db, studentId, topic);
+    await recomputeStudentAggregates(db, studentId);
+
+    return result;
   },
 });
 

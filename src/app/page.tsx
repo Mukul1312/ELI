@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { SduiView, SduiSlot, resolvePayload } from '@/app/sdui/renderer';
+import { SduiSlot, resolvePayload } from '@/app/sdui/renderer';
 import type { SduiResponse, SduiComponent } from '@/app/sdui/types';
 import { composeOnboardingTopicTaskView } from '@/ei/sdui/view-composer';
 
@@ -234,16 +234,23 @@ export default function Home() {
   }, []);
 
   const isInitialLoading = authState === 'initializing' || authState === 'loading';
+  const view = currentSduiResponse?.view;
+  const isSessionPhase = currentSduiResponse?.phase === 'session';
   // Checkin: domain.mode; P1/P2: mode at top level
   const pageMode = (currentSduiResponse?.domain as { mode?: 'Rescue' | 'Neutral' | 'Boost' } | null)?.mode
     ?? (currentSduiResponse as { mode?: 'Rescue' | 'Neutral' | 'Boost' })?.mode;
-  const pageStyles = pageLayoutStyles(pageMode);
+  const pageStyles = isSessionPhase
+    ? { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' } as const
+    : pageLayoutStyles(pageMode);
+  const slotProps = { formValues, onFormChange: handleFormChange, onAction: handleSduiAction };
 
   return (
     <div style={pageStyles}>
-      <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
-        <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
-      </div>
+      {!isSessionPhase && (
+        <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
+          <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
+        </div>
+      )}
 
       {authState === 'error' && errorMessage && (
         <div style={{ ...s.card, borderColor: '#7f1d1d' }}>
@@ -257,38 +264,42 @@ export default function Home() {
         </div>
       )}
 
-      <div style={s.card}>
-        {isInitialLoading && <p style={s.muted}>Getting started…</p>}
-        {authState === 'unauthenticated' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <p style={{ ...s.muted, margin: 0 }}>Sign in with Google to start your study session.</p>
-            <Link href="/auth/sign-in" style={{ ...s.btn('primary'), textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
-              Sign in
-            </Link>
-          </div>
-        )}
-        {authState === 'authenticated' && currentSduiResponse && (
-          <>
-            <SduiView
-              view={currentSduiResponse.view}
-              actions={currentSduiResponse.actions}
-              formValues={formValues}
-              onFormChange={handleFormChange}
-              onAction={handleSduiAction}
-            />
-            {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
-          </>
-        )}
-      </div>
+      {/* Header slot: above the card — "Check in" title for checkin, context-bar for session */}
+      {view?.header && view.header.length > 0 && (
+        <SduiSlot components={view.header} {...slotProps} />
+      )}
 
-      {/* Persisted session footer — shown across all phases, even Phase 2 (no footer in active session) */}
+      {/* Body + actions: no card wrapper for active session (session-timer is full-height) */}
+      {isSessionPhase ? (
+        <>
+          {view && <SduiSlot components={view.body} {...slotProps} />}
+          {view && <SduiSlot components={view.actions} {...slotProps} />}
+          {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
+        </>
+      ) : (
+        <div style={s.card}>
+          {isInitialLoading && <p style={s.muted}>Getting started…</p>}
+          {authState === 'unauthenticated' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ ...s.muted, margin: 0 }}>Sign in with Google to start your study session.</p>
+              <Link href="/auth/sign-in" style={{ ...s.btn('primary'), textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
+                Sign in
+              </Link>
+            </div>
+          )}
+          {authState === 'authenticated' && view && (
+            <>
+              <SduiSlot components={view.body} {...slotProps} />
+              <SduiSlot components={view.actions} {...slotProps} />
+            </>
+          )}
+          {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
+        </div>
+      )}
+
+      {/* Persisted footer — shown across all phases including active session */}
       {authState === 'authenticated' && sessionFooter.length > 0 && (
-        <SduiSlot
-          components={sessionFooter}
-          formValues={formValues}
-          onFormChange={handleFormChange}
-          onAction={handleSduiAction}
-        />
+        <SduiSlot components={sessionFooter} {...slotProps} />
       )}
     </div>
   );

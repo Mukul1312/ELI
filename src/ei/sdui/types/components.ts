@@ -149,36 +149,57 @@ export const SduiTwoStepCardSchema = z.object({
 });
 export type SduiTwoStepCard = z.infer<typeof SduiTwoStepCardSchema>;
 
+/** Phase 2 activation entry — first-action card for all P2 play variants. */
 export const SduiActivationCardSchema = z.object({
   type: z.literal('activation-card'),
   props: z.object({
-    title: z.string(),
-    description: z.string(),
-    timebox: z.string().optional(),
-    focusNote: z.string().optional(),
-    badge: BadgeSchema.optional(),
+    /** Play variant drives layout, copy structure, and timer visibility. */
+    variant: z.enum([
+      'neutral',             // P2-N1: standard firstAction
+      'rescue_micro',        // P2-R1: micro-start with rationale
+      'rescue_two_min',      // P2-R2: 2-minute elapsed timer (client-side)
+      'rescue_keep_going',   // P2-R2 after 2min: "Keep going?" with two CTAs
+      'rescue_watch',        // P2-R3: watch-only with rationale
+      'boost_isolation',     // P2-B1: isolation contract
+      'boost_hard_first',    // P2-B2: hard-first
+      'boost_continue_last', // P2-B3: continue last thread
+      'retrieval',           // Pending check clearance — transitions directly to Phase 3
+    ]),
+    /** Main instruction text (22px greeting size, weight 400). ELI speaking, not a label. */
+    firstAction: z.string(),
+    /** Rationale line (14px, --color-text-tertiary). rescue_micro and rescue_watch only. */
+    rationale: z.string().optional(),
+    /** Primary CTA. */
+    primaryCta: z.object({ label: z.string(), actionId: z.string() }),
+    /** Secondary CTA — only for rescue_keep_going ("Done for today" fires SessionEnd). */
+    secondaryCta: z.object({ label: z.string(), actionId: z.string() }).optional(),
+    /** Focus reminder shown once at session entry (boost_isolation, boost_hard_first). */
+    focusReminder: z.string().optional(),
   }),
 });
 export type SduiActivationCard = z.infer<typeof SduiActivationCardSchema>;
 
+/** Phase 3 verification ask — proof interstitial between SessionEnd and close card. */
 export const SduiVerificationCardSchema = z.object({
   type: z.literal('verification-card'),
   props: z.object({
-    title: z.string(),
-    prompt: z.string(),
-    badge: BadgeSchema.optional(),
-    /** Primary section: flat list of content items the client renders */
-    primarySection: z.array(z.object({
-      text: z.string(),
-      variant: z.enum(['body', 'muted', 'emphasis']).optional(),
-    })),
-    fallbackSection: z.object({
-      label: z.string(),
-      items: z.array(z.object({
-        text: z.string(),
-        variant: z.enum(['body', 'muted', 'emphasis']).optional(),
-      })),
-    }).optional(),
+    topic: z.string(),
+    /** Mode drives opening line copy and CTA order (rescue flips primary/secondary). */
+    mode: z.enum(['standard', 'short', 'long', 'rescue']),
+    /** Server-computed opening line by mode. */
+    openingLine: z.string(),
+    /** "Do 1 question..." prompt (16px). */
+    topicPrompt: z.string(),
+    /** Whether to show "Remind me tomorrow" (false if deferred ≥ 2 times for this topic). */
+    canDefer: z.boolean(),
+    /** Action IDs wired to server events via the SduiResponse actions map. */
+    gotItActionId: z.string(),
+    shakyActionId: z.string(),
+    needsReviewActionId: z.string(),
+    deferActionId: z.string(),
+    skipTimeActionId: z.string(),
+    skipFatigueActionId: z.string(),
+    skipConfusionActionId: z.string(),
   }),
 });
 export type SduiVerificationCard = z.infer<typeof SduiVerificationCardSchema>;
@@ -221,14 +242,17 @@ export const SduiActionGroupSchema = z.object({
 });
 export type SduiActionGroup = z.infer<typeof SduiActionGroupSchema>;
 
+/** Phase 2 active session screen — empty by design, "End session" text link at bottom. */
 export const SduiSessionTimerSchema = z.object({
   type: z.literal('session-timer'),
   props: z.object({
-    topic: z.string(),
-    showTimer: z.literal(true),
-    /** Action ID the timer's End button invokes (server-driven). */
-    endActionId: z.string().optional(),
+    /** Action ID fired when student taps "End session". */
+    endActionId: z.string(),
     endLabel: z.string().optional(),
+    /** Session mode — drives nudge timing (Rescue: 20min, Neutral: 15min, Boost: no nudge). */
+    mode: z.enum(['Rescue', 'Neutral', 'Boost']),
+    /** Nudge card copy shown once after mode-specific delay. Absent = no nudge. */
+    nudgeCopy: z.string().optional(),
   }),
 });
 export type SduiSessionTimer = z.infer<typeof SduiSessionTimerSchema>;
@@ -263,7 +287,7 @@ export const SduiResumeContextCardSchema = z.object({
     greeting: z.string(),
     subGreeting: z.string().optional(),
     pendingItemsLabel: z.string().optional(),
-    primaryCta: CtaSchema,
+    primaryCta: CtaSchema.optional(),
     secondaryCta: CtaSchema.optional(),
     tertiaryCta: CtaSchema.optional(),
     /** When true, client hides greeting until energy scale has a selection (V2 LOW_ENERGY). */
@@ -301,14 +325,25 @@ export const SduiLoopClosedCardSchema = z.object({
       'verified', 'reminded', 'skip_time', 'skip_fatigue',
       'skip_confusion', 'milestone', 'first_ever',
     ]),
+    /** Headline text (22px, --color-closed for loop-closed variants, --color-text-primary for others). */
     title: z.string(),
-    topicName: z.string().optional(),
-    message: z.string().optional(),
+    /** Secondary line below headline (16px, --color-text-secondary). */
+    subline: z.string().optional(),
+    /** Quoted reflection (16px, --color-text-secondary, in quotes). Scenarios A and F only. */
+    quote: z.string().optional(),
+    /** Counter: pending before this session. Present for verified/milestone/first_ever. */
     countBefore: z.number().optional(),
+    /** Counter: pending after this session. */
     countAfter: z.number().optional(),
+    /** Seed copy (14px, --color-text-tertiary). */
     seed: z.string().optional(),
+    /** Primary CTA ("Done" / "Done for today"). */
+    primaryCta: CtaSchema,
+    /** "Clear one more" — only when energy >= 4 and pendingChecks >= 1 after clearing. */
     clearMoreCta: CtaSchema.optional(),
+    /** Drives counter animation variant: N→N-1 standard vs dissolve-to-label. */
     milestone: z.boolean().default(false),
+    /** Drives counter label swap to "First loop closed". */
     firstEver: z.boolean().default(false),
   }),
 });
@@ -343,13 +378,15 @@ export const SduiIdentityMomentCardSchema = z.object({
 });
 export type SduiIdentityMomentCard = z.infer<typeof SduiIdentityMomentCardSchema>;
 
-/** Phase 2 session context bar — small muted fixed top bar showing topic/taskType/difficulty. */
+/** Phase 2 session context bar — fixed top bar: left=topic info, right=elapsed time. */
 export const SduiSessionContextBarSchema = z.object({
   type: z.literal('session-context-bar'),
   props: z.object({
     topic: z.string(),
     taskType: z.string(),
     difficultyTier: z.string(),
+    /** ISO timestamp of session start — client computes elapsed minutes, updates every 60s. */
+    sessionStartedAt: z.string().optional(),
   }),
 });
 export type SduiSessionContextBar = z.infer<typeof SduiSessionContextBarSchema>;
