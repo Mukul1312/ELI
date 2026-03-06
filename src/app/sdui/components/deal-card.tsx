@@ -13,8 +13,8 @@ export function SduiDealCard({
   return (
     <div
       style={{
-        background: '#422006',
-        border: '1px solid #92400e',
+        background: '#FFF7ED',
+        border: '1px solid #FED7AA',
         borderRadius: 8,
         padding: '10px 14px',
         marginBottom: 16,
@@ -35,9 +35,9 @@ export function SduiDealCard({
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
-              border: '1px solid #92400e',
-              background: '#78350f',
-              color: '#fcd34d',
+              border: 'none',
+              background: 'var(--color-accent)',
+              color: '#fff',
             }}
           >
             {c.label}

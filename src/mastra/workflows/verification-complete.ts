@@ -12,13 +12,14 @@ import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composePhase3View, type Phase3Scenario } from '../../ei/sdui/view-composer';
 import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
 import * as Q from '../../ei/db/queries';
+import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
+import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
 
 const VerificationCompleteInput = z.object({
   studentId: z.string(),
   topic: z.string(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  questionsAttempted: z.union([z.number(), z.string()]),
-  correct: z.union([z.number(), z.string()]),
+  result: z.enum(['confident', 'partial', 'needs_review']),
   completedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -29,16 +30,13 @@ const appendAndComposeStep = createStep({
   inputSchema: VerificationCompleteInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', questionsAttempted, correct, completedAt, idempotencyKey } = inputData;
-    const q = typeof questionsAttempted === 'string' ? parseInt(questionsAttempted, 10) : questionsAttempted;
-    const c = typeof correct === 'string' ? parseInt(correct, 10) : correct;
-    const score = q > 0 ? c / q : 0;
+    const { studentId, topic, mode = 'Neutral', result, completedAt, idempotencyKey } = inputData;
 
     const payload = validateEventPayload('VerificationCompleted', {
       studentId,
       topic,
       completedAt,
-      result: { questionsAttempted: q, score },
+      result,
     });
 
     const db = eiStore.db;
@@ -67,6 +65,11 @@ const appendAndComposeStep = createStep({
       await sessionRepo.save(activeSession);
     }
 
+    // Sync-on-append: update projections after VerificationCompleted is written.
+    // This keeps aggregates fresh for subsequent sessions.
+    await recomputeTopicLoop(db, studentId, topic);
+    await recomputeStudentAggregates(db, studentId);
+
     const aggregatesForPresentation = aggregates
       ? {
           pendingChecks: aggregates.pending_checks,
@@ -82,13 +85,15 @@ const appendAndComposeStep = createStep({
       eventCounts,
     );
 
-    // Determine scenario: milestone if this closes last loop, first_ever if first loop ever
+    // Determine scenario.
+    // first_ever (loopsClosedLast7d === 0) takes priority over milestone —
+    // a new user closing their first loop must see G, not F.
     const countAfter = Math.max(0, ctx.pendingChecks - 1);
     let scenario: Phase3Scenario;
-    if (countAfter === 0 && ctx.pendingChecks > 0) {
-      scenario = 'milestone';
-    } else if (eventCounts.loopsClosedLast7d === 0) {
+    if (eventCounts.loopsClosedLast7d === 0) {
       scenario = 'first_ever';
+    } else if (countAfter === 0 && ctx.pendingChecks > 0) {
+      scenario = 'milestone';
     } else {
       scenario = 'verified';
     }
