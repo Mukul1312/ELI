@@ -12,7 +12,7 @@
 
 ## Bounded contexts
 
-Aligned with [02-subdomains.md](02-subdomains.md). Subdomain names match Section B/C there. **Canvases:** [canvas-ei-runtime](canvas-ei-runtime.md), [canvas-ei-event-ledger](canvas-ei-event-ledger.md), [canvas-ei-projections](canvas-ei-projections.md), [canvas-loop-health-assessment](canvas-loop-health-assessment.md) (core); [canvas-strategic-adjustment](canvas-strategic-adjustment.md), [canvas-cohort-access](canvas-cohort-access.md), [canvas-institute-radar](canvas-institute-radar.md), [canvas-ops-observability](canvas-ops-observability.md), [canvas-billing-entitlements](canvas-billing-entitlements.md) (supporting + generic).
+Aligned with [02-subdomains.md](02-subdomains.md). Subdomain names match Section B/C there. **Canvases:** [canvas-ei-runtime](canvas-ei-runtime.md), [canvas-ei-event-ledger](canvas-ei-event-ledger.md), [canvas-ei-projections](canvas-ei-projections.md), [canvas-loop-health-assessment](canvas-loop-health-assessment.md) (core); [canvas-strategic-adjustment](canvas-strategic-adjustment.md), [canvas-cohort-access](canvas-cohort-access.md), [canvas-institute-radar](canvas-institute-radar.md), [canvas-ops-observability](canvas-ops-observability.md), [canvas-billing-entitlements](canvas-billing-entitlements.md), [canvas-curriculum-catalog](canvas-curriculum-catalog.md) (supporting + generic).
 
 
 | Context                          | Responsibility                                                                                                                               | Subdomain(s)                                | Owned data (high-level)                                                                                                                            |
@@ -26,6 +26,7 @@ Aligned with [02-subdomains.md](02-subdomains.md). Subdomain names match Section
 | **Institute Radar**              | Privacy-safe triage: at most one primary alert per student, evidence summary, cohort-filtered; no raw events.                                | InstituteRadar                              | RadarAlert schema; alert types, priority ordering, dedupe rules                                                                                    |
 | **Ops & Observability**          | Debug timeline, correlation ids, replay/backfill orchestration; observability semantics and safe repair.                                     | OpsObservability                            | Correlation IDs, job state, runbooks; read-only access to Ledger/Projections for debug                                                             |
 | **BillingEntitlements** (future) | Coupons, redemptions, entitlement lifecycle, billing audit trail.                                                                            | BillingEntitlements                         | Coupons, redemptions, entitlements, audit log                                                                                                      |
+| **CurriculumCatalog**            | Structured topic catalog with stable UUIDs; search, browse, institute-scoped filtering, normalization queue.                                | CurriculumCatalog                           | `curriculum_topics`, `curriculum_exams/subjects/units/chapters`, `institute_curriculum`, `topic_normalization_queue`                                |
 
 
 ---
@@ -44,10 +45,12 @@ flowchart TB
         Radar[Institute Radar]
         Ops[Ops and Observability]
         Billing[BillingEntitlements]
+        CC[CurriculumCatalog]
     end
 
     CohortAccess -->|ACL| Runtime
     CohortAccess -->|Customer-Supplier| Billing
+    CohortAccess -->|Customer-Supplier| CC
     Runtime -->|Customer-Supplier| Ledger
     Ledger -->|Customer-Supplier Conformist| Projections
     Projections -->|Customer-Supplier| LoopHealth
@@ -62,6 +65,9 @@ flowchart TB
     Ledger -->|Customer-Supplier| Ops
     Projections -->|Customer-Supplier| Ops
     Billing -->|Customer-Supplier| Ops
+    CC -->|Published Language| Runtime
+    CC -->|Customer-Supplier| Projections
+    CC -->|Published Language| Radar
 ```
 
 
@@ -91,6 +97,10 @@ Contract names reference implemented schemas in [src/ei/schemas/events.ts](../..
 | EI Event Ledger      | Ops & Observability  | Upstream → Downstream | Customer-Supplier              | Read-only / replay             | Event stream for debug timeline; replay job scope                                                                                                                                                                                                                                                                                                                                                                                            | OpsAuth (API key, cron, dev bypass); enables timeline debug and replay/backfill. No CohortAccess.                                                          |
 | EI Projections       | Ops & Observability  | Upstream → Downstream | Customer-Supplier              | Read-only / backfill           | Projection state for debug; backfill job specs, versioning                                                                                                                                                                                                                                                                                                                                                                                   | Ops runs backfills; does not define metrics.                                                  |
 | BillingEntitlements  | Ops & Observability  | Upstream → Downstream | Customer-Supplier              | Read-only query                | Billing audit, redemption history, entitlement status (for investigations; future)                                                                                                                                                                                                                                                                                                                                                           | Ops reads for support/finance investigations; does not define billing rules.                  |
+| CohortAccess         | CurriculumCatalog    | Upstream → Downstream | Customer-Supplier              | Sync query                     | `instituteId` from AuthSession / cohort membership for institute-scoped browse filtering                                                                                                                                                                                                                                                                                                                                                     | CC queries institute scope; CohortAccess owns institute/cohort membership.                    |
+| CurriculumCatalog    | EI Runtime           | Upstream → Downstream | **Published Language**         | Sync query                     | `TopicReference { topicId: UUID, topicName: string }` — stable topic identity for event creation and ViewComposer topic picker                                                                                                                                                                                                                                                                                                               | Runtime consumes TopicReference; CC owns catalog, search, aliases.                            |
+| CurriculumCatalog    | EI Projections       | Upstream → Downstream | Customer-Supplier              | Sync query                     | Catalog alias/UUID lookup for reconciling old string-based `topic` fields to stable `topicId` UUIDs                                                                                                                                                                                                                                                                                                                                          | Projections may normalize legacy topics; CC owns alias resolution.                            |
+| CurriculumCatalog    | Institute Radar      | Upstream → Downstream | **Published Language**         | Sync query                     | Subject/exam grouping from curriculum hierarchy for SubjectAvoidance alerts and subject-level aggregation                                                                                                                                                                                                                                                                                                                                     | Radar uses catalog hierarchy; no raw student data flows to CC.                                |
 
 
 ---
@@ -107,4 +117,5 @@ Contract names reference implemented schemas in [src/ei/schemas/events.ts](../..
 - **Coordination**
   - **Event schema changes:** Adding or changing event types (events.ts) affects Event Ledger, Projections, and any replay/backfill; add new event types in a backward-compatible way where possible.
   - **Threshold/label tuning:** Owned by LoopHealthAssessment; changing thresholds does not require changing EI Runtime gate code, only the snapshot contract if it changes.
+  - **Catalog stability:** Once a `topicId` UUID is issued by CurriculumCatalog, it must not be reused or reassigned. Adding exams, subjects, or changing tree structure affects browse/search consumers but must not change existing topic UUIDs. `TopicReference` is a Published Language contract — breaking changes require coordination with EI Runtime, Projections, and Radar.
 

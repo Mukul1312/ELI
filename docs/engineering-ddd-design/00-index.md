@@ -88,6 +88,7 @@ Detailed canvases per [bounded-context-canvas-template.md](bounded-context-canva
 | [canvas-institute-radar.md](canvas-institute-radar.md)           | Institute Radar (InstituteRadar)           |
 | [canvas-ops-observability.md](canvas-ops-observability.md)       | Ops & Observability (OpsObservability)     |
 | [canvas-billing-entitlements.md](canvas-billing-entitlements.md) | BillingEntitlements                        |
+| [canvas-curriculum-catalog.md](canvas-curriculum-catalog.md)     | CurriculumCatalog                          |
 
 
 ### Aggregate design canvases
@@ -119,4 +120,5 @@ Use these when reconciling spec vs reality:
 - **TopicLoop (domain + use case):** [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/)
 - **StudentAggregates (domain + use case):** [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/)
 - **GetStudentSignals / projectors:** [src/ei/infrastructure/persistence/get-student-signals.pg.ts](../../src/ei/infrastructure/persistence/get-student-signals.pg.ts), [src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)
+- **CurriculumCatalog (planned):** `src/curriculum-catalog/` — topic catalog, search, browse, import, normalization queue
 

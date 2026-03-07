@@ -33,7 +33,7 @@
 | 11 | [11-archetype-experience-map.md](11-archetype-experience-map.md) | All 7 archetypes mapped to phases, mechanics, copy |
 | 12 | [12-anti-patterns.md](12-anti-patterns.md) | What this design rules out, and why |
 | 13 | [13-implementation-map.md](13-implementation-map.md) | SDUI components, data sources, engineering constraints |
-| 14 | [14-topic-selection-system.md](14-topic-selection-system.md) | Structured curriculum tree, institute scoping, topic picker, graph edges |
+| 14 | [14-topic-selection-system.md](14-topic-selection-system.md) | Topic picker (type-ahead, browse, recent chips), curriculum tree, institute-scoped browse, graph edges |
 
 ---
 

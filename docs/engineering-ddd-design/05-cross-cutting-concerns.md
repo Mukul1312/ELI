@@ -91,6 +91,8 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 | ScheduleMissed | studentId, topic, missedAt | System/Projection | Ledger | — |
 | StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt; optional: tightnessLevel, nextCycleConstraints | SA, setPolicyTool | Projections | ei_student_policy |
 
+> **Topic ID evolution (Stage 1):** Events currently use `topic: z.string()` (raw student input). After CurriculumCatalog ships, new events will use `topicId: UUID` (stable catalog reference) + `topicName: string` (display) + optional `topicRaw: string` (original input for normalization queue). Old events are never backfilled (append-only invariant). Projections reconcile legacy string-based topics to catalog UUIDs via alias lookup in CurriculumCatalog. See [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection-system.md) § Schema Migration.
+
 ---
 
 ### ei_topic_state projection storage
@@ -182,6 +184,13 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 | coupons                   | Billing/Sponsor | P1    |
 | coupon_redemptions        | Billing/Sponsor | P1    |
 | ei_idempotency_keys       | EI Event Ledger | Implemented (migrate.ts) |
+| curriculum_topics         | CurriculumCatalog | Leaf topics with stable UUIDs, aliases, hierarchy refs |
+| curriculum_exams          | CurriculumCatalog | Exam definitions (JEE Main, NEET, etc.) |
+| curriculum_subjects       | CurriculumCatalog | Subjects per exam |
+| curriculum_units          | CurriculumCatalog | Units per subject |
+| curriculum_chapters       | CurriculumCatalog | Chapters per unit |
+| institute_curriculum      | CurriculumCatalog | Which topics belong to which institute |
+| topic_normalization_queue | CurriculumCatalog | Unmapped free-text entries awaiting alias resolution |
 
 ---
 

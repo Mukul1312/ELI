@@ -43,6 +43,7 @@
 | Mode | Rescue / Neutral / Boost | enum |
 | TightnessLevel | Loose / Normal / Tight | enum |
 | OccurredAt | ISO datetime; validation | string |
+| TopicReference | Published Language VO: `{ topicId: UUID, topicName: string }` — stable topic identity consumed by EI Runtime, Projections, Radar | (to be implemented) |
 
 ---
 
@@ -98,6 +99,30 @@ src/ei/
 ```
 
 Full EI layer layout and port rules: [tactical/01-ei-tactical-conventions.md](tactical/01-ei-tactical-conventions.md).
+
+**Planned: CurriculumCatalog** (`src/curriculum-catalog/`)
+
+Note: No aggregate needed — CatalogTopic is a simple entity (reference data, read-heavy). NormalizationQueue is a lightweight entity, not an aggregate.
+
+```
+src/curriculum-catalog/
+├── domain/
+│   ├── catalog-topic.ts          # CatalogTopic entity (id, name, aliases, hierarchy refs)
+│   ├── value-objects.ts          # TopicReference, ExamId, SubjectId, etc.
+│   └── topic-search-service.ts   # Domain service: fuzzy match, ranking, institute priority
+├── application/
+│   ├── search-topics/            # Type-ahead search use case
+│   ├── browse-tree/              # Hierarchical browse use case
+│   ├── resolve-topic/            # Raw string → TopicReference resolution
+│   └── import-curriculum/        # Institute CSV/JSON import use case
+├── infrastructure/
+│   ├── persistence/
+│   │   ├── catalog-repository.pg.ts
+│   │   └── normalization-queue.pg.ts
+│   └── search/
+│       └── topic-search-adapter.pg.ts  # pg_trgm or prefix-match queries
+└── __tests__/
+```
 
 ---
 

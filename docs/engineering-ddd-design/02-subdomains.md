@@ -21,6 +21,7 @@ Candidate subdomains from "What distinct business capabilities does EI have?" (n
 9. **OpsObservability** — Run, debug, recompute.
 10. **BillingEntitlements** (Billing, Sponsor, Coupons) — Provision paid access via entitlements; coupons and audit.
 11. **Protocol 4 Calibration (candidate, Later)** — Perception correction (Retrieval→Feedback); v1 deferred.
+12. **CurriculumCatalog** — Structured, searchable catalog of study topics with stable identifiers; curriculum tree, type-ahead search, institute-scoped browse, normalization queue.
 
 ---
 
@@ -206,6 +207,24 @@ For each candidate, define: capability, key concepts, boundaries, why distinct. 
 
 ---
 
+### 12. CurriculumCatalog
+
+
+| Field                         | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Capability (one sentence)** | Maintain a structured, searchable catalog of study topics with stable identifiers, enabling friction-free topic selection across all phases and reliable topic-level analytics.                                                                                                                                                                                                                                                                                           |
+| **Key concepts**              | CatalogTopic, TopicId (UUID), TopicName, Alias; Exam, Subject, Unit, Chapter (hierarchy levels); CurriculumTree; InstituteCurriculum (institute-scoped subset); NormalizationQueue (unmapped free-text → alias resolution); TopicReference (Published Language: `{ topicId, topicName }`).                                                                                                                                                                               |
+| **Boundaries (in)**           | Catalog CRUD (topics, aliases, tree structure). Search (type-ahead, fuzzy match, institute-priority ranking). Browse (hierarchical drill-down, institute-scoped filtering). Institute curriculum import (CSV/JSON → catalog entries with dedup). Normalization queue (log + resolve unmapped free-text). Topic reference resolution (raw string → stable UUID via alias lookup + free-text fallback).                                                                       |
+| **Boundaries (out)**          | Institute/cohort membership and identity — CohortAccess. Event storage — Event Ledger. Metric computation and topic state — DerivedSignals. Gate decisions and play selection — AdaptiveCoaching. UX rendering and topic picker component — StudySessionOrchestration. Subject-level alerts — Institute Radar (consumes subject grouping).                                                                                                                                 |
+| **Why distinct**              | Different change cadence (syllabus updates, new exams, institute onboarding — independent of coaching logic or gate decisions). Multiple consumers need identical topic identity (events, projections, radar, strategic adjustment). Distinct ubiquitous language (Exam, Subject, Unit, Chapter vs Gate, Protocol, Mode, Play).                                                                                                                                             |
+
+
+**A+B+C+D check:** Distinct capability output (stable TopicReference UUIDs, searchable catalog, curriculum tree); independent change cadence (syllabus updates, institute onboarding, alias curation — none coupled to coaching or gate logic); multiple consumers rely on identical meaning (EI Runtime for event creation, Projections for normalization, Radar for subject grouping, Strategic Adjustment for subject avoidance); non-trivial business rules (search ranking with institute priority, alias dedup, free-text fallback, UUID stability invariant).
+
+**Design source:** [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection-system.md) — Stage 1 (Curriculum Tree + Topic Picker) and Stage 2 (Graph Edges, post-PMF).
+
+---
+
 ## Section C: Classification and focus
 
 **To be revisited after definitions in Section B are complete.**
@@ -223,6 +242,7 @@ For each candidate, define: capability, key concepts, boundaries, why distinct. 
 | CohortAccess (Identity, Cohorts, RBAC)   | Auth, cohort membership, enrollment, roles; server-derived identity; four access surfaces (student EI, Radar, admin/ops, coupon redemption). | **Generic**    | Now   |
 | OpsObservability                         | Observability (logs, metrics, traces, correlation); debug timelines; safe replay/backfill orchestration (idempotent, throttled, auditable). | **Generic**    | Now   |
 | BillingEntitlements                       | Entitlements, coupon issuance/redemption, audit trail; provision paid access (self/sponsor/coupons). | **Generic**    | Next  |
+| CurriculumCatalog                        | Structured searchable catalog; stable UUIDs, curriculum tree, institute browse, normalization queue. | **Supporting** | Now   |
 
 
 Dependency chain (problem-space):
@@ -243,6 +263,9 @@ flowchart LR
   OpsObservability --> DerivedSignals
   CohortAccess --> BillingEntitlements
   OpsObservability --> BillingEntitlements
+  CurriculumCatalog --> CohortAccess
+  StudySessionOrchestration --> CurriculumCatalog
+  InstituteRadar --> CurriculumCatalog
 ```
 
 
@@ -250,6 +273,6 @@ flowchart LR
 **Rationale (why each classification):**
 
 - **Core (differentiation):** AdaptiveCoaching, LoopHealthAssessment, and StrategicAdjustment are EI's unique value. Rescue vs Boost, verification-floor enforcement, and loop-health assessment (labels/thresholds) are not commodity features.
-- **Supporting (necessary but not unique):** Event Ledger is the system of record for events; essential for projections and replay but built with standard event-sourcing/append-only patterns. DerivedSignals (projections), study-session orchestration, and institute radar are required for EI to work but can be built with standard patterns. Radar's privacy boundary is important but the capability is support, not differentiation.
+- **Supporting (necessary but not unique):** Event Ledger is the system of record for events; essential for projections and replay but built with standard event-sourcing/append-only patterns. DerivedSignals (projections), study-session orchestration, institute radar, and CurriculumCatalog are required for EI to work but can be built with standard patterns. CurriculumCatalog provides stable topic identifiers and a searchable curriculum tree — essential for analytics and UX but not EI's coaching differentiation. Radar's privacy boundary is important but the capability is support, not differentiation.
 - **Generic (commodity):** CohortAccess (Identity, cohorts, RBAC), OpsObservability, and BillingEntitlements are table stakes for a production app. We integrate Neon Auth and standard patterns rather than inventing them.
 
