@@ -94,8 +94,7 @@ export const VerificationCompletePayloadSchema = z
   .object({
     topic: z.string(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-    questionsAttempted: z.union([z.number(), z.string()]),
-    correct: z.union([z.number(), z.string()]),
+    result: z.enum(['confident', 'partial', 'needs_review']),
     completedAt: z.string().datetime(),
   })
   .strict();

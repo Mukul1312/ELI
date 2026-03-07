@@ -132,13 +132,15 @@ export function SduiResumeContextCard({
         </>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: buttonGap, marginTop: showGreeting ? undefined : 'var(--sp-2)' }}>
-        <button
-          type="button"
-          onClick={() => onAction?.(content.primaryCta.actionId)}
-          style={primaryBtnStyle}
-        >
-          {content.primaryCta.label}
-        </button>
+        {content.primaryCta && (
+          <button
+            type="button"
+            onClick={() => onAction?.(content.primaryCta!.actionId)}
+            style={primaryBtnStyle}
+          >
+            {content.primaryCta.label}
+          </button>
+        )}
         {content.secondaryCta && (
           <button
             type="button"

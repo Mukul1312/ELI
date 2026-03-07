@@ -1,7 +1,7 @@
 'use client';
 
 import type { SduiComponent } from '@/ei/sdui/types/components';
-import type { SduiViewTree, SduiAction, SduiResponse } from '@/ei/sdui/types/sdui-contract';
+import type { SduiViewTree, SduiAction } from '@/ei/sdui/types/sdui-contract';
 import { getSduiComponent } from './registry';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -75,13 +75,11 @@ export function SduiSlot({
 
 export function SduiView({
   view,
-  actions,
   formValues,
   onFormChange,
   onAction,
 }: {
   view: SduiViewTree;
-  actions: Record<string, SduiAction>;
   formValues: Record<string, string | number>;
   onFormChange: (id: string, value: string | number) => void;
   onAction: (actionId: string) => void;
@@ -94,13 +92,11 @@ export function SduiView({
   const header = view?.header ?? [];
   const body = view?.body ?? [];
   const actionsSlot = view?.actions ?? [];
-  const footer = view?.footer ?? [];
   return (
     <div>
       <SduiSlot components={header} {...slotProps} />
       <SduiSlot components={body} {...slotProps} />
       <SduiSlot components={actionsSlot} {...slotProps} />
-      <SduiSlot components={footer} {...slotProps} />
     </div>
   );
 }

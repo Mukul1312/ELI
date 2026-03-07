@@ -3,9 +3,9 @@
 import type { SduiActionGroup } from '@/ei/sdui/types/components';
 
 const btnStyles: Record<string, React.CSSProperties> = {
-  primary: { background: '#4f46e5', color: '#fff', border: 'none' },
-  secondary: { background: '#27272a', color: '#a1a1aa', border: '1px solid #3f3f46' },
-  danger: { background: '#991b1b', color: '#fecaca', border: 'none' },
+  primary: { background: 'var(--color-accent)', color: '#fff', border: 'none' },
+  secondary: { background: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-strong)' },
+  danger: { background: '#C0392B', color: '#fff', border: 'none' },
 };
 
 export function SduiActionGroup({
