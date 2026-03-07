@@ -31,6 +31,7 @@ const AggregatesSubsetSchema = z.object({
 
 const TopicStateSubsetSchema = z.object({
   topic_id: z.string(),
+  topic_name: z.string().nullable().optional(),
   last_effort_at: z.date().nullable(),
   last_retrieval_at: z.date().nullable(),
   last_scheduled_due_at: z.date().nullable(),
@@ -50,6 +51,7 @@ function mapTopicSnapshots(rows: z.infer<typeof TopicStateSubsetSchema>[]): Topi
   return [...rows]
     .map((r) => ({
       topicId: r.topic_id,
+      topicName: r.topic_name ?? undefined,
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,

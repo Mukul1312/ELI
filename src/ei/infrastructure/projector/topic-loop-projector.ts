@@ -20,9 +20,15 @@ export async function recomputeTopicLoop(
   const id = TopicLoopId.create(studentId, topicId);
   const topicLoop = TopicLoop.empty(id);
 
+  // Extract topicName from event payloads (most recent wins).
+  let topicName: string | null = null;
   for (const event of events) {
     topicLoop.applyEvent(event.eventType, event.payload);
+    const name = event.payload?.topicName;
+    if (typeof name === 'string' && name.trim()) {
+      topicName = name.trim();
+    }
   }
 
-  await repo.save(topicLoop);
+  await repo.save(topicLoop, topicName);
 }

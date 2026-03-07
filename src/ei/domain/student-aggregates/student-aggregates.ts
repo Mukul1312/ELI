@@ -5,6 +5,7 @@ export type StateTrend = 'improving' | 'flat' | 'worsening';
 
 export interface TopicStateSnapshot {
   topicId: string;
+  topicName?: string;
   lastEffortAt: Date | null;
   lastRetrievalAt: Date | null;
   lastScheduledDueAt: Date | null;

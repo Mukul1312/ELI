@@ -406,7 +406,7 @@ New input on the checkin screen, below the energy scale.
 | 10 min | Light scope: 1 question max, simple verification, no pending check routing |
 | 20 min | Standard scope: 2 questions, standard verification |
 | 45 min | Full scope: 3-4 questions, can route to pending check before new topic |
-| 1h+ | Extended scope: 5+ questions, multi-topic planning possible, full SA dial application |
+| 1h+ | Extended scope: 5+ questions, full SA dial application, topic queue available (student can pre-sequence 2-3 topics — see Multi-Topic Sessions below) |
 
 **Variant interaction:**
 
@@ -514,6 +514,85 @@ Day 1 (no data):                    Layer 1 (pre-selected):
 - Surface topic-specific time suggestions: "Most students spend ~15 min on Chemical Kinetics" (only when confidence is high)
 
 Each layer makes internal planning smarter. The student-facing UI stays the same: time chips + confirmation strip. What changes is the intelligence behind pre-selections and internal scope computation.
+
+### Multi-Topic Sessions (Future — Approach B)
+
+> Ship sequential single-topic sessions first (Approach A). Build the topic queue (Approach B) once 1h+ session data confirms students want to pre-sequence topics.
+
+Students who pick `1h+` often plan to cover 2-3 topics from the same chapter in one sitting — e.g. Newton's First Law → Second Law → Third Law. The current session model is single-topic per session. Approach B lets students pre-sequence topics at checkin for 1h+ sessions.
+
+#### What the student sees (1h+ only)
+
+After selecting a topic and reaching TOPIC_SELECTED state, a secondary affordance appears below the topic input:
+
+```
++---------------------------------------------+
+│  What are you studying?                      │
+│  [● Newton's First Law  ×]      [Browse]     │  <-- TOPIC_SELECTED
+│                                              │
+│  + Add another topic                         │  <-- secondary affordance (1h+ only)
+│                                              │
+│  How long do you have?                       │
+│  [ 10 min ] [ 20 min ] [ 45 min ] [● 1h+ ]  │
++---------------------------------------------+
+```
+
+If the student taps "+ Add another topic", the queue builder expands:
+
+```
++---------------------------------------------+
+│  What are you studying?                      │
+│                                              │
+│  1. [● Newton's First Law   ×]               │
+│  2. [● Newton's Second Law  ×]               │
+│  3. [________________________] [Browse]      │  <-- topic-input for slot 3
+│                                              │
+│  + Add another (max 3)                       │  <-- disabled after 3
++---------------------------------------------+
+```
+
+#### UX Rules
+
+| Rule | Detail |
+|---|---|
+| **Only for 1h+** | Queue affordance is hidden for 10/20/45 min bands. Not enough time to sequence topics |
+| **Max 3 topics** | More than 3 creates planning anxiety. If the student has more, they'll open new sessions naturally |
+| **Order matters** | Topics are studied in the order listed. No automatic reordering |
+| **All resolve to catalog** | Each slot uses the full `topic-input` component (chips, type-ahead, browse) |
+| **Queue is a suggestion, not a commitment** | If the student only covers 1 of 3 queued topics, that's fine. No failure state |
+| **First topic drives the session** | ELI plans the session around topic 1. Topics 2 and 3 are surfaced after loop closure |
+
+#### How it flows through the session
+
+```
+Checkin: [Newton's First Law] → [Newton's Second Law] → [Newton's Third Law]
+  |
+  v
+Phase 1: "Newton's First Law . Learn . ~1h" [Let's go]
+  |
+  v
+Phase 2: Active session on Newton's First Law
+  |
+  v
+Phase 3 (lightweight): "First Law done. Proved recall?"
+  [ Yes, done ] [ Continue to Second Law → ]    <-- new CTA added
+  |
+  v (student taps "Continue to Second Law")
+Phase 1 (thin): "Newton's Second Law . Learn . ~35 min remaining" [Let's go]
+  |
+  v
+Phase 2: Active session on Newton's Second Law
+  ...and so on
+```
+
+The Phase 3 between topics is **lighter than a full close** — it confirms loop closure and offers a single CTA to continue. No verification scheduling UI, no done screen animations. The student taps "Continue" and moves immediately to the next topic.
+
+#### Engineering Changes Required (flag for team)
+
+- `AppOpen` payload gains optional `topicQueue: Array<{ topicId, topicName, topicRaw }>` — the pre-sequenced remaining topics
+- After Phase 3 closes a loop, the system checks `topicQueue`. If non-empty, surfacing "Continue to [next topic]" CTA is the designed path
+- Phase 3 view needs a `continueToNext` mode — lighter component tree, no full done screen
+- The remaining queue is threaded through session state. Engineering decides whether this lives in the event ledger or as a transient session context
 
 ### Rescue Mode Overrides
 

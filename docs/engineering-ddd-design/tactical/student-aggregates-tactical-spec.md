@@ -15,6 +15,9 @@
   - Policy semantics — lives in StudentPolicy.
   - Label computation or health assessment — lives in LoopHealthAssessment.
   - Protocol gate execution — lives in EI Runtime.
+  - Topic identity validation — happens at source (EI Runtime + CurriculumCatalog). StudentAggregates consumes validated topic references. No direct CC dependency.
+
+> **CurriculumCatalog note:** Events may carry `topic: string` (legacy) or `topicId: UUID` (post-CC). StudentAggregates reads from `ei_topic_state` which is projected by TopicLoop; CC reconciliation (alias lookup, dual-read) is handled there. StudentAggregates does not query CurriculumCatalog directly. See [05-cross-cutting-concerns.md § Topic ID evolution](../05-cross-cutting-concerns.md#topic-id-evolution-curriculumcatalog-integration).
 
 ---
 

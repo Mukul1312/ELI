@@ -42,10 +42,11 @@ const appendAndComposeStep = createStep({
     const db = eiStore.db;
 
     // Load aggregates + energy/pressure before appending event (pre-event snapshot for counter display)
-    const [aggregates, eventCounts, energyPressure] = await Promise.all([
+    const [aggregates, eventCounts, energyPressure, topicName] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergyPressure(db, studentId),
+      Q.getTopicName(db, studentId, topic),
     ]);
 
     const appendEvent = new PostgresAppendEventAdapter(db);
@@ -98,7 +99,7 @@ const appendAndComposeStep = createStep({
       scenario = 'verified';
     }
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, topicName ?? undefined);
     return sdui;
   },
 });

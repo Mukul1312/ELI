@@ -91,7 +91,59 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 | ScheduleMissed | studentId, topic, missedAt | System/Projection | Ledger | — |
 | StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt; optional: tightnessLevel, nextCycleConstraints | SA, setPolicyTool | Projections | ei_student_policy |
 
-> **Topic ID evolution (Stage 1):** Events currently use `topic: z.string()` (raw student input). After CurriculumCatalog ships, new events will use `topicId: UUID` (stable catalog reference) + `topicName: string` (display) + optional `topicRaw: string` (original input for normalization queue). Old events are never backfilled (append-only invariant). Projections reconcile legacy string-based topics to catalog UUIDs via alias lookup in CurriculumCatalog. See [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection-system.md) § Schema Migration.
+> **Topic ID evolution — see detailed subsection below.**
+
+### Topic ID evolution (CurriculumCatalog integration)
+
+**Problem:** Events currently use `topic: z.string()` (raw student input). This causes normalization issues, duplicate topic identities, and unreliable analytics.
+
+**Solution:** After CurriculumCatalog ships, new events use structured topic identity from CC. Old events are never backfilled (append-only invariant).
+
+#### New event field schema (post-CC)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `topicId` | UUID | Yes | Stable CurriculumCatalog reference. Provisional UUIDs are valid (from free-text fallback). |
+| `topicName` | string | Yes | Display name from CC (`CatalogTopic.name`). |
+| `topicRaw` | string | No | Original student input (only when free-text fallback was used; feeds normalization queue). |
+
+#### Events affected
+
+All events that currently carry `topic: z.string()` will carry `topicId` + `topicName` instead:
+
+| Event type | Current field | Post-CC fields |
+|------------|--------------|----------------|
+| IntentSet | `topic` | `topicId`, `topicName`, `topicRaw?` |
+| SessionEnd | `topic` | `topicId`, `topicName` |
+| NegotiatedIntentIssued | `topic` | `topicId`, `topicName` |
+| VerificationDecisionIssued | `topic` | `topicId`, `topicName` |
+| FirstActionStarted | `topic` | `topicId`, `topicName` |
+| Replan | `topic` | `topicId`, `topicName` |
+| RetrievalVerified | `topic` | `topicId`, `topicName` |
+| RetrievalScheduled | `topic` | `topicId`, `topicName` |
+| RetrievalSkipped | `topic` | `topicId`, `topicName` |
+| VerificationCompleted | `topic` | `topicId`, `topicName` |
+| ScheduleMissed | `topic` | `topicId`, `topicName` |
+
+Events without topic fields (`AppOpen`, `ActivationPlanIssued`, `IntentResponse`, `StrategicAdjustmentDecision`) are unchanged.
+
+#### Dual-read strategy (Projections)
+
+Projections must handle both legacy and post-CC events:
+
+1. **New events:** Read `topicId` directly — it is the CC UUID.
+2. **Legacy events:** Read `topic` (string). Query `ICatalogRepository.findTopicsByAlias(topic)` to resolve to a CC UUID. If no alias match, use the raw string as-is (backward compatible).
+3. **`ei_topic_state` key:** Remains `(student_id, topic_id)`. For new events, `topic_id` = CC UUID. For unresolved legacy events, `topic_id` = raw string.
+
+#### Migration timeline
+
+| Stage | When | What |
+|-------|------|------|
+| **Stage 1** (now) | CC code shipped | New events emit `topicId` + `topicName`. Projections implement dual-read. Old events untouched. |
+| **Stage 2** (post-launch) | After normalization queue catches up | Optional: add `catalog_topic_id` column to `ei_topic_state` for explicit CC linkage. Backfill via batch alias resolution. |
+| **Never** | — | No retroactive event rewriting. Append-only ledger invariant is absolute. |
+
+See [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection-system.md) § Schema Migration, [canvas-curriculum-catalog.md](canvas-curriculum-catalog.md), [tactical/curriculum-catalog-tactical-spec.md](tactical/curriculum-catalog-tactical-spec.md).
 
 ---
 

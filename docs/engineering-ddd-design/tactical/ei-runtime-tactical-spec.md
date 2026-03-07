@@ -73,7 +73,7 @@ The gate decision methods naturally belong to the `StudySession` entity. A domai
 |-------|------|-----------|
 | sessionId | string | Aggregate identity |
 | studentId | string | Student this session belongs to |
-| topicId | string | Topic for this session |
+| topicId | string (UUID) | Topic for this session. Resolved via CurriculumCatalog `ResolveTopic`; carries `TopicReference { topicId: UUID, topicName: string }`. Free-text fallback creates a provisional entry in CC. See §4a below. |
 | status | SessionStatus | Current lifecycle stage |
 | negotiatedIntent | NegotiatedIntent \| null | Set by `issueNegotiatedIntent()`; null until called |
 | activationPlan | ActivationPlan \| null | Set by `issueActivationPlan()`; null until called |
@@ -105,6 +105,24 @@ StudySession.open(studentId, topicId, sessionId)
 ```
 
 `close()` is callable from any non-closed state (e.g. student abandons session).
+
+### 4a) Topic Identity Resolution (CurriculumCatalog integration)
+
+Before `StudySession.open()` is called, the topic must be resolved to a `TopicReference` via CurriculumCatalog.
+
+**When:** During the `IntentSet` command processing, before the P1 gate runs.
+
+**How:**
+1. Student selects a topic from the SDUI topic picker (type-ahead search, browse, or recent chip) → `topicId` and `topicName` are already resolved.
+2. Student types free-text → EI Runtime calls `IResolveTopicUseCase.execute({ rawText, studentId, instituteId })` → returns `TopicReference { topicId: UUID, topicName: string }`.
+
+**Contract:**
+- **Always succeeds.** ResolveTopic never throws for valid input. If no catalog match, CC creates a provisional topic with a stable UUID and logs to the normalization queue.
+- **Immutability:** Once `NegotiatedIntentIssued` is emitted, `topicId` is locked for the session and carried through all subsequent events (SessionEnd, RetrievalVerified, etc.).
+
+**Published Language:** `TopicReference { topicId: UUID, topicName: string }` from CurriculumCatalog. See [canvas-curriculum-catalog.md](../canvas-curriculum-catalog.md), [tactical/curriculum-catalog-tactical-spec.md](curriculum-catalog-tactical-spec.md).
+
+**Event payload change:** All events that previously carried `topic: z.string()` now carry `topicId: UUID` + `topicName: string`. See [05-cross-cutting-concerns.md § Topic ID evolution](../05-cross-cutting-concerns.md#topic-id-evolution-curriculumcatalog-integration).
 
 ---
 

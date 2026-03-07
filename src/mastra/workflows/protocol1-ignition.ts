@@ -29,6 +29,7 @@ import { composeP1ViewStep } from './steps/compose-p1-view';
 const P1Input = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   energy: z.number().min(1).max(5),
   sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']),
   pressure: z.number().min(1).max(5),
@@ -47,7 +48,7 @@ const runP1Gate = createStep({
   inputSchema: P1Input,
   outputSchema: NegotiatedIntentIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
-    const { studentId, topic, energy, sleepBucket, pressure, backlogPressure, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, energy, sleepBucket, pressure, backlogPressure, idempotencyKey } = inputData;
     const db = eiStore.db;
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
@@ -71,11 +72,12 @@ const runP1Gate = createStep({
         pressure,
         backlogPressure,
         openedAt: new Date().toISOString(),
+        ...(topicName && { topicName }),
       },
     });
 
     const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine, sessionRepo);
-    return handler.execute({
+    const result = await handler.execute({
       studentId,
       topicId: topic,
       sessionId: session.sessionId,
@@ -84,6 +86,7 @@ const runP1Gate = createStep({
       pressure,
       backlogPressure,
     });
+    return { ...result, topicName };
   },
 });
 

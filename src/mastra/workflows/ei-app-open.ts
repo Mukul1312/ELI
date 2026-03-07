@@ -29,6 +29,22 @@ import { buildP1PresentationContext } from '../../ei/sdui/presentation-context';
 import type { NegotiatedIntentIssuedOutput } from '../../ei/schemas/outputs';
 import type { StateTrend } from '../../ei/domain/student-aggregates/student-aggregates';
 import * as Q from '../../ei/db/queries';
+import { createResolveTopicUseCase } from '../../lib/curriculum-catalog';
+import { getTopicDisplayName } from '../../ei/sdui/topic-display-name';
+
+/** Resolve raw topic text via CurriculumCatalog. Never blocks — falls back to raw string on error. */
+async function resolveTopicSafe(
+  db: typeof eiStore.db,
+  rawText: string,
+  studentId: string,
+): Promise<{ topicId: string; topicName: string }> {
+  try {
+    const ref = await createResolveTopicUseCase(db).execute({ rawText, studentId });
+    return { topicId: ref.topicId, topicName: ref.topicName };
+  } catch {
+    return { topicId: rawText, topicName: getTopicDisplayName(rawText) };
+  }
+}
 
 const AppOpenWorkflowInput = z.object({
   command: z.object({
@@ -89,7 +105,8 @@ const appOpenBranchStep = createStep({
           );
           const mode = (activationEvent?.payload?.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral';
           const playId = (activationEvent?.payload?.playId as string) ?? 'P2-N1';
-          return composeSessionView({ topic: topicId, mode, playId });
+          const sessionTopicName = await Q.getTopicName(db, studentId, topicId);
+          return composeSessionView({ topic: topicId, topicName: sessionTopicName ?? undefined, mode, playId });
         }
       }
 
@@ -109,28 +126,31 @@ const appOpenBranchStep = createStep({
             e.occurredAt > lastIntent.occurredAt,
         );
         if (!intentProgressed) {
+          // Load aggregates + event counts for PresentationContext (same pattern as protocol1-ignition .map() step).
+          const [aggregates, eventCounts, energyPressure, intentTopicName] = await Promise.all([
+            Q.getAggregates(db, studentId),
+            Q.countStudentEventsLast7d(db, studentId),
+            Q.getLastAppOpenEnergyPressure(db, studentId),
+            Q.getTopicName(db, studentId, intentTopicId),
+          ]);
+
           // Resume: reconstruct P1 view from stored NegotiatedIntentIssued event payload.
           // Event payload uses `topicId`; NegotiatedIntentIssuedOutput uses `topic`.
           const p = lastIntent.payload;
+          const resolvedTopicName = intentTopicName ?? (p.topicName as string) ?? undefined;
           const intentOutput: NegotiatedIntentIssuedOutput = {
             negotiatedIntentId: (p.negotiatedIntentId as string) ?? lastIntent.id,
             studentId,
             mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
             playId: (p.playId as string) ?? 'P1-N1',
             topic: intentTopicId,
+            topicName: resolvedTopicName,
             scope: p.scope as NegotiatedIntentIssuedOutput['scope'],
             verificationPlan: p.verificationPlan as NegotiatedIntentIssuedOutput['verificationPlan'],
             constraints: p.constraints as NegotiatedIntentIssuedOutput['constraints'],
             stateScore: (p.stateScore as number) ?? 0,
             issuedAt: lastIntent.occurredAt.toISOString(),
           };
-
-          // Load aggregates + event counts for PresentationContext (same pattern as protocol1-ignition .map() step).
-          const [aggregates, eventCounts, energyPressure] = await Promise.all([
-            Q.getAggregates(db, studentId),
-            Q.countStudentEventsLast7d(db, studentId),
-            Q.getLastAppOpenEnergyPressure(db, studentId),
-          ]);
 
           const aggregatesForPresentation = aggregates
             ? {
@@ -168,10 +188,14 @@ const appOpenBranchStep = createStep({
     }
 
     if (isAppOpenOnboarding(payload as AppOpenPayload)) {
-      const onboardingPayload = payload as { topic: string; taskType: string; subject?: string };
+      const onboardingPayload = payload as { topic: string; topicId?: string; topicName?: string; taskType: string; subject?: string };
+      const topicRef = onboardingPayload.topicId
+        ? { topicId: onboardingPayload.topicId, topicName: onboardingPayload.topicName ?? onboardingPayload.topic }
+        : await resolveTopicSafe(eiStore.db, onboardingPayload.topic, studentId);
       const p1InputData = {
         studentId,
-        topic: onboardingPayload.topic,
+        topic: topicRef.topicId,
+        topicName: topicRef.topicName,
         energy: 3,
         sleepBucket: '7-8' as const,
         pressure: 1,
@@ -181,21 +205,27 @@ const appOpenBranchStep = createStep({
       };
       const run = await protocol1IgnitionWorkflow.createRun();
       await run.start({ inputData: p1InputData });
-      return composeOnboardingResponseView(onboardingPayload.topic, onboardingPayload.taskType);
+      return composeOnboardingResponseView(topicRef.topicId, onboardingPayload.taskType, topicRef.topicName);
     }
 
     if (isAppOpenMicro(payload as AppOpenPayload)) {
       const microPayload = payload as {
         topic: string;
+        topicId?: string;
+        topicName?: string;
         energy: number;
         sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
         pressure?: number;
         backlogPressure?: number;
         openedAt?: string;
       };
+      const topicRef = microPayload.topicId
+        ? { topicId: microPayload.topicId, topicName: microPayload.topicName ?? microPayload.topic }
+        : await resolveTopicSafe(eiStore.db, microPayload.topic, studentId);
       const p2InputData = {
         studentId,
-        topic: microPayload.topic,
+        topic: topicRef.topicId,
+        topicName: topicRef.topicName,
         setAt: new Date().toISOString(),
         taskType: 'micro', // Treat as micro task
         idempotencyKey,
@@ -207,6 +237,8 @@ const appOpenBranchStep = createStep({
 
     const fullPayload = payload as {
       topic: string;
+      topicId?: string;
+      topicName?: string;
       energy: number;
       sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
       pressure?: number;
@@ -220,6 +252,9 @@ const appOpenBranchStep = createStep({
     };
 
     const db = eiStore.db;
+    const topicRef = fullPayload.topicId
+      ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
+      : await resolveTopicSafe(db, fullPayload.topic, studentId);
     const queryEvents = new PostgresQueryEventsAdapter(db);
     const router = new ProtocolRouter(queryEvents);
     const protocol = await router.decideProtocol(commandWithStudent);
@@ -227,7 +262,8 @@ const appOpenBranchStep = createStep({
     if (protocol === 1) {
       const p1InputData = {
         studentId,
-        topic: fullPayload.topic,
+        topic: topicRef.topicId,
+        topicName: topicRef.topicName,
         energy: fullPayload.energy,
         sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
         pressure: fullPayload.pressure ?? 1,
@@ -243,7 +279,8 @@ const appOpenBranchStep = createStep({
     if (protocol === 2) {
       const p2InputData = {
         studentId,
-        topic: fullPayload.topic,
+        topic: topicRef.topicId,
+        topicName: topicRef.topicName,
         setAt: new Date().toISOString(),
         taskType: undefined,
         idempotencyKey,

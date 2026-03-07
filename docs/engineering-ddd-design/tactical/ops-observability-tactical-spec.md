@@ -146,7 +146,7 @@ List the outbound dependencies Ops needs:
 
 | Port                                   | Role              | Responsibility                                                                                                                          |
 | -------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **IQueryEventsPort**                   | Driven            | Fetch ordered EventRecord[] for a student; supports filters (eventTypes, topicId, since/until, limit). Maps to `queryEvents` in Ledger. |
+| **IQueryEventsPort**                   | Driven            | Fetch ordered EventRecord[] for a student; supports filters (eventTypes, topicId, since/until, limit). Maps to `queryEvents` in Ledger. Supports both legacy `topic: string` and post-CC `topicId: UUID` event formats transparently. |
 | **IGetStudentAggregatesPort**          | Driven            | Get current aggregates for a student. Maps to `getAggregates` in queries.                                                               |
 | **IRecomputeStudentAggregatesUseCase** | Driven (use case) | Invoke RecomputeStudentAggregates handler. Projections write/repair.                                                                    |
 | **IProjectorEntrypointPort**           | Driven            | Call existing projector/recompute entrypoints (TopicLoop, StudentPolicy). Projections write/repair.                                     |

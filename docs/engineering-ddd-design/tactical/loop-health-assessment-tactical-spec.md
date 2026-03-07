@@ -9,6 +9,7 @@
 - **Domain service:** LoopHealth
 - **Scope:** Stateless — no identity, no persistence, no consistency boundary
 - **Responsibility:** Interpret aggregates + gate context into P1/P2/P3 labels and LoopHealthSnapshot (labels + evidence). Single source of truth for "what is healthy" — thresholds and precedence rules owned here.
+- **Topic-identity-agnostic:** LoopHealth consumes numeric signals from Projections (openLoops, verificationRate7d, etc.); topic identity format (legacy `topic: string` vs post-CC `topicId: UUID`) is transparent to label computation. No direct CurriculumCatalog dependency.
 - **Non-goals (outside LoopHealth):**
   - Aggregate computation (openLoops, verificationRate7d, etc.) — lives in StudentAggregates / EI Projections
   - Policy persistence — lives in StudentPolicy / Projections

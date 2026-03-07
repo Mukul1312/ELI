@@ -89,8 +89,9 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 | EI Projections       | Query response | GetStudentSignals → R/Signals             | aggregates, topic state, policy (openLoops, verificationRate7d, etc.) | Sync query         | Customer-Supplier               |
 | LoopHealthAssessment | Query response | AssessLoopHealth → R/LoopHealthSnapshot   | labels (p1, p2, p3) + key evidence                                    | Sync call          | Published Language              |
 | Student              | Command        | AppOpen                                   | energy, pressure, sleep, backlogPressure                              | —                  | Direct user                     |
-| Student              | Command        | IntentSet                                 | topic, taskType, difficultyTier                                       | —                  | Direct user                     |
-| Student              | Command        | SessionEnd                                | topic, effortSummary                                                  | —                  | Direct user                     |
+| CurriculumCatalog    | Query response | ResolveTopic → R/TopicReference           | topicId: UUID, topicName: string                                      | Sync query         | Published Language              |
+| Student              | Command        | IntentSet                                 | topicId, topicName, taskType, difficultyTier                          | —                  | Direct user                     |
+| Student              | Command        | SessionEnd                                | topicId, topicName, effortSummary                                     | —                  | Direct user                     |
 | Student              | Command        | VerifyNow, ScheduleVerify, SkipWithReason | minQuestions, dueInHours, reason                                      | —                  | Direct user                     |
 
 
@@ -101,7 +102,7 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
 | Message type | Message name                                                                                   | Collaborator    | Key data                                | Integration style | Relationship      |
 | ------------ | ---------------------------------------------------------------------------------------------- | --------------- | --------------------------------------- | ----------------- | ----------------- |
-| Event        | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse                     | EI Event Ledger | event payload per schema                | Sync append       | Customer-Supplier |
+| Event        | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse                     | EI Event Ledger | event payload per schema; topic-bearing events carry topicId (UUID) + topicName (string) from CC | Sync append       | Customer-Supplier |
 | Event        | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                       | EI Event Ledger | scope, mode, verificationDecision, etc. | Sync append       | Customer-Supplier |
 | Event        | RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, ScheduleMissed | EI Event Ledger | questions, dueAt, reason                | Sync append       | Customer-Supplier |
 | Command      | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                       | Student         | scope, firstAction, verify options      | —                 | Direct user       |

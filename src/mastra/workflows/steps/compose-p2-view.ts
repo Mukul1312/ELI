@@ -18,6 +18,7 @@ import { composeP2View } from '../../../ei/sdui/view-composer';
 export const ComposeP2ViewInputSchema = z.object({
   domainOutput: ActivationPlanIssuedSchema,
   topic: z.string(),
+  topicName: z.string().optional(),
   taskType: z.string().optional(),
   difficultyTier: z.string().optional(),
   replanCount: z.number().int().min(0).optional(),
@@ -28,9 +29,9 @@ export const composeP2ViewStep = createStep({
   inputSchema: ComposeP2ViewInputSchema,
   outputSchema: P2WrappedResponseSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof P2WrappedResponseSchema>> => {
-    const { domainOutput, topic, taskType, difficultyTier, replanCount = 0 } = inputData;
+    const { domainOutput, topic, topicName, taskType, difficultyTier, replanCount = 0 } = inputData;
 
-    const sdui = composeP2View(domainOutput, topic, replanCount, taskType, difficultyTier);
+    const sdui = composeP2View(domainOutput, topic, replanCount, taskType, difficultyTier, topicName);
 
     return {
       ...domainOutput,

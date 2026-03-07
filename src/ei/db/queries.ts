@@ -250,6 +250,7 @@ export interface TopicStateRow {
   student_id: string;
   topic_id: string;
   topic_step: string | null;
+  topic_name: string | null;
   last_effort_at: Date | null;
   last_retrieval_at: Date | null;
   last_scheduled_due_at: Date | null;
@@ -271,6 +272,18 @@ export async function getTopicState(
   );
 }
 
+export async function getTopicName(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<string | null> {
+  const row = await db.oneOrNone<{ topic_name: string | null }>(
+    'SELECT topic_name FROM ei_topic_state WHERE student_id = $1 AND topic_id = $2',
+    [studentId, topicId],
+  );
+  return row?.topic_name ?? null;
+}
+
 export async function getAllTopicStates(
   db: DbClient,
   studentId: string,
@@ -278,6 +291,20 @@ export async function getAllTopicStates(
   return db.any(
     'SELECT * FROM ei_topic_state WHERE student_id = $1 ORDER BY updated_at DESC',
     [studentId],
+  );
+}
+
+export async function getRecentTopics(
+  db: DbClient,
+  studentId: string,
+  limit = 5,
+): Promise<Array<{ topic_id: string; topic_name: string | null }>> {
+  return db.any(
+    `SELECT topic_id, topic_name FROM ei_topic_state
+     WHERE student_id = $1
+     ORDER BY updated_at DESC
+     LIMIT $2`,
+    [studentId, limit],
   );
 }
 
@@ -299,7 +326,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];

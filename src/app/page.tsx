@@ -147,9 +147,12 @@ export default function Home() {
   // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket)
   const hasRequiredCheckinFields = useCallback(() => {
     const topic = formValues['topic'];
+    const topicId = formValues['topicId'];
+    const hasTopic = (typeof topicId === 'string' && topicId.trim() !== '')
+      || (typeof topic === 'string' && topic.trim() !== '');
     const energy = formValues['energy'];
     const sleepBucket = formValues['sleepBucket'];
-    return typeof topic === 'string' && topic.trim() !== ''
+    return hasTopic
       && typeof energy === 'number' && energy >= 1 && energy <= 5
       && typeof sleepBucket === 'string' && sleepBucket.length > 0;
   }, [formValues]);

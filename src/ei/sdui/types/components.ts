@@ -92,6 +92,23 @@ export const SduiTextInputSchema = z.object({
 });
 export type SduiTextInput = z.infer<typeof SduiTextInputSchema>;
 
+export const SduiTopicInputSchema = z.object({
+  type: z.literal('topic-input'),
+  props: z.object({
+    inputId: z.string(),
+    label: z.string(),
+    placeholder: z.string(),
+    required: z.boolean(),
+    recentTopics: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+    })),
+    browseEnabled: z.boolean(),
+    instituteId: z.string().nullable(),
+  }),
+});
+export type SduiTopicInput = z.infer<typeof SduiTopicInputSchema>;
+
 export const SduiNumericInputSchema = z.object({
   type: z.literal('numeric-input'),
   props: z.object({
@@ -440,6 +457,7 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiPendingChecksSchema,
   SduiScaleInputSchema,
   SduiTextInputSchema,
+  SduiTopicInputSchema,
   SduiNumericInputSchema,
   SduiScopeCardSchema,
   SduiDealCardSchema,
@@ -469,6 +487,7 @@ export type SduiComponent =
   | SduiPendingChecks
   | SduiScaleInput
   | SduiTextInput
+  | SduiTopicInput
   | SduiNumericInput
   | SduiScopeCard
   | SduiDealCard

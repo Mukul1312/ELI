@@ -74,6 +74,11 @@ const SQL_STATEMENTS = [
       ALTER TABLE ei_topic_state ADD COLUMN retrieval_count_7d INTEGER NOT NULL DEFAULT 0;
     END IF;
   END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'topic_name') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN topic_name TEXT;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)

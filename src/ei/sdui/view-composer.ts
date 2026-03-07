@@ -147,7 +147,7 @@ export function composeP1View(
     type: 'scope-card',
     props: {
       title: p1Copy('scope_title', ctx),
-      topic: output.topic,
+      topic: getTopicDisplayName(output.topic, output.topicName),
       scopeSummary: `${output.scope.timeboxMin} min · ${output.scope.questionCount} questions · ${diffLabel}`,
       verificationSummary: `Verification: ${output.verificationPlan.minQuestions} question${output.verificationPlan.minQuestions > 1 ? 's' : ''} min${output.verificationPlan.preferVerifyNow ? ' (verify now preferred)' : ''}`,
       badge: { mode: output.mode, label: output.mode },
@@ -341,6 +341,7 @@ export function composeP2View(
   _replanCount = 0,
   taskType?: string,
   difficultyTier?: string,
+  topicName?: string,
 ): SduiResponse {
   const isRetrieval = taskType === 'Retrieval';
   const variant: SduiActivationCard['props']['variant'] = isRetrieval
@@ -365,10 +366,12 @@ export function composeP2View(
     ? p2Copy('focus_note', output.mode, output.playId)
     : undefined;
 
+  const displayName = getTopicDisplayName(topic, topicName);
+
   const header: SduiComponent[] = [{
     type: 'session-context-bar',
     props: {
-      topic,
+      topic: displayName,
       taskType: taskType ?? 'Practice',
       difficultyTier: difficultyTier ?? 'Medium',
     },
@@ -440,6 +443,7 @@ export function composeP2View(
 
 export interface SessionViewInput {
   topic: string;
+  topicName?: string;
   mode: 'Rescue' | 'Neutral' | 'Boost';
   playId: string;
   /** Task type selected by student during P1 (e.g. 'Learn', 'Practice', 'Revise'). */
@@ -459,7 +463,7 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
   const header: SduiComponent[] = [{
     type: 'session-context-bar',
     props: {
-      topic: input.topic,
+      topic: getTopicDisplayName(input.topic, input.topicName),
       taskType: input.taskType ?? 'Practice',
       difficultyTier: input.difficultyTier ?? 'Medium',
       sessionStartedAt: new Date().toISOString(),
@@ -531,7 +535,7 @@ export function composeP3View(
   const body: SduiComponent[] = [{
     type: 'verification-card',
     props: {
-      topic: output.topic,
+      topic: getTopicDisplayName(output.topic, output.topicName),
       mode: verifyMode,
       openingLine: VERIFY_OPENING[verifyMode],
       topicPrompt: VERIFY_PROMPT[verifyMode],
@@ -613,6 +617,7 @@ export function composePhase3View(
   mode: Mode,
   scenario: Phase3Scenario,
   ctx: PresentationContext,
+  topicName?: string,
 ): SduiResponse {
   const body: SduiComponent[] = [];
   const footer: SduiComponent[] = [];
@@ -636,7 +641,7 @@ export function composePhase3View(
   // Subline (below headline, 16px secondary)
   let subline: string | undefined;
   if (scenario === 'verified') {
-    subline = `${topic} — you proved you remember it.`;
+    subline = `${getTopicDisplayName(topic, topicName)} — you proved you remember it.`;
   } else if (scenario === 'milestone') {
     subline = "Everything you've studied —\nyou've also proved.";
   } else if (scenario === 'first_ever') {
@@ -739,6 +744,19 @@ type Phase1Variant =
   | 'CLEAN_START'
   | 'DEAL_CARD'
   | 'PENDING_STANDARD';
+
+function shouldShowRecentTopics(
+  variant: Phase1Variant,
+  pendingChecks: number,
+  recentTopics?: Array<{ id: string; name: string }>,
+): boolean {
+  if (!recentTopics || recentTopics.length === 0) return false;
+  if (variant === 'HIGH_PRESSURE' || variant === 'DEAL_CARD'
+    || variant === 'ONBOARDING') return false;
+  if ((variant === 'PENDING_STANDARD' || variant === 'CLEAR_THEN_CHALLENGE')
+    && pendingChecks >= 3) return false;
+  return true;
+}
 
 const VARIANT_TO_PLAY: Record<Phase1Variant, string> = {
   ONBOARDING: 'P1-ONBOARD',
@@ -853,8 +871,8 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
           },
         },
       };
-      const topicName = getTopicDisplayName(t.topicId);
-      return { topicId: t.topicId, topicName, daysAgo, actionId };
+      const displayName = getTopicDisplayName(t.topicId, t.topicName);
+      return { topicId: t.topicId, topicName: displayName, daysAgo, actionId };
     });
 
     if (items.length > 0) {
@@ -929,6 +947,7 @@ export type Phase3Scenario =
 export function composeCheckinView(
   ctx: PresentationContext,
   identityEligibility?: IdentityEligibilityResult,
+  recentTopics?: Array<{ id: string; name: string }>,
 ): SduiResponse {
   const header: SduiComponent[] = [];
   const body: SduiComponent[] = [];
@@ -991,13 +1010,17 @@ export function composeCheckinView(
   // ── Form elements ─────────────────────────────────────────────────────────
 
   // Topic input
+  const showRecent = shouldShowRecentTopics(phase1Variant, ctx.pendingChecks, recentTopics);
   body.push({
-    type: 'text-input',
+    type: 'topic-input',
     props: {
       inputId: 'topic',
       label: 'What are you studying?',
       placeholder: 'e.g. Thermodynamics, Organic Chemistry...',
       required: true,
+      recentTopics: showRecent ? (recentTopics ?? []) : [],
+      browseEnabled: phase1Variant !== 'HIGH_PRESSURE',
+      instituteId: null,
     },
   });
   body.push({ type: 'spacer', props: { size: 'md' } });
@@ -1079,6 +1102,8 @@ export function composeCheckinView(
     commandType: 'AppOpen',
     payload: {
       topic: '{{topic}}',
+      topicId: '{{topicId}}',
+      topicName: '{{topicName}}',
       energy: '{{energy}}',
       sleepBucket: '{{sleepBucket}}',
       pressure: '{{pressure}}',
@@ -1090,6 +1115,8 @@ export function composeCheckinView(
     commandType: 'AppOpen',
     payload: {
       topic: '{{topic}}',
+      topicId: '{{topicId}}',
+      topicName: '{{topicName}}',
       energy: '{{energy}}',
       sleepBucket: '{{sleepBucket}}',
       pressure: '{{pressure}}',
@@ -1205,8 +1232,9 @@ export function composeOnboardingWelcomeView(): SduiResponse {
 export function composeOnboardingResponseView(
   topic: string,
   taskType: string,
+  topicName?: string,
 ): SduiResponse {
-  const topicDisplay = getTopicDisplayName(topic);
+  const topicDisplay = getTopicDisplayName(topic, topicName);
   const primaryLabel = `Start ${taskType.toLowerCase()} (15–20 min)`;
   const alternates = ['Learn', 'Practice', 'Revise'].filter((t) => t !== taskType);
   const alternateTaskType = alternates[0];

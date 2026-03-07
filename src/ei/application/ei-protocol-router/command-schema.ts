@@ -20,6 +20,8 @@ export const AppOpenFirstTouchSchema = z
 export const AppOpenOnboardingPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     taskType: z.string(),
     subject: z.string().optional(),
   })
@@ -29,6 +31,8 @@ export const AppOpenOnboardingPayloadSchema = z
 export const AppOpenMicroPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
     pressure: z.number().min(1).max(5).optional(),
@@ -42,6 +46,8 @@ export const AppOpenMicroPayloadSchema = z
 export const AppOpenFullPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
     pressure: z.number().min(1).max(5).optional(),

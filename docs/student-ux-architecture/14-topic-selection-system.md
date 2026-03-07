@@ -654,6 +654,149 @@ The browse tree from Stage 1 stays the same. Students do not see or interact wit
 
 ---
 
+## Component Interaction Design — `topic-input`
+
+> This section is for the engineering team building the component. It defines the complete set of states, transitions, and edge cases that the design requires.
+
+### Component State Machine
+
+The component is always in exactly one of these states:
+
+```
+IDLE
+  ↓ student starts typing (≥1 char)
+TYPING
+  ↓ 2+ chars typed + 200ms debounce fires
+SEARCHING  (loading indicator in input right edge)
+  ↓ results arrive from /api/curriculum-catalog/search
+SUGGESTIONS_OPEN
+  ↓ student taps a suggestion
+TOPIC_SELECTED
+
+IDLE
+  ↓ student taps "Browse"
+BROWSE_OPEN
+  ↓ student drills into a subject/unit
+BROWSE_DRILLING
+  ↓ student taps a leaf topic
+TOPIC_SELECTED
+  ↓ student swipes down / taps outside the sheet
+IDLE  (typed text restored if any — see rule 2 below)
+
+IDLE or SUGGESTIONS_OPEN
+  ↓ student taps a recent chip
+TOPIC_SELECTED
+
+TOPIC_SELECTED
+  ↓ student taps the × clear button
+IDLE
+```
+
+### State Behaviour Table
+
+| State | Input field | Suggestions | Recent chips | Browse button |
+|---|---|---|---|---|
+| IDLE | Empty, placeholder visible | Hidden | Visible (if any) | Visible |
+| TYPING < 2 chars | Shows typed text | Hidden | Hidden | Visible |
+| TYPING ≥ 2 chars | Shows typed text | Hidden (debouncing) | Hidden | Visible |
+| SEARCHING | Shows typed text | Subtle spinner at right edge of input | Hidden | Disabled |
+| SUGGESTIONS_OPEN | Shows typed text | Visible, max 5 | Hidden | Visible |
+| TOPIC_SELECTED | Shows topic name in `--color-accent` | Hidden | Hidden | Hidden |
+| BROWSE_OPEN | Frozen — not editable, keyboard dismissed | Hidden | Hidden | Hidden |
+| BROWSE_DRILLING | (inside sheet — input state frozen) | — | — | — |
+
+### Key Interaction Rules
+
+**1. TOPIC_SELECTED — what the input looks like**
+
+When any selection is made (chip, suggestion, or browse leaf), the input transforms:
+
+```
+Before (IDLE):               After (TOPIC_SELECTED):
+[ther_____________] [Browse]  [● Thermodynamics  ×]
+                              ↑ accent color       ↑ clear button
+```
+
+- Input is read-only — tapping it does NOT open the keyboard
+- Text color: `--color-accent`
+- A `×` clear button appears at the right edge (16px, `--color-text-tertiary`)
+- Tapping `×` returns to IDLE state, clears the value
+
+**2. Browse dismissed without selection — restore typed text**
+
+If the student typed "ther", opened Browse, explored, then dismissed the sheet without selecting — the input restores to "ther" and returns to SUGGESTIONS_OPEN (not IDLE). Do not discard the student's in-progress text.
+
+**3. Suggestion list — floats, does not push layout**
+
+The suggestion list appears below the input and floats over the recent chips. It does NOT push content down the page. Recent chips reappear the moment suggestions close (on dismiss or topic selection).
+
+**4. Keyboard + browse sheet on mobile — strict order**
+
+When Browse is tapped while the keyboard is open:
+1. Dismiss the soft keyboard
+2. Wait 100ms
+3. Slide up the bottom sheet
+
+The sheet must not animate while the keyboard is still animating down. Doing both simultaneously causes layout jank.
+
+**5. Search API failure — silent, never blocking**
+
+If `/api/curriculum-catalog/search` fails or takes > 2s:
+- Dismiss the loading indicator silently
+- Show no suggestions (same as empty state)
+- Student can still submit whatever they typed as free text
+- Do NOT show "Search failed" or any error message — the student can proceed without catalog results
+
+**6. Browse API failure — inform inside the sheet**
+
+If `/api/curriculum-catalog/browse` fails when the sheet opens:
+- Show a single-line message inside the sheet body: `"Couldn't load topics. Try searching instead."`
+- Sheet stays open — do not auto-close it
+- Student dismisses the sheet themselves
+- Browse button returns to its normal state
+
+**7. Recent chips overflow**
+
+- Maximum 5 chips rendered
+- Chips wrap to a second row if needed
+- If a chip label exceeds 20 characters, truncate at 18 with ellipsis: `"Electromagnetic Wav…"`
+- Never wrap to a third row — cap at 2 rows maximum, silently drop any chips that would appear on row 3
+
+**8. Payload shape: catalog selection vs free text**
+
+These are the two shapes the `AppOpen` command handler must accept:
+
+```typescript
+// Student selected from catalog (chip, suggestion, or browse)
+{
+  topicId: "uuid-abc-123",
+  topicName: "Thermodynamics",
+  topicRaw: null,
+}
+
+// Student submitted free text (ignored all suggestions)
+{
+  topicId: null,
+  topicName: null,
+  topicRaw: "thermo ch 5",   // goes to normalization queue
+}
+```
+
+**9. Browse sheet internal search bar**
+
+The sheet has a search bar at the top. It filters **the current drill-down level only** — not the full catalog.
+
+- At the exam level: filters exams by name
+- At the subject level: filters subjects within the selected exam
+- At the unit level: filters units within the selected subject
+- At the chapter level: filters chapters within the selected unit
+
+It does NOT jump the student out to a global search. Placeholder text: `"Search in [current level name]"` — e.g. `"Search in Physics"`.
+
+If the student wants to search the full catalog across all exams/subjects, they dismiss the sheet and use the main type-ahead input.
+
+---
+
 ## Engineering Handoff Notes
 
 This section flags questions and constraints the product design introduces for the engineering team. These are **not** architectural decisions — they are inputs for the engineering team to evaluate against the existing DDD structure.

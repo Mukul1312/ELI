@@ -45,6 +45,7 @@ export type AppOpen = z.infer<typeof AppOpenSchema>;
 export const IntentSetSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   taskType: TaskTypeEnum.optional(),
   scope: z.object({
     timeboxMin: z.number().optional(),
@@ -58,6 +59,7 @@ export type IntentSet = z.infer<typeof IntentSetSchema>;
 export const SessionEndSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   endedAt: z.string().datetime(),
 });
 export type SessionEnd = z.infer<typeof SessionEndSchema>;
@@ -82,6 +84,7 @@ export type IntentResponse = z.infer<typeof IntentResponseSchema>;
 export const RetrievalVerifiedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   questionsAttempted: z.number().int(),
   tier: DifficultyTierEnum,
   format: VerificationFormatEnum,
@@ -93,6 +96,7 @@ export type RetrievalVerified = z.infer<typeof RetrievalVerifiedSchema>;
 export const RetrievalScheduledSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   dueAt: z.string().datetime(),
   questionsPlanned: z.number().int(),
   tier: DifficultyTierEnum,
@@ -104,6 +108,7 @@ export type RetrievalScheduled = z.infer<typeof RetrievalScheduledSchema>;
 export const RetrievalSkippedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   reason: z.string(),
   skippedAt: z.string().datetime(),
 });
@@ -112,6 +117,7 @@ export type RetrievalSkipped = z.infer<typeof RetrievalSkippedSchema>;
 export const VerificationCompletedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   completedAt: z.string().datetime(),
   result: z.enum(['confident', 'partial', 'needs_review']).optional(),
 });
@@ -124,6 +130,7 @@ export type VerificationCompleted = z.infer<typeof VerificationCompletedSchema>;
 export const FirstActionStartedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   startedAt: z.string().datetime(),
 });
 export type FirstActionStarted = z.infer<typeof FirstActionStartedSchema>;
@@ -131,6 +138,7 @@ export type FirstActionStarted = z.infer<typeof FirstActionStartedSchema>;
 export const ReplanSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   reason: z.string().optional(),
   replannedAt: z.string().datetime(),
 });

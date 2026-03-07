@@ -23,7 +23,7 @@
 | --------------------- | -------------------------------------------------------------------------------------- |
 | TopicLoopId           | Composite identity: `{ studentId, topicId }`                                           |
 | StudentId             | Student identifier (string; server-derived)                                            |
-| TopicId               | Topic identifier (string; maps to `topic` in events)                                   |
+| TopicId               | Topic identifier. New events carry `topicId: UUID` (CurriculumCatalog reference). Legacy events carry `topic: string`; reconciled to UUID via CC alias lookup. See [05-cross-cutting-concerns.md § Topic ID evolution](../05-cross-cutting-concerns.md#topic-id-evolution-curriculumcatalog-integration). |
 | OccurredAt            | ISO datetime when something happened                                                   |
 | DueAt                 | ISO datetime when retrieval is scheduled                                               |
 | last_effort_at        | Latest timestamp of effort completion (SessionEnd)                                     |
@@ -58,6 +58,7 @@ Per [05-cross-cutting-concerns.md#invariants](../05-cross-cutting-concerns.md):
 1. **Monotonic topic state:** `last_effort_at`, `last_retrieval_at`, `last_scheduled_due_at` must never move backward. Out-of-order or late events handled via GREATEST semantics.
 2. **Replaceability:** State can be recomputed from events. No source of truth outside the event log for derived state.
 3. **Idempotent event application:** Applying the same event twice (by idempotency key or deterministic event id) must yield the same final state.
+4. **CC reconciliation (dual-read):** When projecting a legacy event with `topic: string`, the projector resolves it to a `catalogTopicId` via `ICatalogRepository.findTopicsByAlias()`. If no alias match, the raw string is used as-is (backward compatible). The `ei_topic_state` primary key remains `(student_id, topic_id)` where `topic_id` is the CC UUID for new events or the raw string for legacy events. New events carry `topicId: UUID` directly — no lookup needed.
 
 ---
 

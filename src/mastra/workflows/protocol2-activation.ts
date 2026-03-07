@@ -29,6 +29,7 @@ import { composeP2ViewStep } from './steps/compose-p2-view';
 const P2Input = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   taskType: z.string().optional(),
   difficultyTier: z.union([z.number(), z.string()]).optional(),
   setAt: z.string().datetime(),
@@ -95,6 +96,7 @@ export const protocol2ActivationWorkflow = createWorkflow({
     return {
       domainOutput: inputData,
       topic: initData.topic,
+      topicName: initData.topicName,
       taskType: initData.taskType,
       difficultyTier,
       replanCount: 0, // TODO: pass from context when Replan workflow re-runs P2

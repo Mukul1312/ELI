@@ -34,6 +34,7 @@ function mapTopicSnapshots(rows: Q.TopicStateRow[]): TopicStateSnapshot[] {
   return [...rows]
     .map((r) => ({
       topicId: r.topic_id,
+      topicName: r.topic_name ?? undefined,
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,
@@ -56,7 +57,7 @@ export const composeCheckinViewStep = createStep({
     const { studentId, isFirstOfDay, idempotencyKey } = inputData;
     const db = eiStore.db;
 
-    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen] =
+    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen, recentTopicRows] =
       await Promise.all([
         Q.getAggregates(db, studentId),
         Q.getAllTopicStates(db, studentId),
@@ -64,6 +65,7 @@ export const composeCheckinViewStep = createStep({
         Q.getLastIdentityShownAt(db, studentId),
         Q.getHistoricalIdentityIndicators(db, studentId),
         Q.hasPriorAppOpen(db, studentId),
+        Q.getRecentTopics(db, studentId, 5),
       ]);
 
     const ctx = buildCheckinPresentationContext(
@@ -94,6 +96,10 @@ export const composeCheckinViewStep = createStep({
       );
     }
 
-    return composeCheckinView(ctx, identityEligibility);
+    const recentTopics = recentTopicRows
+      .filter((r) => r.topic_name)
+      .map((r) => ({ id: r.topic_id, name: r.topic_name! }));
+
+    return composeCheckinView(ctx, identityEligibility, recentTopics);
   },
 });

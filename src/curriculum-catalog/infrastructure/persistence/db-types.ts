@@ -6,6 +6,6 @@
 export interface CurriculumCatalogDb {
   one<T>(query: string, params?: unknown[]): Promise<T>;
   oneOrNone<T>(query: string, params?: unknown[]): Promise<T | null>;
-  none(query: string, params?: unknown[]): Promise<void>;
+  none(query: string, params?: unknown[]): Promise<null>;
   many<T>(query: string, params?: unknown[]): Promise<T[]>;
 }

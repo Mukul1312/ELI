@@ -31,6 +31,7 @@ import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/st
 const P3Input = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   endedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -45,7 +46,7 @@ const runP3Gate = createStep({
   inputSchema: P3Input,
   outputSchema: VerificationDecisionIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof VerificationDecisionIssuedSchema>> => {
-    const { studentId, topic, endedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, endedAt, idempotencyKey } = inputData;
     const db = eiStore.db;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const baseAdapter = new PostgresAppendEventAdapter(db);
@@ -80,7 +81,7 @@ const runP3Gate = createStep({
     await recomputeTopicLoop(db, studentId, topic);
     await recomputeStudentAggregates(db, studentId);
 
-    return result;
+    return { ...result, topicName };
   },
 });
 

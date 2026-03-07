@@ -24,6 +24,7 @@ export const NegotiatedIntentIssuedSchema = z.object({
   mode: ModeEnum,
   playId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   taskType: z.string().optional(),
   scope: z.object({
     timeboxMin: z.number(),
@@ -81,6 +82,7 @@ export const VerificationDecisionIssuedSchema = z.object({
   mode: ModeEnum,
   playId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   verificationDecision: z.enum(['VerifyNow', 'ScheduleVerify', 'Skip']),
   verificationSpec: z.object({
     minQuestions: z.number().int(),
