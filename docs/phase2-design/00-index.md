@@ -87,6 +87,12 @@ src/ei/sdui/view-composer.ts               ← composeP2View() implementation
 src/app/sdui/components/session-context-bar ← context bar component
 ```
 
+**North star storyboard:** [`storyboards/S4-flowing-but-avoidant.md`](../student-ux-architecture/storyboards/S4-flowing-but-avoidant.md) — 20 sessions across 12 days. Shows activation entry plays, context bar content, nudge timing, and session duration variance in practice.
+
+**Key cross-references:**
+- [06-phase2-the-session.md](../student-ux-architecture/06-phase2-the-session.md) — authoritative UX spec for Phase 2 (context bar shows `[Topic] · [TaskType] · [Scope label]`, not DifficultyTier)
+- [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) — task type definitions that affect context bar content
+
 ---
 
 ## What's Not in This Sprint

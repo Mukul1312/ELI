@@ -329,8 +329,6 @@ Neutral mode, `pendingChecks = 0`, no risk signals, energy 3 (`Okay`) or no pres
 │  [ Pick a topic ]                                │  ← primary CTA
 │  [ Continue from yesterday ]                     │  ← secondary (if lastTopic exists)
 │                                                  │
-│  + Add more context                              │  ← optional pressure/sleep link
-│                                                  │
 │  ──────────────────────────────────────────────  │
 │  This week: 3 sessions · 2 loops closed · steady │  ← footer collapsed
 │                                                  │
@@ -381,8 +379,6 @@ Neutral mode, `pendingChecks = 1–2`. Normal energy, no pressure override.
 │                                                  │
 │  [ Clear this check (5 min) ]                    │  ← primary CTA
 │  [ Start new topic ]                             │  ← secondary CTA
-│                                                  │
-│  + Add more context                              │
 │                                                  │
 │  ──────────────────────────────────────────────  │
 │  This week: 3 sessions · steady                  │
@@ -696,6 +692,42 @@ No prior `AppOpen` events in `ei_events` for this student. True first session.
 | V8 Clear-then-challenge | Boost | Shown | Shown | 2 | Collapsed summary |
 | V9 Identity moment | Any | Hidden (after CTA) | Hidden | 1 | Hidden |
 | V10 Onboarding | First-ever | Hidden | Hidden | 2 | First-session label |
+
+---
+
+## Checkin Observations (Session 5+)
+
+> **Not a separate variant.** Checkin observations appear as inline text within the greeting line of applicable variants (V4–V8). They ride on the existing variant, not a separate screen.
+
+Starting at Session 5 (Tier 2 pattern claim data — 5+ data points), ELI can append a short observation to the greeting. This is the first "it sees my pattern" moment. Examples from the [S4 storyboard](../student-ux-architecture/storyboards/S4-flowing-but-avoidant.md):
+
+- Session 5: *"5 sessions in. Good energy most of them."*
+- Session 7: *"Good energy again. You tend to show up ready."*
+
+**Rules:**
+- One sentence only. Never two observations stacked.
+- Hedging language required at Tier 2 (5–6 data points): "most of them", "tends to", "usually"
+- Assertive language allowed at Tier 3+ (7+ data points): "you show up ready", "you do best with"
+- The observation appends to the greeting; it does not replace it.
+- Never shows before Session 5 — the system has not earned the right.
+
+Cross-references: [16-formation-period.md](../student-ux-architecture/16-formation-period.md) (pattern claim tier thresholds), [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md) (session-by-session capability map).
+
+---
+
+## Task Type Auto-Suggestion
+
+> **Not shown in variant wireframes** — this is a behavioral rule that affects the task type chip row in the checkin form, not the Phase 1 variant screen.
+
+| Session range | Behavior |
+|---|---|
+| Session 1 (onboarding) | All task types shown. No pre-selection. Student picks. |
+| Session 2+ (known topic) | **Learn chip hidden** when `topic.priorSessionsCount > 0`. Student can only pick Practice or Revise for a topic they've already studied. |
+| Session 8+ | **Previous task type pre-selected as default.** The chip row shows all eligible types, but the student's most recent task type for this topic is pre-highlighted. Reduces decision fatigue. |
+
+**Why hide Learn for revisits:** A student cannot "Learn" a topic they've already had a session on. Learn = first encounter. Practice = active retrieval. Revise = refresher. Hiding Learn for known topics prevents misclassification and keeps the task type signal clean for the engine.
+
+Cross-references: [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) (task type definitions and Phase 3 decision matrix), [S4 storyboard Session 3+](../student-ux-architecture/storyboards/S4-flowing-but-avoidant.md).
 
 ---
 

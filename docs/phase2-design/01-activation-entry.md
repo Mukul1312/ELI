@@ -47,13 +47,13 @@ No pending list. No footer. No energy scale. The student has already committed �
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium                 │  ← context bar, 12px
+│  Integration · Practice · ~20 min              │  ← context bar, 12px
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │                                            │  │
-│  │  Start with Problem Set A,                 │  │  ← firstAction, 22px greeting size
-│  │  Q1–3 only.                                │  │
+│  │  One topic. ~20 minutes.                   │  │  ← firstAction, 22px greeting size
+│  │  Start when ready.                         │  │
 │  │                                            │  │
 │  └────────────────────────────────────────────┘  │
 │                                                  │
@@ -68,7 +68,7 @@ No pending list. No footer. No energy scale. The student has already committed �
 - `first-action-card` (variant: `neutral`)
 
 **Copy pattern:**
-- `firstAction` is specific and bounded: topic + exact starting point + scope limit
+- `firstAction` is scope-framed: topic + time commitment + "start when ready." ELI decides HOW MUCH, the student decides HOW.
 - No time estimate — the student sets their own pace
 - CTA: "Got it. Starting." — present tense, definitive, no question mark
 
@@ -80,13 +80,13 @@ No pending list. No footer. No energy scale. The student has already committed �
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium                 │  ← context bar, 12px
+│  Integration · Practice · ~20 min              │  ← context bar, 12px
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │                                            │  │
-│  │  Open your resource to Q1.                 │  │  ← firstAction, 22px
-│  │  Just Q1. Nothing else.                    │  │
+│  │  Just one thing. 5 minutes.                │  │  ← firstAction, 22px
+│  │  That's a win.                             │  │
 │  │                                            │  │
 │  └────────────────────────────────────────────┘  │
 │                                                  │
@@ -102,7 +102,7 @@ No pending list. No footer. No energy scale. The student has already committed �
 - `first-action-card` (variant: `rescue_micro`)
 
 **Copy pattern:**
-- `firstAction` is the absolute minimum: open the resource, not solve the problem
+- `firstAction` is the absolute minimum: time commitment + "that's a win." No content prescription.
 - Rationale line: 14px, `--color-text-tertiary`, one sentence only — context, not motivation speech
 - CTA: past-perfect tense ("I've opened it") — the student is confirming an action already done, not promising a future one
 
@@ -126,13 +126,13 @@ This is the one place in the entire product where a timer appears. It counts **u
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium                 │
+│  Integration · Practice · ~20 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │                                            │  │
 │  │  2 minutes. That's all.                    │  │  ← firstAction, 22px
-│  │  Open Q1. Just start reading.              │  │
+│  │  Open anything. Just start.                │  │
 │  │                                            │  │
 │  │         0:47                               │  │  ← elapsed timer, 28px display size
 │  │                                            │  │     --color-text-tertiary (muted)
@@ -156,7 +156,7 @@ The first-action card transforms in place after 2 minutes. The screen does not n
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium                 │
+│  Integration · Practice · ~20 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
@@ -191,7 +191,7 @@ The first-action card transforms in place after 2 minutes. The screen does not n
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium                 │
+│  Integration · Practice · ~20 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
@@ -218,7 +218,7 @@ The first-action card transforms in place after 2 minutes. The screen does not n
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Hard                   │
+│  Integration · Practice · ~30 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
@@ -244,12 +244,12 @@ The first-action card transforms in place after 2 minutes. The screen does not n
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Hard                   │
+│  Integration · Practice · ~30 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
 │  │                                            │  │
-│  │  Start with the hardest question first.    │  │  ← firstAction, 22px
+│  │  Start with the hardest part.              │  │  ← firstAction, 22px
 │  │  Willpower first. Then the rest.           │  │
 │  │                                            │  │
 │  └────────────────────────────────────────────┘  │
@@ -267,7 +267,7 @@ The first-action card transforms in place after 2 minutes. The screen does not n
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Hard                   │
+│  Integration · Practice · ~30 min              │
 │                                                  │
 │                                                  │
 │  ┌────────────────────────────────────────────┐  │
@@ -319,7 +319,7 @@ The student already studied this topic. They are not starting fresh — they are
 | Attribute | Study session | Retrieval session |
 |---|---|---|
 | Context bar task type | Practice / Learn / Revise | Retrieval |
-| firstAction | "Start with Problem Set A, Q1-3" | "Do 1 question. In your head or on paper." |
+| firstAction | "One topic. ~20 minutes. Start when ready." | "Do 1 question. In your head or on paper." |
 | After CTA tap | → Active session screen | → Phase 3 verification ask (directly) |
 | Active session | Yes (student studies) | **No** — skips straight to Phase 3 |
 | Session duration | Variable | ~5 minutes by design |

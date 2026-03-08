@@ -192,7 +192,7 @@ Calm      Slightly   Uneasy    Very      Panicky
 
 > **BacklogPressure is never shown to students.** The scale is retired from the student-facing form. Signal source: behavioral inference from `pendingChecks + OpenLoops + ScheduleMisses7d`. See [BacklogPressure](../student-ux-architecture/03-ux-scales.md#backlogpressure-1-5) in `03-ux-scales.md` for the full behavioral signal mapping.
 >
-> The chip definitions below are preserved for engineering reference only.
+> The chip definitions below are preserved for engineering reference only. **Do NOT use these chip definitions in new code.** BacklogPressure is inferred from behavioral signals, never from student input. These values exist solely to document what the internal `backlogPressure: 3` means when the system computes it.
 
 ### Prompt text (system reference only — not shown to students)
 ```

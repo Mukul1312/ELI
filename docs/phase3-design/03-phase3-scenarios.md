@@ -30,6 +30,26 @@ Each scenario follows the same structure:
 
 ---
 
+## Counter Direction by Task Type
+
+> The counter going DOWN is the core Closure beat. But the counter also goes **UP** when a Learn session creates a new pending check. This section documents the UP direction.
+
+| Task type | Counter direction at Phase 3 | What the student sees |
+|---|---|---|
+| **Practice** / **Revise** (verification completed) | DOWN: `N → N-1` | Scenarios A, F, or G — loop closed |
+| **Practice** / **Revise** (deferred or skipped) | No change | Scenarios B, C, D, or E — no counter shown |
+| **Learn** (new topic, first session) | UP: `N → N+1` | New loop opened — pending check created |
+
+**Learn sessions create pending checks, not close them.** This is not a negative event — it is the start of a new loop. The counter going UP is the promise of a future Closure beat.
+
+**Copy framing for counter UP:** "New loop opened. [Topic] added to your checks." Never frame the increase negatively — no "pending increased" or "you now have more." The framing is additive: a loop was born.
+
+**Where the counter UP appears:** After a Learn session ends, Phase 3 shows the counter going UP as part of the close card. The student sees the number rise, accompanied by the "new loop opened" copy. The counter-UP animation is intentionally less celebratory than the counter-DOWN animation (see [02-counter-animation.md](02-counter-animation.md)).
+
+Cross-reference: [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) for the full Phase 3 decision matrix by task type.
+
+---
+
 ## Scenario A — Loop Closed
 
 ### When it fires

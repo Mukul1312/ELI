@@ -175,7 +175,62 @@ The student sees: "First loop closed" + counter drops from 1 to 0. The teaching 
 
 ---
 
-## 5. What Is NOT Animated
+## 5. Counter UP — New Loop Opened (Learn Sessions)
+
+When a Learn session (new topic, first session) ends, the counter goes UP: `N → N+1`. A new pending check was created. This is not a reward — it is a promise: a loop was born, and a future Closure beat awaits.
+
+### Animation sequence
+
+Same mechanism as the standard drop, but with reversed visual direction and neutral treatment:
+
+```
+t=0ms     → Screen renders. Phase 3 card fades in.
+t=200ms   → Short pause. Student sees the old number (2) for a beat.
+t=200ms   → Old number begins exit:
+              opacity: 1 → 0
+              scale:   1.0 → 0.85
+              duration: 160ms
+              easing:  ease-in
+t=340ms   → Old number is invisible.
+t=340ms   → New number begins entrance:
+              opacity: 0 → 1
+              scale:   0.85 → 1.0
+              duration: 200ms
+              easing:  ease-out
+              translateY: -4px → 0 (slides DOWN into place — opposite of the drop's upward feel)
+t=540ms   → New number is at full opacity, resting at scale 1.0.
+t=540ms   → NO pulse. The pulse is a closure reward; UP is not a reward.
+t=540ms   → Color: stays at --color-text-secondary (neutral, not celebratory)
+              No color transition — no accent, no --color-closed.
+
+Total: ~540ms from first number exit to settled state (shorter than the DOWN animation).
+```
+
+### Key differences from counter DOWN
+
+| Aspect | Counter DOWN (closure) | Counter UP (new loop) |
+|---|---|---|
+| Direction feel | Number drops in | Number slides down into place |
+| Pulse | Yes (1.0 → 1.06 → 1.0) | No |
+| Color accent | `--color-accent` → `--color-closed` → `--color-text-primary` | `--color-text-secondary` throughout |
+| Total duration | ~1900ms | ~540ms |
+| Feeling | Satisfying closure | Neutral acknowledgment |
+
+### Component spec
+
+The `loop-closed-counter` component gains a new variant:
+
+```
+variant: 'standard' | 'milestone' | 'first-ever' | 'new-loop'
+```
+
+| Variant | countBefore | countAfter | Special behavior |
+|---|---|---|---|
+| new-loop | N | N+1 | No pulse, no color accent, neutral copy |
+
+---
+
+## 6. What Is NOT Animated
 
 These are deliberate non-animations. Adding them would break the "quiet confirmation" feel.
 
@@ -198,7 +253,7 @@ This was considered and explicitly rejected. The milestone at `→ 0` and the fi
 
 ---
 
-## 6. The "Clear One More" Re-Entry
+## 7. The "Clear One More" Re-Entry
 
 When the student taps "Clear one more" (only shown if energy ≥ Good(4) AND pendingChecks ≥ 1 after clearing):
 
@@ -218,7 +273,7 @@ Second counter drop uses the exact same animation sequence. If the student clear
 
 ---
 
-## 7. Accessibility
+## 8. Accessibility
 
 ```
 @media (prefers-reduced-motion: reduce) {
@@ -237,14 +292,14 @@ With reduced motion: old number disappears instantly, new number appears instant
 
 ---
 
-## 8. Counter Component Spec
+## 9. Counter Component Spec
 
 ```
 Component: loop-closed-counter
 Props:
   countBefore:    number    — the number before verification (e.g., 3)
   countAfter:     number    — the number after (e.g., 2)
-  variant:        'standard' | 'milestone' | 'first-ever'
+  variant:        'standard' | 'milestone' | 'first-ever' | 'new-loop'
   autoPlay:       boolean   — starts animation on mount (default: true, after 200ms delay)
 ```
 
@@ -255,6 +310,7 @@ Props:
 | standard | N | N-1 | Standard drop, color → `--color-closed` |
 | milestone | N | 0 | Number dissolves into "All clear." label |
 | first-ever | 1 | 0 | Label changes to "First loop closed" simultaneously |
+| new-loop | N | N+1 | No pulse, no color accent, neutral feel (see §5) |
 
 ---
 

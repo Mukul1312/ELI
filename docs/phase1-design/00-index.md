@@ -70,6 +70,14 @@ src/app/sdui/components/            ← React components that render the SDUI pa
 
 **Rule:** This folder translates UX logic into design decisions. It does not modify the engine taxonomy or the SDUI component contracts. Those live in `EI_Engine_Taxonomy.md` and `src/ei/sdui/types/`.
 
+**North star storyboard:** [`storyboards/S4-flowing-but-avoidant.md`](../student-ux-architecture/storyboards/S4-flowing-but-avoidant.md) — 20 sessions across 12 days, all systems applied. This is the definitive stress test for how Phase 1 variants, checkin observations, task type auto-suggestion, and topic recommendation interact in practice.
+
+**Key cross-references for systems that affect Phase 1:**
+- [16-formation-period.md](../student-ux-architecture/16-formation-period.md) — session-vs-day convention, pattern claim tier thresholds
+- [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) — task type definitions, auto-suggestion rules
+- [18-topic-recommendation.md](../student-ux-architecture/18-topic-recommendation.md) — priority stack for topic suggestions
+- [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md) — session-by-session capability map
+
 ---
 
 ## What's Not In This Sprint

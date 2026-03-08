@@ -16,7 +16,7 @@ The empty middle is not an oversight. It is the design. The student's attention 
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium      18 min     │  ← context bar (fixed, top)
+│  Integration · Practice · ~20 min     18 min     │  ← context bar (fixed, top)
 │                                                  │
 │                                                  │
 │                                                  │
@@ -42,10 +42,12 @@ Three elements. That is the entire screen.
 ### What it shows
 
 ```
-Integration · Practice · Medium      18 min
+Integration · Practice · ~20 min     18 min
 ```
 
-Left side: `[Topic] · [TaskType] · [DifficultyTier]`
+Left side: `[Topic] · [TaskType] · [Scope label]`
+
+> **Note:** DifficultyTier has been removed from the student-facing UI. The third segment now shows the student's declared time commitment (scope) as `~N min`. See [05-phase1-the-open.md — Scope Presentation Redesign](../student-ux-architecture/05-phase1-the-open.md#scope-presentation-redesign--student-declares-eli-adapts).
 Right side: elapsed time
 
 ### Elapsed time
@@ -93,7 +95,7 @@ ELI sends one mid-session nudge per session. It fades in after a mode-specific d
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Integration · Practice · Medium      15 min     │
+│  Integration · Practice · ~20 min     15 min     │
 │                                                  │
 │                                                  │
 │                                                  │
@@ -180,7 +182,7 @@ When the P2 gate issued a `focusContract` (plays P2-B1 or P2-B2), a single remin
 ┌──────────────────────────────────────────────────┐
 │  Focus contract: no switching for 25 min         │  ← 12px, --color-text-tertiary, fades out at 5s
 ├──────────────────────────────────────────────────┤
-│  Integration · Practice · Hard        2 min      │
+│  Integration · Practice · ~30 min     2 min      │
 │                                                  │
 │                ...                               │
 │             End session                          │
