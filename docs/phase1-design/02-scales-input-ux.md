@@ -167,12 +167,11 @@ Lower sleep → ELI reduces scope silently. The student does NOT see "because yo
 
 ## 6. Pressure Scale — Full Spec
 
-Conditional — appears in two situations:
+> **The pressure scale is no longer shown to students as a form field.** The "More context" affordance has been removed. Pressure is now collected through a trigger-based greeting when the system detects a known high-stress event. See [Trigger-Based Pressure Signal](../student-ux-architecture/03-ux-scales.md#trigger-based-pressure-signal) in `03-ux-scales.md` for the full mechanism.
+>
+> The chip definitions below are preserved for engineering reference — they define what the internal `pressure: 4` value means when the trigger-based flow sends it to the P1 gate.
 
-1. **Student taps "More context"** (a small link below the energy chips) — their choice to share
-2. **EI auto-requests it** on risk days: after a bad mock, repeated stalls, or when energy ≥ 4 but behavior suggests freeze (e.g., multiple `AppOpen` without `IntentSet`)
-
-### Prompt text
+### Prompt text (system reference only — not shown to students)
 ```
 How much pressure are you feeling?
 ```
@@ -185,27 +184,17 @@ Calm      Slightly   Uneasy    Very      Panicky
  (1)       (2)        (3)       (4)        (5)
 ```
 
-**Important:** Pressure scale reads left (calm) to right (panicky). Energy reads left (exhausted) to right (sharp). These are opposite semantic directions but the same visual layout. This is intentional — the student does not think of pressure as a 1-5 rating; they think of it as a felt state. The label is everything.
-
-### "More context" tap trigger
-
-The link lives below the energy chip row, in small text:
-
-```
-How's your energy right now?
-[chip row]
-+ Add more context (pressure, sleep)
-```
-
-`+ Add more context` is `--color-text-tertiary`, 12px. Tap expands to show pressure and sleep chips with a subtle height animation. This keeps the default ask minimal (just energy) while giving students a path to share more.
+**Important:** Pressure scale reads left (calm) to right (panicky). Energy reads left (exhausted) to right (sharp). These are opposite semantic directions but the same visual layout. The label is everything — the student never sees a number, they see a felt state.
 
 ---
 
 ## 7. Backlog Pressure Scale — Full Spec
 
-The most conditional scale. Asked only when EI signals high debt risk (`OpenLoops >= 3` or `ScheduleMisses7d >= 2`).
+> **BacklogPressure is never shown to students.** The scale is retired from the student-facing form. Signal source: behavioral inference from `pendingChecks + OpenLoops + ScheduleMisses7d`. See [BacklogPressure](../student-ux-architecture/03-ux-scales.md#backlogpressure-1-5) in `03-ux-scales.md` for the full behavioral signal mapping.
+>
+> The chip definitions below are preserved for engineering reference only.
 
-### Prompt text
+### Prompt text (system reference only — not shown to students)
 ```
 How behind do you feel right now?
 ```
@@ -218,59 +207,123 @@ On track   Mostly on   Some      Behind    Drowning
   (1)        (2)        (3)       (4)        (5)
 ```
 
-**Note:** "Drowning" is on the right — this matches the emotional direction (the more behind you feel, the further right you go). Students understand this intuitively.
-
-### When to ask
-
-Only ask backlog pressure when:
-- `OpenLoops >= 3` AND the student hasn't answered this in the last 3 days
-- OR the student is voluntarily adding more context via the "More context" link
-
-Never ask backlog pressure on a silence re-entry day. The student just came back — do not hit them with a pile-size question.
+**Note:** "Drowning" is on the right — this matches the emotional direction. Students never see this scale; the system maps behavioral signals to these equivalent states internally.
 
 ---
 
 ## 8. Complete AppOpen Check-in Screen
 
-### Minimal (standard) — Energy only
+> Assembly diagrams only. For time commitment chips and task type chips full specs, see [`05-phase1-the-open.md` — Scope Presentation Redesign](../student-ux-architecture/05-phase1-the-open.md#scope-presentation-redesign--student-declares-eli-adapts).
+
+### Standard (most sessions)
+
+No "Check in" heading. No "Let's set up your study session" subheading. Greeting IS the opening.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
-│  [contextual greeting based on yesterday's session]          │
+│  [Contextual greeting — ELI's voice, no admin heading]       │
+│                                                              │
+│  What are you studying?                                      │
+│  ┌──────────────────────────────────────┐ ┌──────────┐      │
+│  │  e.g. Thermodynamics, Organic Chem…  │ │  Browse  │      │
+│  └──────────────────────────────────────┘ └──────────┘      │
+│  [ Thermodynamics ] [ Kinematics ] [ Waves ]  ← recent chips│
 │                                                              │
 │  How's your energy right now?                                │
-│                                                              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────┐│
 │  │Exhausted │ │  Low     │ │  Okay    │ │  Good    │ │Sharp││
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └────┘│
 │                                                              │
-│  + Add more context                                          │
+│  How long do you have?              (full spec: doc 05)      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │  10 min  │ │  20 min  │ │  45 min  │ │   1h+    │       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+│                                                              │
+│  What kind of work?                 (full spec: doc 05)      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                     │
+│  │  Learn   │ │ Practice │ │  Revise  │                     │
+│  └──────────┘ └──────────┘ └──────────┘                     │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Start Thermodynamics                    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  CTA reflects selected topic; disabled until topic selected  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Expanded (first session of day OR EI-triggered)
+### First session of day (adds sleep)
+
+Sleep chips between Energy and Time commitment. No asterisk — appears naturally.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
-│  [contextual greeting]                                       │
+│  [Contextual greeting]                                       │
+│                                                              │
+│  What are you studying?                                      │
+│  [________________________] [Browse]                         │
 │                                                              │
 │  How's your energy right now?                                │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────┐│
-│  │Exhausted │ │  Low     │ │  Okay    │ │  Good    │ │Sharp││
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └────┘│
+│  [ Exhausted ][ Low ][ Okay ][ Good ][ Sharp ]               │
 │                                                              │
 │  How much did you sleep?                                     │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐   │
 │  │Sleep-debt│ │Low sleep │ │Okay sleep│ │  Fully slept │   │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────┘   │
 │                                                              │
+│  How long do you have?                                       │
+│  [ 10 min ][ 20 min ][ 45 min ][ 1h+ ]                      │
+│                                                              │
+│  What kind of work?                                          │
+│  [ Learn ][ Practice ][ Revise ]                             │
+│                                                              │
+│  [ Start {Topic} ]                                           │
+│                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### With personalization hint (Day 14+, after selection)
+### Trigger day (high-stress event detected)
+
+Trigger greeting replaces the normal greeting section only.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  Results are in.                   ← situation-specific copy │
+│  How are you holding up?                                     │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              I'm okay, let's work                    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                 A bit shaken                         │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**"I'm okay"** → proceeds to full standard checkin (all inputs).
+
+**"A bit shaken"** → simplified topic-only flow:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  What are you studying?                                      │
+│  [________________________] [Browse]                         │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │          Start 2 minutes, then decide                │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+No energy. No sleep. No time chips. No task type. P1 gate defaults: 2 min fixed, task type null. Routes to V3 HIGH PRESSURE.
+
+### With personalization hint (Day 14+, after energy selection)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -296,9 +349,9 @@ Never ask backlog pressure on a silence re-entry day. The student just came back
 | No submit button — chip tap is the commit | One extra tap before the session starts doubles dropout probability |
 | Labels always visible, not just on hover | Students are on mobile. Hover doesn't exist. |
 | Never ask more than 2 scales in the minimal state | Energy + Sleep = 2. More than 2 feels like a questionnaire. |
-| Pressure is never required to proceed | High-pressure students should not have to confirm their pressure level to start studying |
-| Never ask backlog pressure on silence re-entry | The student just came back. Don't ask them how far behind they are. |
-| "More context" link is small and optional | It exists for students who want to share more, not for students who feel coerced |
+| Never show BacklogPressure scale to students | Signal is computed from behavioral data (`pendingChecks + OpenLoops + ScheduleMisses7d`). Self-report is redundant and habituating. |
+| No "More context" affordance | Removed. Pressure signal collected through trigger-based greeting on specific events only. The students who need pressure routing most do not tap opt-in affordances. |
+| CTA = "Start [Topic]", not "Start Session" | Confirms what the student chose. Generic CTAs remove the sense that ELI is responding to a specific intent. CTA is disabled until a topic is selected. |
 | Personalization hints only when accurate | 7+ sessions with sufficient data. If uncertain, show nothing. A wrong hint breaks trust permanently. |
 
 ---

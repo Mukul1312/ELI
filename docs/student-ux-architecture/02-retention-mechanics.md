@@ -18,7 +18,7 @@ Each mechanic follows the same structure:
 
 ## Mechanic 1: "It Knows Me" (Personalization Signals)
 
-**Activation window:** Day 14+ (after minimum 7 sessions with sufficient data)
+**Activation window:** Session 14+ (after minimum 7 sessions with sufficient data; Tier 3+ pattern claims required — see [16-formation-period.md](16-formation-period.md))
 
 The app reflects the student's own behavioral pattern back to them in a single, specific sentence. This is not a recommendation engine. It is a mirror: "here is what I noticed about you." The student feels seen — not diagnosed, not scored, not categorized — just seen. The power comes from the specificity. A generic "you're doing great" creates nothing. A specific "when you pick Sharp (5), you do best with 1 pending check first, then hard work" creates ownership.
 
@@ -44,7 +44,7 @@ The app reflects the student's own behavioral pattern back to them in a single, 
 
 ## Mechanic 2: Loop Closure Satisfaction (The Counter Drop)
 
-**Activation window:** Day 4+ (when pending checks begin accumulating)
+**Activation window:** Session 4+ (when pending checks begin accumulating)
 
 The core dopamine mechanic. The number going down. `Pending checks: 3 → 2`. Not points. Not streaks. Not badges. Not XP. A real number that represents a real thing — topics the student studied but hasn't proven they remember. When the number drops, something was open and now it's closed. That is the reward. The entire product is architecturally designed to make this moment happen once per session.
 
@@ -71,7 +71,7 @@ The core dopamine mechanic. The number going down. `Pending checks: 3 → 2`. No
 
 ## Mechanic 3: The Micro-Win Entry (Impossibly Small Starts)
 
-**Activation window:** Every session, but most critical on Day 1-3 and after silence re-entry
+**Activation window:** Every session, but most critical on Sessions 1–3 and after silence re-entry (see [19-silence-and-reentry.md](19-silence-and-reentry.md))
 
 The primary CTA is always the smallest viable action. Not the most productive action. Not the most efficient action. The smallest one. Five minutes. Two minutes. One question. The commitment is so small that saying no feels harder than saying yes. This is not about productivity — it is about crossing the activation threshold. Once the student has started (truly started, not planned), momentum carries them. The 2-minute start becomes a 15-minute session. But the 15-minute session never happens if the CTA said "15 minutes."
 
@@ -98,7 +98,7 @@ The primary CTA is always the smallest viable action. Not the most productive ac
 
 ## Mechanic 4: No Punishment = Trust = Return (Re-Entry Design)
 
-**Activation window:** Every re-entry after silence (1+ day gap), but most powerful after 3+ day gaps
+**Activation window:** Every re-entry after silence (1+ day gap), but most powerful after 3+ day gaps (see [19-silence-and-reentry.md](19-silence-and-reentry.md) for silence duration tiers)
 
 The app remembers the silence and says nothing about it. No "You've been away for 4 days." No "Welcome back! You missed 3 sessions." No gap counter. No streak-broken screen. No passive-aggressive "It's been a while..." The first words after silence lower the bar. They acknowledge the student is here — not where they were. This mechanic is invisible when it works. You only notice it by its absence: the things the app chose NOT to say.
 
@@ -124,7 +124,7 @@ The app remembers the silence and says nothing about it. No "You've been away fo
 
 ## Mechanic 5: Identity Formation (Day 21 Mirror Statements)
 
-**Activation window:** Day 21 (or when behavioral threshold is crossed — not calendar-based)
+**Activation window:** Session 20+ (or when behavioral threshold is crossed — not calendar-based). Eligibility: `verificationRate7d >= 0.70 AND pendingChecks <= 2 AND sessionsLast7d >= 4`. See [08-footer-and-identity.md](08-footer-and-identity.md) Part 2.
 
 A single sentence that reframes what the student has been doing as who they are becoming. Not praise. Not a badge. Not a score. A mirror statement in second person, present tense, that names the identity shift the student's own behavior has created. "You're not just studying — you're closing the loop." This is the most powerful mechanic and the most dangerous to misuse. It only works if it is earned. Show it before the threshold and it feels hollow. Show it with the wrong framing and it feels manipulative.
 
@@ -170,13 +170,27 @@ The five mechanics do not operate independently. Each reinforces at least one ot
 
 ## Summary: Mechanic Activation Timeline
 
-| Day range | Active mechanics | What the student experiences |
+> **Unit:** Session count, not calendar days. See [16-formation-period.md](16-formation-period.md) for the session-vs-day convention.
+
+| Session range | Active mechanics | What the student experiences |
 |---|---|---|
-| Day 1–3 | Micro-win, No Punishment | Tiny starts, no judgment. The app earns the right to exist on their phone. |
-| Day 4–7 | + Loop Closure | First `3 → 2` moment. The counter becomes meaningful. Closure feels real. |
-| Day 8–13 | + (all four running) | Full mechanic set minus personalization. The routine forms. |
-| Day 14–20 | + "It Knows Me" | Personalization hints activate. The app reflects the student's own patterns. |
-| Day 21+ | + Identity Formation | Mirror statement earned. The loop becomes self-sustaining. |
+| Sessions 1–3 | Micro-win, No Punishment | Tiny starts, no judgment. The app earns the right to exist on their phone. |
+| Sessions 4–7 | + Loop Closure | First `3 → 2` moment. The counter becomes meaningful. Closure feels real. |
+| Sessions 8–13 | + (all four running) | Full mechanic set minus personalization. The routine forms. |
+| Sessions 14–20 | + "It Knows Me" | Personalization hints activate. The app reflects the student's own patterns. |
+| Sessions 20+ | + Identity Formation | Mirror statement earned. The loop becomes self-sustaining. |
+
+---
+
+## Cross-References
+
+| Related doc | What it adds |
+|---|---|
+| [16-formation-period.md](16-formation-period.md) | Session-vs-day convention, pattern claim tier thresholds that gate what ELI can say |
+| [17-task-types-and-phase3.md](17-task-types-and-phase3.md) | Counter goes UP for Learn (exception to "counter DOWN" rule), Phase 3 matrix |
+| [18-topic-recommendation.md](18-topic-recommendation.md) | Staleness-sorted pending list — what the student sees when loop closure mechanic is active |
+| [21-relationship-arc.md](21-relationship-arc.md) | Detailed session-by-session capability map aligning mechanics to pattern claim tiers |
+| [product-audit/05-usable-to-lovable-roadmap.md](../product-audit/05-usable-to-lovable-roadmap.md) | Implementation tiers — which mechanics ship in MLP vs. later |
 
 ---
 

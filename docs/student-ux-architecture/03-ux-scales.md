@@ -46,15 +46,15 @@ Goal: keep `AppOpen` friction low (5–10 seconds), while still collecting enoug
 
 ### `AppOpen` (conditional add-ons)
 
-Ask **Sleep** and **BacklogPressure** only when helpful:
+Ask **Sleep** only when helpful:
 
-- **Once/day** (first study session of the day), OR
-- When the student indicates they're struggling (e.g., "I'm behind / overwhelmed"), OR
-- When EI needs more context to route support (e.g., the student has many "pending checks," repeated skips, or repeated delayed verification)
+- **Once/day** (first study session of the day)
 
-### `Pressure` (optional)
+**BacklogPressure is never asked.** The system computes it from behavioral data: `pendingChecks + OpenLoops + ScheduleMisses7d`. Self-report is redundant — the system has better data than the student's subjective recall. See [BacklogPressure](#backlogpressure-1-5) section below.
 
-Pressure is available as a "More context" tap when the student wants to share it, and can also be asked on risk days (e.g., after a bad mock / repeated stalls). It is **never required** for the student to proceed.
+### `Pressure` (trigger-based only — not a form field)
+
+Pressure is **not collected via a scale or "More context" affordance**. It is collected through a trigger-based greeting on specific high-stress events (mock results, exam proximity, avoidance pattern). See [Trigger-Based Pressure Signal](#trigger-based-pressure-signal) section below.
 
 ### Product decision (vs original MVP instrumentation)
 
@@ -62,7 +62,9 @@ Some earlier docs imply **Energy + Anxiety/Pressure** are asked on every `AppOpe
 This UX contract intentionally reduces friction:
 
 - `AppOpen` **always asks Energy**
-- `Pressure` is **optional/conditional**
+- `AppOpen` **asks Sleep once/day** (first session)
+- **BacklogPressure is never student-facing** — computed from behavioral signals
+- **Pressure is never a form field** — collected through trigger greeting on specific events only
 
 ---
 
@@ -103,6 +105,13 @@ What ELI will do (plain language):
 
 ## `Pressure` (1–5)
 
+> **The 5-point scale and "More context" affordance have been removed from the student-facing checkin.** Pressure is now collected through a trigger-based greeting on specific high-stress events. The student never sees a pressure scale — they respond to a binary prompt ("I'm okay" / "A bit shaken") when the system detects a known stress event.
+>
+> - "I'm okay, let's work" → internally maps to `pressure: null` (normal routing)
+> - "A bit shaken" → internally maps to `pressure: 4` (routes to V3 HIGH PRESSURE)
+>
+> See [Trigger-Based Pressure Signal](#trigger-based-pressure-signal) for the full trigger model. The scale definition below is preserved for engineering reference — it defines what `pressure: 4` means in the P1 gate.
+
 What this captures: **mental pressure / stress load right now** (the student term for "anxiety").
 
 Important: **high Pressure can coexist with high Energy** (e.g., "revenge planning" after a bad mock).
@@ -129,6 +138,18 @@ What ELI will do (plain language):
 ---
 
 ## `BacklogPressure` (1–5)
+
+> **This scale has been removed from the student-facing checkin.** Signal is computed internally from behavioral data. The scale definition is preserved here for engineering reference only.
+>
+> **Behavioral signals that replace it:**
+> | Behavioral signal | Equivalent BacklogPressure state |
+> |---|---|
+> | `pendingChecks >= 3` | Behind (4) or Drowning (5) |
+> | `OpenLoops >= 3` | Some pending (3) to Behind (4) |
+> | `ScheduleMisses7d >= 2` | Behind (4) |
+> | All three elevated together | Drowning (5) |
+>
+> **Why self-report was removed:** After week 1, the student's subjective answer correlates almost perfectly with these three objective measures. Where it diverges — student feels behind despite clean metrics — that is anxiety, not backlog, and the Pressure signal captures it. Asking the student to report their own backlog to a system that already has the data is both redundant and habituating.
 
 What this captures: **how "behind" the student feels** (syllabus/tests/unfinished topics).
 This is different from `Pressure`:
@@ -232,6 +253,144 @@ Suggested prompt text:
 Microcopy guardrail (recommended):
 
 - "Hard = better questions, not more hours."
+
+---
+
+## Trigger-Based Pressure Signal
+
+Pressure self-report is replaced by a **trigger-based greeting** — when the system detects a known high-stress event, ELI names the situation and offers two binary buttons. The student makes a single human choice, not a 5-point rating.
+
+### Trigger events
+
+| Trigger | Condition | Copy pattern |
+|---|---|---|
+| **Mock results day** | `recentMockFailure` event fired within 24h | "Results are in. How are you holding up?" |
+| **Exam proximity** | `examProximityDays <= 7` (exam date loaded by institute) | "Exam is close. How are you holding up?" |
+| **Avoidance pattern** | 3+ `AppOpen` events with no `IntentSet` within a 24h window | "You've been circling. Let's talk." |
+
+### What the student sees
+
+```
+┌──────────────────────────────────────────────────┐
+│                                                  │
+│  Results are in.                                 │  ← situation text (trigger-specific)
+│  How are you holding up?                         │
+│                                                  │
+│  [ I'm okay, let's work ]                        │  ← primary button
+│  [ A bit shaken ]                                │  ← secondary button
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+### Routing
+
+| Student response | Internal value | Routing |
+|---|---|---|
+| "I'm okay, let's work" | `pressure: null` | Normal checkin proceeds (energy, topic, sleep if first of day, time, task type) |
+| "A bit shaken" | `pressure: 4` | Checkin simplifies to topic-only → P1 gate → V3 HIGH PRESSURE |
+
+### V3 simplified checkin (after "A bit shaken")
+
+```
+┌──────────────────────────────────────────────────┐
+│                                                  │
+│  What are you studying?                          │
+│  [________________________] [Browse]             │  ← topic only, required
+│                                                  │
+│  [ Start 2 minutes, then decide ]                │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+- No energy chips — pressure day, minimal inputs
+- No time chips — P1 gate uses 2 min fixed (consistent with V3 time handling in doc 05)
+- No task type chips — P1 gate defaults internally
+- Student names what they want to study and starts immediately
+
+### Why binary buttons, not the 5-point scale
+
+1. **Signal quality at low cost.** Two buttons collect the routing signal in one tap. The 5-point scale collected the same routing signal (≥4 = HIGH PRESSURE) in one tap *if the student happened to tap it* — but required the student to notice and open a "More context" disclosure first.
+2. **The right student taps it.** A panicking student won't voluntarily open "More context." But a panicking student *will* read a greeting that names their situation and tap "A bit shaken."
+3. **The system earned the right to ask.** The trigger fires only when the system has detected a known event. ELI isn't asking how stressed the student feels in general — it's acknowledging a specific situation and asking one precise question.
+
+---
+
+## Checkin Screen Design Principles
+
+> This section documents the design rationale behind the checkin screen layout. It is not a copy spec — see `docs/phase1-design/02-scales-input-ux.md` for the full form spec.
+
+### The Problem: Clinical Feel
+
+The original checkin screen had 5 diagnosable problems:
+
+| Problem | Symptom | Fix |
+|---|---|---|
+| **Admin chrome** | "Check in" heading + "Let's set up your study session" subheading — sounds like hotel lobby registration | Remove both. The greeting card IS the opening. No heading needed. |
+| **Decoupled greeting** | Greeting card says something warm, then a hard divider separates it from a form below. They feel like two different screens | Greeting leads directly into the first input — no divider, no box |
+| **Four required asterisks** | Topic \* · Energy \* · Sleep \* · BacklogPressure \* — cognitive model = "fill this out to get access" | Remove BacklogPressure. Sleep has no asterisk visible — just appears naturally. Only required fields the student notices are topic and energy. |
+| **Generic CTA** | "Start Session" could be a Zoom button | CTA = "Start [Topic]" — reflects what the student chose. Disabled until topic is selected. |
+| **Dead chips** | All inputs same visual weight — topic field smallest, scales largest | Topic input is the hero. Energy is companion question. Sleep is contextual. Everything else is secondary. |
+
+### The Correct Mental Model
+
+The checkin is not a form. It is a declaration:
+
+> "I'm going to study Thermodynamics for 20 minutes. Let's do it."
+
+ELI's job is to receive that declaration and respond — not to interrogate the student before they can start.
+
+### Assembled Checkin Layout
+
+**Most sessions (standard):**
+
+```
+  [Contextual greeting — no heading, no subheading]
+
+  What are you studying?
+  [________________________] [Browse]     ← hero, large
+    Thermodynamics  Kinematics  Waves     ← recent chips (if any)
+
+  How's your energy right now?
+  [ Exhausted ][ Low ][ Okay ][ Good ][ Sharp ]
+
+  How long do you have?                   ← time commitment chips (spec: doc 05)
+  [ 10 min ][ 20 min ][ 45 min ][ 1h+ ]
+
+  What kind of work?                      ← task type chips (spec: doc 05)
+  [ Learn ][ Practice ][ Revise ]
+
+  [ Start Thermodynamics ]                ← CTA updates live as topic is selected
+```
+
+**First session of day (adds sleep):**
+
+```
+  [same as above, with Sleep chips between Energy and Time]
+
+  How much did you sleep?
+  [ Sleep-debt ][ Low sleep ][ Okay sleep ][ Fully slept ]
+```
+
+**Trigger day (detected stress event):**
+
+```
+  Results are in. How are you holding up?
+  [ I'm okay, let's work ]  [ A bit shaken ]
+
+  → If "I'm okay": proceeds to full standard checkin above
+  → If "A bit shaken": topic-only simplified checkin (see Trigger-Based Pressure Signal above)
+```
+
+### Rules
+
+| Rule | Rationale |
+|---|---|
+| No "Check in" heading | The greeting IS the heading. Admin labels remove warmth. |
+| No "Let's set up your study session" | "Set up" = configuration. This is a study start, not a software installation. |
+| CTA = "Start [Topic]" | Confirms the student's choice. Generic "Start Session" could mean anything. |
+| CTA disabled until topic selected | Topic is the one input ELI genuinely can't infer. Everything else has a fallback. |
+| Topic input is hero | Largest element on screen. Most prominent. Student's eye goes here first. |
+| Never show asterisks for Sleep | Sleep appears once/day, naturally. Marking it required creates form energy that slows the student down. |
 
 ---
 

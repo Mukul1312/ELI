@@ -13,7 +13,7 @@ The core principle: once a student has committed (Phase 1) and the activation pl
 ```
 Phase 1 (student taps action button)
     |
-IntentSet fires (topic, taskType, difficultyTier)
+IntentSet fires (topic, taskType, scope)
     |
 P2 gate runs -> ActivationPlanIssued (mode, firstAction, timebox)
     |
@@ -33,13 +33,13 @@ The entire Phase 2 lifecycle is bounded by two domain events: `ActivationPlanIss
 A subtle bar at the top of the session showing what the student committed to:
 
 ```
-Integration . Practice . Hard (3)
+Integration . Practice . ~20 min
 ```
 
 - **Position:** Top of screen, fixed.
 - **Style:** Small text, muted color, non-distracting.
 - **Purpose:** Anchors the student to their declared intent — especially useful for S2 types who plan one thing and drift to another.
-- **Content:** `[Topic] . [TaskType] . [DifficultyTier label]`
+- **Content:** `[Topic] . [TaskType] . [Scope label]` (e.g., `~20 min`). DifficultyTier was removed from the student-facing UI per [05-phase1-the-open.md](05-phase1-the-open.md) — scope now shows the student's declared time commitment.
 - **Never disappears** during the active session.
 - **Disappears** when `SessionEnd` fires (Phase 3 replaces it).
 
@@ -53,7 +53,7 @@ From S2 Storyboard Scene 2: "Start 2 minutes (then decide)."
 
 In Rescue mode, the P2 gate's `ActivationPlanIssued` specifies a very short `firstAction` (30-120 seconds). The SDUI renders this as:
 
-- A single, tiny first step: "Open one page" / "Solve just Q1" / "Write 3 key points"
+- A single, tiny first step framed as a **condition** (topic + time + motion), never as content instruction. ELI does not have access to textbooks or problem sets — it prescribes "2 minutes on Thermodynamics" not "solve Q1" or "write 3 key points." See [product audit §2.1](../product-audit/02-realism-failures.md).
 - A timer or indicator showing the 2-minute window
 - After the window: "Keep going?" with `[Yes, keep going]` and `[Done for today]`
 

@@ -82,9 +82,11 @@ The deal card is used when ELI needs to impose a constraint (usually close-loops
 
 ---
 
-## 4. SessionEnd Copy Patterns
+## 4. SessionEnd & Phase 3 Copy Patterns
 
 When a session ends, the student sees one of the following lines based on their choice. Each line is calibrated to validate the decision without adding pressure.
+
+### Deferrals & Skips
 
 | Student's choice | Copy line | Tone | Notes |
 |---|---|---|---|
@@ -95,6 +97,16 @@ When a session ends, the student sees one of the following lines based on their 
 | Skip (Confusion) | "That's okay. Different approach next time." | Supportive, forward-looking | The only skip that hints at future change |
 
 **Design principle:** Every skip reason gets exactly one short acknowledgment. No follow-up. No "are you sure?" No guilt. The student made a choice; the system respects it.
+
+### First Encounter Override
+
+When the student completes a Practice or Revise session on a topic that is new to ELI.
+
+| Element | Copy | Tone / Notes |
+|---|---|---|
+| Prompt | "First time practicing/revising this here. Want ELI to schedule a revisit?" | Respects reality without assuming they want tracking for a potentially one-off session. |
+| Button: Accept | `[Yes, schedule it]` | Clear action. Creates a revisit and starts tracking. |
+| Button: Reject | `[No, skip]` | Clear action. Logs session without adding to pending list. |
 
 ---
 

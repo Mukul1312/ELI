@@ -29,7 +29,7 @@ This document translates the student experience system into implementation const
 | `loop-closed-card` | Phase 3 | `topicName: string`, `countBefore: number`, `countAfter: number`, `message: string`, `seed?: string`, `clearMoreActionId?: string` | Counter animation 3->2; `clearMore` only if `energy >= 4` |
 | `session-summary-footer` | Phase 1 + 3 | `collapsedLabel: string`, `sessions: number`, `loopsClosed: number`, `pending: number`, `rate: number`, `trend: string`, `identityStatement?: string` | Always collapsed by default |
 | `identity-moment-card` | Phase 1 (weekly) | `statement: string`, `detail: string`, `ctaLabel: string` | Replaces `resume-context-card` when eligible |
-| `session-context-bar` | Phase 2 | `topic: string`, `taskType: string`, `difficultyTier: string` | Fixed top bar during session |
+| `session-context-bar` | Phase 2 | `topic: string`, `taskType: string`, `scope: string` | Fixed top bar during session; shows time commitment (e.g., `~20 min`), not DifficultyTier (removed from UI per [05-phase1-the-open.md](05-phase1-the-open.md)) |
 
 ---
 

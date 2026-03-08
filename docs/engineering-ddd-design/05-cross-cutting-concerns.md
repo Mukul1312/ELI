@@ -75,10 +75,10 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 
 | Event type | Required fields | Producer | Consumer(s) | Projection side-effects |
 |------------|-----------------|----------|-------------|--------------------------|
-| AppOpen | studentId, energy, openedAt | UI | P1, Ledger | — |
+| AppOpen | studentId, energy, openedAt; `timeCommitment` (optional, int: 10\|20\|45\|60 — student-declared minutes); `taskType` (optional, string: Learn\|Practice\|Revise — student-declared). Both optional: absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent. | UI | P1, Ledger | — |
 | IntentSet | studentId, topic, setAt | UI | P2, Ledger | — |
 | SessionEnd | studentId, topic, endedAt | UI | P3, Ledger | ei_topic_state.last_effort_at |
-| NegotiatedIntentIssued | studentId, mode, topic, scope, verificationPlan, issuedAt | P1 | Ledger, P3 (cross-protocol floor) | — |
+| NegotiatedIntentIssued | studentId, mode, topic, scope, verificationPlan, issuedAt; `taskType` (optional, string: Learn\|Practice\|Revise); `scope.timeboxMin` = student's `timeCommitment` when provided, mode-range midpoint fallback when absent | P1 | Ledger, P3 (cross-protocol floor) | — |
 | ActivationPlanIssued | studentId, mode, firstAction, issuedAt | P2 | Ledger, P3 (watch-only flag) | — |
 | VerificationDecisionIssued | studentId, mode, topic, verificationDecision, issuedAt | P3 | Ledger | — |
 | IntentResponse | studentId, negotiatedIntentId, decision, respondedAt | UI | Ledger | — |

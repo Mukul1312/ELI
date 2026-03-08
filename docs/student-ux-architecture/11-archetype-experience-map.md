@@ -2,31 +2,33 @@
 
 This document maps every student archetype to the experience system. It is NOT a journey retelling — the storyboards do that. This is a cross-reference: for each archetype, which craving loop beat hooks them, which phase variant they see, which mechanic matters most, and what causes dropout.
 
+> **Signal-driven, not label-driven.** The system never classifies a student as "S4" or "S7" at runtime. Archetypes are design validation lenses — they ensure the experience system handles diverse student behaviors correctly. At runtime, ELI responds to **behavioral signals** (pending count, verification rate, silence duration, energy, skip patterns) which naturally produce the right experience for each archetype without explicit detection. See [product-audit/05-usable-to-lovable-roadmap.md §Scaling Framework](../product-audit/05-usable-to-lovable-roadmap.md) for why this scales.
+
 ---
 
 ## 1. Master Map
 
 | Archetype | Entry beat | Primary mechanic | Phase 1 mode (default) | Phase 1 buttons | Phase 3 key scenario | Escalation inflection | Danger zone | Identity statement |
 |---|---|---|---|---|---|---|---|---|
-| S1 (Topper) | Closure | Loop Closure | Boost | 2-3 | Verification completed (satisfying) | Day 8-10 (autonomy early) | Patronizing copy; "Great job!" | "Clean slate. That's earned." |
-| S2 (Revenge Planner) | Micro-win | Micro-Win Entry | Rescue (pressure override) | 2 | Reminder set / first verification | Day 1 (scope-down -> they start) | Overscoping -> freeze -> guilt | "Pressure days don't break you anymore -- you still start." |
-| S3 (Stalled Starter) | Micro-win | Micro-Win Entry | Rescue (low start) | 1-2 | First verification (milestone) | Day 4-5 (2-min start works) | Overwhelm; too many options | "You started. That's the hardest part." |
-| S4 (Flowing-but-Avoidant) | Recognition | "It Knows Me" (mirror) | Neutral -> Rescue at P3 | 2-3 | Deal card at SessionEnd (verification push) | Day 4-5 (honest mirror about avoidance) | Resentment at verification ask | "Your sessions count now." |
-| S5 (Burnout Risk) | Recognition | No Punishment | Rescue | 1 | Skip (Fatigue) -- acknowledged gently | Day 4 (re-entry warmth) | Too many prompts; shame language | "You came back. That matters." |
-| S6 (Grinder) | Recognition | "It Knows Me" (technique) | Neutral | 2-3 | Verification with technique hint | Day 14 (personalization about how, not how much) | Volume obsession; "study harder" copy | "You're studying differently now. It shows." |
-| S7 (Ambitious Collector) | Anticipation | Loop Closure | Neutral + deal card | 2 + pending list | Verification completed (3->2 counter) | Day 4-5 (deal card; pending stops growing) | Never closing loops; false productivity | "You're not just studying -- you're closing the loop." |
+| S1 (Topper) | Closure | Loop Closure | Boost | 2-3 | Verification completed (satisfying) | Session 8–10 (autonomy early) | Patronizing copy; "Great job!" | "Clean slate. That's earned." |
+| S2 (Revenge Planner) | Micro-win | Micro-Win Entry | Rescue (pressure override) | 2 | Reminder set / first verification | Session 1 (scope-down -> they start) | Overscoping -> freeze -> guilt | "Pressure days don't break you anymore -- you still start." |
+| S3 (Stalled Starter) | Micro-win | Micro-Win Entry | Rescue (low start) | 1-2 | First verification (milestone) | Session 4–5 (2-min start works) | Overwhelm; too many options | "You started. That's the hardest part." |
+| S4 (Flowing-but-Avoidant) | Recognition | "It Knows Me" (mirror) | Neutral -> Rescue at P3 | 2-3 | Deal card at SessionEnd (verification push) | Session 4–5 (honest mirror about avoidance) | Resentment at verification ask | "Your sessions count now." |
+| S5 (Burnout Risk) | Recognition | No Punishment | Rescue | 1 | Skip (Fatigue) -- acknowledged gently | Session 4 (re-entry warmth) | Too many prompts; shame language | "You came back. That matters." |
+| S6 (Grinder) | Recognition | "It Knows Me" (technique) | Neutral | 2-3 | Verification with technique hint | Session 14 (personalization about how, not how much) | Volume obsession; "study harder" copy | "You're studying differently now. It shows." |
+| S7 (Ambitious Collector) | Anticipation | Loop Closure | Neutral + deal card | 2 + pending list | Verification completed (3->2 counter) | Session 4–5 (deal card; pending stops growing) | Never closing loops; false productivity | "You're not just studying -- you're closing the loop." |
 
 ---
 
 ## 2. Detailed Per-Archetype Writeup
 
-The three storyboarded archetypes (S2, S5, S7) have full 21-day journeys documented separately. See [00-index.md](./00-index.md) for links. Below are the four archetypes that do NOT have dedicated storyboards, along with S2, S5, and S7 summaries for quick reference.
+Four archetypes have storyboards: S2, S5, S7 (legacy format, pending rewrite), and S4 (new session-based format — see [`storyboards/S4-flowing-but-avoidant.md`](storyboards/S4-flowing-but-avoidant.md)). See [00-index.md](./00-index.md) for all links. Below are the four archetypes that do NOT have dedicated storyboards, along with S2, S4, S5, and S7 summaries for quick reference.
 
 ### S1 (Topper)
 
 High integrity student. Enters the craving loop at Closure -- proving recall is satisfying, not obligatory. Default mode is Boost when eligible. ELI's job: don't patronize; raise difficulty, give harder problems. Danger: "Great job!" feels fake; any gamification feels below them. The identity moment for S1 is "Clean slate. That's earned." -- acknowledging their consistency without being cheesy.
 
-Phase 1 unlocks Boost mode earlier than any other archetype (Day 8-10 vs. Day 16-18 for others). Phase 3 verification is never a struggle -- S1 closes loops naturally. The risk is boredom, not dropout: if ELI's copy reads like a tutor for struggling students, S1 disengages quietly.
+Phase 1 unlocks Boost mode earlier than any other archetype (Session 8–10 vs. Session 16–18 for others). Phase 3 verification is never a struggle -- S1 closes loops naturally. The risk is boredom, not dropout: if ELI's copy reads like a tutor for struggling students, S1 disengages quietly.
 
 **Dropout signal:** Copy tone shifts toward encouragement ("Great job!") or visible gamification (badges, streaks). S1 reads these as the system treating them like a child. They stop opening the app without ever complaining -- the silence is quiet, not dramatic. Monitor: if a Boost-eligible student with `verification_rate_7d >= 0.85` drops to zero sessions, the copy tone is the first suspect.
 
@@ -52,6 +54,8 @@ S3 and S2 share the same Phase 1 mechanic (Micro-Win Entry) but for different re
 
 ### S4 (Flowing-but-Avoidant)
 
+Full storyboard: [`storyboards/S4-flowing-but-avoidant.md`](storyboards/S4-flowing-but-avoidant.md) — 20 sessions across 12 days, all systems applied. This is the most detailed storyboard and serves as the north star for how all systems interact.
+
 Looks productive -- starts fast, studies well, but never verifies. The issue surfaces at P3 (SessionEnd). Enters at Recognition -- the honest mirror ("you're active, but proof is lagging"). ELI's job: the deal card at P3, gentle but firm. Danger: if the verification ask feels like a test, S4 resents it and games the system. Keep it to "1 question, 2 minutes" -- not an exam. Identity: "Your sessions count now."
 
 S4 is the only archetype where the primary intervention is at Phase 3, not Phase 1. Their Phase 1 is fine -- they open the app, they study. The problem is at SessionEnd: they want to close the app without proving anything. The deal card ("Clear 1 check before you go?") at P3 is the key mechanic.
@@ -72,7 +76,7 @@ Full storyboard: [`EI_Storyboard_S5_BurnoutRunway_Day1-21.md`](../../EI_Storyboa
 
 Studies 8+ hours, always verifies, but wrong technique -- passive reading instead of active recall. Enters at Recognition (technique pivot). ELI's job: the personalization hint at Day 14 should be about HOW they study, not how much. "When you pick Practice, your recall rate doubles vs Learn." Danger: telling a hard worker to "study differently" can feel dismissive. Frame as discovery, not correction. Identity: "You're studying differently now. It shows."
 
-S6 is the only archetype where the system must actively steer technique. For all others, the mechanics focus on engagement, closure, or re-entry. For S6, the craving loop only hits full strength when the personalization hint lands at Day 14 and the student sees a real difference in their recall.
+S6 is the only archetype where the system must actively steer technique. For all others, the mechanics focus on engagement, closure, or re-entry. For S6, the craving loop only hits full strength when the personalization hint lands at Session 14 and the student sees a real difference in their recall.
 
 **Dropout signal:** S6 rarely drops out -- they are disciplined. The failure mode is stagnation: they keep using the app but never improve because they never change technique. If `TaskType` distribution stays >70% `learn` after Day 14 and no `practice`/`revise` sessions appear, the personalization hint either hasn't landed or was dismissed. Re-surface the technique comparison in a different phrasing.
 
@@ -97,7 +101,7 @@ Full storyboard: [`EI_Storyboard_S7_Day1-21.md`](../../EI_Storyboard_S7_Day1-21.
 | S3 | AppOpen without IntentSet | 2+ occurrences in 3 days | Decision paralysis; too many buttons on Phase 1 |
 | S4 | Consecutive `Reminded` decisions | 3+ in a row | Deal card is being deflected; shrink the ask |
 | S5 | Silence duration | Any silence >= 3 days | Expected behavior; protect re-entry at all costs |
-| S6 | TaskType stuck on `learn` | >70% `learn` after Day 14 | Personalization hint not landing; rephrase |
+| S6 | TaskType stuck on `learn` | >70% `learn` after Session 14 | Personalization hint not landing; rephrase |
 | S7 | `pending_checks` rising without `VerificationCompleted` | 5+ consecutive days | False productivity; deal card must tighten |
 
 ---

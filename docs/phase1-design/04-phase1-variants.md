@@ -22,7 +22,7 @@ Each variant follows the same structure:
 |---|---|---|
 | [V1: SILENCE RE-ENTRY](#v1-silence-re-entry) | Rescue | `silenceDays >= 3` |
 | [V2: LOW ENERGY](#v2-low-energy) | Rescue | Energy 1–2, silence < 3 |
-| [V3: HIGH PRESSURE](#v3-high-pressure) | Rescue | Energy >= 3 + pressure >= 4 |
+| [V3: HIGH PRESSURE](#v3-high-pressure) | Rescue | Behavioral stress signal (exam proximity / avoidance / mock failure) + student confirms "A bit shaken" |
 | [V4: CLEAN START](#v4-clean-start) | Neutral | `pendingChecks = 0`, normal state |
 | [V5: PENDING + STANDARD](#v5-pending--standard) | Neutral | `pendingChecks = 1–2` |
 | [V6: DEAL CARD](#v6-deal-card) | Neutral | `pendingChecks >= 3` |
@@ -160,22 +160,54 @@ Energy 1 (`Exhausted`) or 2 (`Low`). `silenceDays < 3`. No override condition.
 ## V3: HIGH PRESSURE
 
 ### When it fires
-Energy >= 3 AND pressure >= 4 (`Very stressed` or `Panicky`). Energy being good doesn't override high pressure — Rescue wins.
 
-### Full wireframe
+Behavioral stress signal detected AND student confirms "A bit shaken" on the trigger greeting at checkin.
+
+**Trigger events (system detects at AppOpen):**
+- `examProximityDays <= 7` — exam date loaded by institute, exam is within 7 days
+- `avoidancePattern` — 3+ AppOpen events with no IntentSet in a 24-hour window
+- `recentMockFailure` — mock failure event fired within the last 24 hours
+
+No pressure scale is shown. No "More context" link. The pressure signal is collected through a binary greeting.
+
+### How V3 now fires — checkin flow
+
+**Step 1: Trigger greeting (replaces normal greeting at checkin)**
 
 ```
 ┌──────────────────────────────────────────────────┐
 │                                                  │
-│  How's your energy right now?                    │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
-│  │Exh.  │ │ Low  │ │ Okay │ │Good ✓│ │Sharp │  │  ← selected: Good (4)
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘  │
+│  Results are in.                                 │  ← situation-specific (see copy table)
+│  How are you holding up?                         │
 │                                                  │
-│  How much pressure are you feeling?              │  ← pressure scale appears
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
-│  │ Calm │ │Sl.ten│ │Uneasy│ │V.str.│ │Pan.✓ │  │  ← selected: Panicky (5)
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘  │
+│  [ I'm okay, let's work ]                        │  ← primary
+│  [ A bit shaken ]                                │  ← secondary
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+- "I'm okay, let's work" → `pressure: null` → normal checkin proceeds (energy, topic, sleep if first of day, time chips, task type)
+- "A bit shaken" → `pressure: 4` → simplified topic-only checkin → P1 gate → V3
+
+**Step 2 (after "A bit shaken"): Simplified checkin**
+
+```
+┌──────────────────────────────────────────────────┐
+│                                                  │
+│  What are you studying?                          │
+│  [________________________] [Browse]             │  ← topic only
+│                                                  │
+│  [ Start 2 minutes, then decide ]                │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+No energy chips. No sleep. No time chips (P1 gate: 2 min fixed). No task type (defaults null). Student names the topic and starts immediately.
+
+### Full P1 screen wireframe (after gate — unchanged)
+
+```
+┌──────────────────────────────────────────────────┐
 │                                                  │
 │  Your drive is real.                             │  ← greeting, 22px
 │  But today's pressure is high.                   │
@@ -192,27 +224,37 @@ Energy >= 3 AND pressure >= 4 (`Very stressed` or `Panicky`). Energy being good 
 └──────────────────────────────────────────────────┘
 ```
 
-### When does the pressure scale appear?
-
-Pressure scale is **not shown by default**. The flow is:
-1. Student selects energy (Good 4 or Sharp 5)
-2. The "More context" link appears below the energy chips
-3. Student taps it → pressure chips expand
-4. Student selects pressure (Very stressed 4 or Panicky 5)
-5. Now the greeting renders as HIGH PRESSURE variant
-
-OR:
-- EI detects risk signals and auto-requests pressure (e.g., repeated stalls after high-energy opens). In this case, pressure chips appear automatically after energy selection without requiring the "More context" tap.
-
 ### Component list
 
-- Energy scale + Pressure scale (conditional)
+**Checkin (trigger greeting):**
+- `trigger-greeting` (variant: `HIGH_PRESSURE`, binary buttons)
+
+**Checkin (simplified — after "A bit shaken"):**
+- `topic-input`
+- Single primary CTA: "Start 2 minutes, then decide"
+
+**P1 screen:**
 - `resume-context-card` (variant: `HIGH_PRESSURE`)
 - `session-summary-footer` (collapsed, label-only mode)
 
 ### Exact copy
 
-**Pressure = 5 (Panicky):**
+**Trigger greeting — per event type:**
+
+| Trigger | Greeting line 1 | Greeting line 2 |
+|---|---|---|
+| Mock results | "Results are in." | "How are you holding up?" |
+| Exam proximity | "Exam is close." | "How are you holding up?" |
+| Avoidance pattern | "You've been circling." | "Let's talk." |
+
+**Binary buttons (all trigger types):**
+
+| Button | Label | Internal value |
+|---|---|---|
+| Primary | "I'm okay, let's work" | `pressure: null` |
+| Secondary | "A bit shaken" | `pressure: 4` |
+
+**P1 screen copy (after gate):**
 
 | Element | Copy |
 |---|---|
@@ -222,22 +264,14 @@ OR:
 | Secondary CTA | "Make it smaller" |
 | Footer | "Pressure day. Smaller = better." |
 
-**Pressure = 4 (Very stressed):**
-
-| Element | Copy |
-|---|---|
-| Greeting | "Your drive is real." |
-| Body | "High pressure today. One step." |
-| Primary CTA | "Start 2 minutes, then decide" |
-| Secondary CTA | "Make it smaller" |
-| Footer | "Pressure day. Smaller = better." |
-
 ### Design / visual notes
 
+- **No pressure scale shown anywhere.** V3 is now triggered by behavioral detection + binary confirmation. Students never rate their pressure on a 1-5 scale.
 - **"then decide" is load-bearing copy** — it removes commitment anxiety. The student is not committing to a session; they're committing to 2 minutes. Do not abbreviate or remove the parenthetical.
 - **"Make it smaller" is an escape hatch, not a failure** — tapping it transforms the card in-place (see sub-state below). Never penalize this tap.
 - **No pending list** — high pressure + a pile of pending checks = freeze. Hidden.
 - **Footer shows label, not numbers** — "Pressure day. Smaller = better." replaces the numeric summary.
+- **Trigger greeting replaces the checkin greeting section only** — the rest of the app chrome (footer, "Check in" header if any) stays the same. Only the greeting and buttons change.
 
 ### V3 Sub-state: "Make it smaller" tapped
 

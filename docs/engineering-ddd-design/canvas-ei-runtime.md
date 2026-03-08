@@ -49,7 +49,7 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | Protocol                 | Named gate logic (P1 Ignition, P2 Activation, P3 Verification)                                 |
 | StudySession             | **Aggregate Root:** one student study session — from AppOpen to retrieval decision. Lifecycle: `negotiating → activating → active → verifying → closed`. Owns NegotiatedIntent, ActivationPlan, VerificationDecision as child Value Objects. Identity: `sessionId`. Code: `src/ei/domain/study-session/study-session.ts` |
 | ProtocolEngine           | **Domain Service:** stateless play selection from the 24-play catalog (`engine/plays.ts`) given protocol (1/2/3), mode (Rescue/Neutral/Boost), and PlayContext. Code: `src/ei/domain/study-session/protocol-engine.ts` |
-| NegotiatedIntent         | **Value Object (P1 output):** immutable — scope, verification plan, constraints. Created by `StudySession.issueNegotiatedIntent()`. |
+| NegotiatedIntent         | **Value Object (P1 output):** immutable — scope, verification plan, constraints. `scope.timeboxMin` = student's `timeCommitment` when provided; mode-range midpoint fallback when absent. `taskType` from AppOpen payload exposed as getter. Created by `StudySession.issueNegotiatedIntent()`. |
 | ActivationPlan           | **Value Object (P2 output):** immutable — firstAction, replanCap, constraints. Created by `StudySession.issueActivationPlan()`. |
 | VerificationDecision     | **Value Object (P3 output):** immutable — decision type (VerifyNow/ScheduleVerify/Skip) + parameters. Enforces P1 floor + watch-only overrides. Created by `StudySession.issueVerificationDecision()`. |
 | Rescue                   | **Mode: Enum VO value** (`Rescue \| Neutral \| Boost`). Coaching posture when student needs friction reduction or scope negotiation. |
@@ -60,6 +60,8 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | STALLED / FLOWING        | **Enum Value Object values (P2Label):** assigned by LoopHealthAssessment; consumed by P2 gate handler via LoopHealthSnapshot. |
 | AVOIDANT / CONFIDENT     | **Enum Value Object values (P3Label):** assigned by LoopHealthAssessment; consumed by P3 gate handler via LoopHealthSnapshot. |
 | TightnessLevel           | **Enum Value Object:** `Loose \| Normal \| Tight` — from SA policy; influences escalation context passed to gate handlers. |
+| TimeCommitment           | **Value Object (student input):** student-declared study duration in minutes. Valid values: 10, 20, 45, 60. Feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint is the fallback for variants that hide time chips (V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING). |
+| ConfirmationStrip        | **Presentation element (StudySessionOrchestration):** replaces the prescriptive scope card on the P1 screen. Displays `topic . taskType . ~timeCommitment` — reflecting the student's own choices, not ELI's prescription. Single "Let's go" CTA below it. |
 | VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in Ledger event; read back in P3 via `IStudentEventStreamReader` and passed through `P3GateContext`. |
 | WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; read back in P3 via `P3GateContext.p2WatchOnlyFlag`; enforced in `VerificationDecision.create()`. |
 
@@ -76,6 +78,8 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 | Pressure        | 1–5               | Calm, Slightly tense, Uneasy, Very stressed, Panicky      |
 | BacklogPressure | 1–5               | On track, Mostly on track, Some pending, Behind, Drowning   |
 | SleepBucket     | <6, 6-7, 7-8, >=8 | Sleep-debt, Low sleep, Okay sleep, Fully slept            |
+| TimeCommitment  | 10, 20, 45, 60     | 10 min, 20 min, 45 min, 1h+ — collected on checkin screen (hidden for V1/V3/V9/V10 variants; system uses mode-based fallback) |
+| TaskType        | Learn, Practice, Revise | Learn, Practice, Revise — collected on checkin screen (moved from P1 screen in scope redesign; hidden for same variants as TimeCommitment) |
 
 
 ---
@@ -88,9 +92,9 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 | CohortAccess         | Command        | Auth session / user claims                | studentId, role, cohort scope                                         | Sync (per request) | ACL                             |
 | EI Projections       | Query response | GetStudentSignals → R/Signals             | aggregates, topic state, policy (openLoops, verificationRate7d, etc.) | Sync query         | Customer-Supplier               |
 | LoopHealthAssessment | Query response | AssessLoopHealth → R/LoopHealthSnapshot   | labels (p1, p2, p3) + key evidence                                    | Sync call          | Published Language              |
-| Student              | Command        | AppOpen                                   | energy, pressure, sleep, backlogPressure                              | —                  | Direct user                     |
+| Student              | Command        | AppOpen                                   | energy, pressure, sleep, backlogPressure; `timeCommitment` (optional, int: 10\|20\|45\|60); `taskType` (optional, string: Learn\|Practice\|Revise) — both absent for V1/V3/V9/V10 variants | —                  | Direct user                     |
 | CurriculumCatalog    | Query response | ResolveTopic → R/TopicReference           | topicId: UUID, topicName: string                                      | Sync query         | Published Language              |
-| Student              | Command        | IntentSet                                 | topicId, topicName, taskType, difficultyTier                          | —                  | Direct user                     |
+| Student              | Command        | IntentSet                                 | topicId, topicName                                                    | —                  | Direct user                     |
 | Student              | Command        | SessionEnd                                | topicId, topicName, effortSummary                                     | —                  | Direct user                     |
 | Student              | Command        | VerifyNow, ScheduleVerify, SkipWithReason | minQuestions, dueInHours, reason                                      | —                  | Direct user                     |
 

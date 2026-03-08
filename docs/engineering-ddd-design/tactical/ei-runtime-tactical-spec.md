@@ -193,14 +193,17 @@ class P1GateContext {
     verificationRate7d: number; scheduleMisses7d: number; silenceDays: number
     startLatencyMedian7d: number | null;   tightnessLevel: TightnessLevel
     loopLatencyTrend: 'improving' | 'stable' | 'worsening'
+    timeCommitment: number | null;  // Student-declared minutes (10/20/45/60); null = use mode fallback
+    taskType: string | null;        // Student-declared: 'Learn' | 'Practice' | 'Revise'; null = system default
   }): P1GateContext
   // Validates: energy 1-5, pressure 1-5, openLoops >= 0, verificationRate7d 0-1
 
-  isLowEnergy(): boolean           // energy <= 2
-  isHighPressure(): boolean        // pressure >= 4
-  hasOpenLoopRisk(): boolean       // openLoops >= 3
-  hasSilenceRisk(): boolean        // silenceDays >= 3
-  isRevengePlanningRisk(): boolean // pressure >= 4 AND energy >= 3 (S2 scenario)
+  isLowEnergy(): boolean               // energy <= 2
+  isHighPressure(): boolean            // pressure >= 4
+  hasOpenLoopRisk(): boolean           // openLoops >= 3
+  hasSilenceRisk(): boolean            // silenceDays >= 3
+  isRevengePlanningRisk(): boolean     // pressure >= 4 AND energy >= 3 (S2 scenario)
+  hasStudentDeclaredTime(): boolean    // timeCommitment !== null
 }
 ```
 
@@ -220,15 +223,19 @@ class NegotiatedIntent {
 
   static create(play: PlaySelection, ctx: P1GateContext, policy: StudentPolicy): NegotiatedIntent
   // Enforces:
-  //   scope.timeboxMin >= 10
+  //   scope.timeboxMin >= 1  (relaxed; 2-min micro-start valid; student 10 min is natural minimum in standard flows)
+  //   scope.timeboxMin = ctx.timeCommitment when ctx.hasStudentDeclaredTime(); mode-range midpoint fallback otherwise
   //   verificationPlan.minQuestions >= 1
   //   if mode === Rescue: scope.timeboxMin <= 30
   //   if play.playId === 'P1-R2': constraints.closeOpenLoopFirst = true
   //   if ctx.openLoops >= policy.maxOpenLoops: constraints.closeOpenLoopFirst = true
+  //   difficultyTier: computed internally from mode + policy.difficultyTierDelta + energy;
+  //     no student input. Rescue or energy<=2 → easy; Boost and energy>=4 → hard; else med.
 
   get playId(): string
   get mode(): Mode
   get scope(): { timeboxMin: number; questionCount: number; difficultyTier: DifficultyTier }
+  get taskType(): string | undefined   // Student-declared task type ('Learn'|'Practice'|'Revise') or undefined
   get verificationPlan(): { minQuestions: number; preferVerifyNow: boolean }
   get constraints(): { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | undefined
 
@@ -572,6 +579,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     })
 
     // 3. Build P1GateContext value object (throws DomainError on invalid input)
+    // Command carries timeCommitment: number | null and taskType: string | null from AppOpen payload
     const ctx = P1GateContext.create({ ...signals, ...command })
 
     // 4. Resolve mode + select play
@@ -739,6 +747,8 @@ Workflow `outputSchema` is `SduiResponseSchema` (not the raw VO schema). The `do
 | `ctx.closeOpenLoopFirst === true` | `deal-card` with pending check count (S7 archetype) |
 | `ctx.pendingChecks > 0` | `pending-checks` indicator in footer |
 | `ctx.isFirstOfDay === true` | Sleep + backlog scales in checkin view |
+| `shouldShowTimeAndTaskInputs(variant) === true` | Time commitment chips (10/20/45/60) + task type chips (Learn/Practice/Revise) in checkin view; hidden for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING |
+| P1 view (all variants) | **ConfirmationStrip** (replaces scope-card): displays `topic . taskType . ~timeboxMin min`; reflects student's own choices, not ELI's prescription. Single "Let's go" CTA (`accept_intent`). `taskType`/`difficultyTier` scale inputs removed from P1 view. |
 
 ### Boundary compliance
 

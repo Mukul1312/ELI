@@ -171,6 +171,16 @@ No "Clear one more" button — there is nothing to clear.
 
 Special first-time copy that teaches the concept. Only shown once ever.
 
+### Exceptions Outside the 7 Scenarios
+
+There are two Phase 3 moments that happen *before* the 7 verification scenarios apply (see `17-task-types-and-phase3.md` for full details):
+
+1. **The Learn close:** Auto-creates a revisit without asking.
+   *(Copy: "Done for today. We'll suggest this when it's time to verify.")*
+   No bottom Seed text — the Outcome Card acts as the hook. Showing "Topic is waiting for a revisit" would contradict the future-state promise and create false urgency.
+2. **First Encounter Override (Practice/Revise):** The student selects Practice or Revise for a topic ELI has never seen. Instead of assuming tracking is wanted, ELI asks for explicit consent.
+   *(Copy: "First time practicing this here. Want ELI to schedule a revisit?" → `[Yes, schedule it]` / `[No, skip]`)*
+
 ---
 
 ## 4. The Counter Mechanic

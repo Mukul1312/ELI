@@ -344,11 +344,14 @@ P1 screen:
 Checkin screen:
   Topic: [________________]               <-- stays (becomes topic-input from doc 14)
   Energy: [ 1 ] [ 2 ] [ 3 ] [ 4 ] [ 5 ]  <-- stays
+  Sleep: (first of day only — required)   <-- stays; BacklogPressure and "More context"
+                                              pressure toggle removed (see 03-ux-scales.md)
   How long do you have?
     [ 10 min ] [ 20 min ] [ 45 min ] [ 1h+ ]  <-- NEW: student declares time
   What kind of work?
     [ Learn ] [ Practice ] [ Revise ]      <-- MOVED from P1 screen to checkin
-  [Start Session]
+  [Start Thermodynamics]                  <-- CTA reflects selected topic (not "Start Session")
+
       |
       v
 P1 screen:

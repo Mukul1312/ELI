@@ -52,7 +52,8 @@ sequenceDiagram
     CohortAccess->>CohortAccess: Q/ResolveAuthSession
     CohortAccess-->>Runtime: R/AuthSession {studentId, cohortId, instituteId}
 
-    Student->>Runtime: C/AppOpen {energy, pressure, sleep, backlogPressure}
+    Note over Student,Runtime: timeCommitment and taskType absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE,<br/>V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent.
+    Student->>Runtime: C/AppOpen {energy, pressure, sleep, backlogPressure, timeCommitment?, taskType?}
 
     Note over Runtime,CC: ViewComposer renders topic picker
     Runtime->>CC: Q/SearchTopics {query, instituteId, limit}
@@ -61,16 +62,16 @@ sequenceDiagram
     alt Student selects from catalog (type-ahead / browse / recent chip)
         Student->>CC: Q/BrowseTree {examId, subjectId, instituteId}
         CC-->>Student: R/CurriculumTreeLevel {nodes[]}
-        Student->>Runtime: C/IntentSet {topicId, topicName, taskType}
+        Student->>Runtime: C/IntentSet {topicId, topicName}
     else Student types free-text (no match)
-        Student->>Runtime: C/IntentSet {rawText, taskType}
+        Student->>Runtime: C/IntentSet {rawText}
         Runtime->>CC: C/ResolveTopic {rawText, studentId, instituteId}
         CC->>CC: alias lookup → fuzzy match → provisional fallback
         CC-->>Runtime: R/TopicReference {topicId: UUID, topicName}
         Note over CC: If provisional: persists entry + appends to normalization queue
     end
 
-    Runtime->>Ledger: E/IntentSet {topicId, topicName, taskType}
+    Runtime->>Ledger: E/IntentSet {topicId, topicName}
     Note over Runtime,Ledger: Session continues with P1 gate (see S2/S5/S7 below)
 ```
 
@@ -101,7 +102,7 @@ sequenceDiagram
     Student->>CohortAccess: (request with session)
     CohortAccess->>CohortAccess: Q/ResolveAuthSession
     CohortAccess-->>Runtime: R/AuthSession {studentId, cohortId, role}
-    Student->>Runtime: C/AppOpen {energy=4, pressure=5}
+    Student->>Runtime: C/AppOpen {energy=4, pressure=5, timeCommitment=20, taskType=Practice}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {startLatency, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
@@ -146,7 +147,7 @@ sequenceDiagram
     participant Ledger
 
     Note over Student,Runtime: Day1 low energy + high pressure
-    Student->>Runtime: C/AppOpen {energy=2, sleepDebt=true, pressure=4, backlogPressure=5}
+    Student->>Runtime: C/AppOpen {energy=2, sleepDebt=true, pressure=4, backlogPressure=5, timeCommitment=10}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {silenceDays, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
@@ -187,7 +188,7 @@ sequenceDiagram
     participant Ledger
 
     Note over Student,Runtime: Day1-Day4 pattern - fast starts, delayed verification
-    Student->>Runtime: C/AppOpen {energy=5, anxiety=1}
+    Student->>Runtime: C/AppOpen {energy=5, anxiety=1, timeCommitment=60, taskType=Practice}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {openLoops=4, scheduleMisses7d=high, verificationRate7d=low}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
@@ -227,3 +228,4 @@ sequenceDiagram
 - **Interpretation boundary:** `LoopHealth` owns labels and precedence; `Runtime` consumes snapshots for routing.
 - **Student trust boundary:** rescue paths reduce friction and preserve dignity, especially in silence/burnout states.
 - **Topic identity from catalog:** All topic references in events use `TopicReference { topicId: UUID, topicName: string }` from CurriculumCatalog. Free-text fallback creates a provisional entry; student is never blocked. See [Topic Selection Flow](#topic-selection-flow-all-scenarios) above.
+- **Student declares, ELI adapts:** `timeCommitment` and `taskType` are collected on the checkin screen and flow into the AppOpen command payload. The P1 screen shows a ConfirmationStrip (topic . taskType . ~time) reflecting the student's own choices — not ELI's prescription — with a single "Let's go" CTA. Accept/Edit/Reject buttons no longer exist.

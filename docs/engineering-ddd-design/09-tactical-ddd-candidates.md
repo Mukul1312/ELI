@@ -44,6 +44,7 @@
 | TightnessLevel | Loose / Normal / Tight | enum |
 | OccurredAt | ISO datetime; validation | string |
 | TopicReference | Published Language VO: `{ topicId: UUID, topicName: string }` — stable topic identity consumed by EI Runtime, Projections, Radar | (to be implemented) |
+| TimeCommitment | Student-declared study duration; constrained to 10/20/45/60 minutes; feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint fallback when absent (for variants that hide time chips) | (to be implemented) |
 
 ---
 
