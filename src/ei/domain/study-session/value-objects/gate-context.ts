@@ -16,8 +16,7 @@ import type { P1FailurePatterns, P2Escalation, P3Escalation } from '../../../eng
 export interface P1GateContextProps {
   studentId: string;
   energy: number;
-  pressure: number;
-  backlogPressure: number;
+  highPressureDetected: boolean;
   sleepDebt: boolean;
   openLoops: number;
   verificationRate7d: number;
@@ -39,9 +38,6 @@ export class P1GateContext {
     if (props.energy < 1 || props.energy > 5) {
       throw new InvalidGateContextError('energy', 'must be between 1 and 5');
     }
-    if (props.pressure < 1 || props.pressure > 5) {
-      throw new InvalidGateContextError('pressure', 'must be between 1 and 5');
-    }
     if (props.openLoops < 0) {
       throw new InvalidGateContextError('openLoops', 'must be >= 0');
     }
@@ -53,8 +49,7 @@ export class P1GateContext {
 
   get studentId(): string { return this.props.studentId; }
   get energy(): number { return this.props.energy; }
-  get pressure(): number { return this.props.pressure; }
-  get backlogPressure(): number { return this.props.backlogPressure; }
+  get highPressureDetected(): boolean { return this.props.highPressureDetected; }
   get sleepDebt(): boolean { return this.props.sleepDebt; }
   get openLoops(): number { return this.props.openLoops; }
   get verificationRate7d(): number { return this.props.verificationRate7d; }
@@ -66,11 +61,11 @@ export class P1GateContext {
   get p1FailurePatterns(): P1FailurePatterns | undefined { return this.props.p1FailurePatterns; }
 
   isLowEnergy(): boolean { return this.props.energy <= 2; }
-  isHighPressure(): boolean { return this.props.pressure >= 4; }
+  isHighPressure(): boolean { return this.props.highPressureDetected; }
   hasOpenLoopRisk(): boolean { return this.props.openLoops >= 3; }
   hasSilenceRisk(): boolean { return this.props.silenceDays >= 3; }
   /** S2 scenario: high pressure with decent energy = revenge planning risk */
-  isRevengePlanningRisk(): boolean { return this.props.pressure >= 4 && this.props.energy >= 3; }
+  isRevengePlanningRisk(): boolean { return this.props.highPressureDetected && this.props.energy >= 3; }
 }
 
 // ============================================================================

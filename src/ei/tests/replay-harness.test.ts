@@ -63,8 +63,7 @@ function assertP1(
   const p1Ctx: P1Context = {
     energy: (payload.energy as number) ?? 3,
     sleepBucket: (payload.sleepBucket as SleepBucket | undefined) ?? '7-8',
-    pressure: (payload.pressure as number) ?? 3,
-    backlogPressure: (payload.backlogPressure as number) ?? 3,
+    highPressureDetected: (payload.highPressureDetected as boolean | undefined) ?? false,
   };
 
   const openedAt = (payload.openedAt as string) ?? new Date().toISOString();
@@ -82,8 +81,7 @@ function assertP1(
       aggregates,
       tightnessLevel,
       currentEnergy: p1Ctx.energy,
-      currentPressure: p1Ctx.pressure,
-      currentBacklogPressure: p1Ctx.backlogPressure,
+      highPressureDetected: p1Ctx.highPressureDetected,
     };
     const play = selectPlay(1, mode, playContext);
     expect(play.id).toBe(expected.playId);
@@ -176,7 +174,7 @@ function assertP3(
 describe('StateScore computation', () => {
   it('returns high score for optimal state', () => {
     const score = computeStateScore({
-      energy: 5, sleepBucket: '>=8', pressure: 1, backlogPressure: 1,
+      energy: 5, sleepBucket: '>=8',
     });
     expect(score).toBeGreaterThanOrEqual(8);
     expect(score).toBeLessThanOrEqual(10);
@@ -184,7 +182,7 @@ describe('StateScore computation', () => {
 
   it('returns low score for poor state', () => {
     const score = computeStateScore({
-      energy: 1, sleepBucket: '<6', pressure: 5, backlogPressure: 5,
+      energy: 1, sleepBucket: '<6',
     });
     expect(score).toBeGreaterThanOrEqual(1);
     expect(score).toBeLessThanOrEqual(3);
@@ -192,7 +190,7 @@ describe('StateScore computation', () => {
 
   it('returns middle score for neutral state', () => {
     const score = computeStateScore({
-      energy: 3, sleepBucket: '7-8', pressure: 3, backlogPressure: 3,
+      energy: 3, sleepBucket: '7-8',
     });
     expect(score).toBeGreaterThanOrEqual(3);
     expect(score).toBeLessThanOrEqual(7);

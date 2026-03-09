@@ -7,10 +7,6 @@
 import {
   P1_LOW_ENERGY_THRESHOLD,
   P1_HIGH_ENERGY_THRESHOLD,
-  P1_HIGH_PRESSURE_THRESHOLD,
-  P1_HIGH_BACKLOG_THRESHOLD,
-  P1_HIGH_ENERGY_PRESSURE_MAX,
-  P1_HIGH_ENERGY_BACKLOG_MAX,
   P2_STALLED_LATENCY_THRESHOLD,
   P2_STALLED_REPLAN_THRESHOLD,
   P2_FLOWING_LATENCY_MAX,
@@ -41,7 +37,7 @@ export type StudentAggregates = StudentAggregatesInput;
 export type StudentPolicy = StudentPolicyInput;
 
 /**
- * Assign P1 label from energy, sleep, pressure, backlog, trend.
+ * Assign P1 label from energy, sleep, highPressureDetected.
  */
 export function assignP1Label(
   context: P1Context,
@@ -50,16 +46,14 @@ export function assignP1Label(
   if (
     context.energy <= P1_LOW_ENERGY_THRESHOLD ||
     context.sleepBucket === '<6' ||
-    context.pressure >= P1_HIGH_PRESSURE_THRESHOLD ||
-    context.backlogPressure >= P1_HIGH_BACKLOG_THRESHOLD
+    context.highPressureDetected
   ) {
     return 'LOW_ENERGY';
   }
   if (
     context.energy >= P1_HIGH_ENERGY_THRESHOLD &&
     (context.sleepBucket === '7-8' || context.sleepBucket === '>=8') &&
-    context.pressure <= P1_HIGH_ENERGY_PRESSURE_MAX &&
-    context.backlogPressure <= P1_HIGH_ENERGY_BACKLOG_MAX &&
+    !context.highPressureDetected &&
     aggregates.silenceDays < SILENCE_DAYS_THRESHOLD &&
     aggregates.openLoops < OPEN_LOOPS_THRESHOLD
   ) {
@@ -173,7 +167,7 @@ function buildEvidence(aggregates: StudentAggregatesInput): LoopHealthEvidence {
 }
 
 function defaultP1Context(): P1Context {
-  return { energy: 3, sleepBucket: '7-8', pressure: 3, backlogPressure: 3 };
+  return { energy: 3, sleepBucket: '7-8', highPressureDetected: false };
 }
 
 function defaultP2Context(aggregates: StudentAggregatesInput): P2Context {

@@ -69,7 +69,7 @@ export function detectIdentityPattern(ctx: PresentationContext): IdentityPattern
   if (ctx.silenceDays >= 3 && activeThisWeek) {
     return 'silence_resolved'; // Fallback: current state
   }
-  if (ctx.pressure >= 4 && activeThisWeek) {
+  if (ctx.highPressureDetected && activeThisWeek) {
     return 'pressure_resolved'; // Fallback: current state
   }
   if (ctx.verificationRate7d >= 0.8 && ctx.loopsClosedLast7d >= 3) {

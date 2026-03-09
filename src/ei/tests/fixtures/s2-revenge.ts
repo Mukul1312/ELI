@@ -22,9 +22,9 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 5, sleepBucket: '6-7', backlogPressure: 4, openedAt: '2025-01-01T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '6-7', highPressureDetected: true, openedAt: '2025-01-01T09:00:00Z' },
         },
-        // P1 should route Rescue despite energy=4 because pressure=5
+        // P1 should route Rescue despite energy=4 because highPressureDetected=true
         {
           eventType: 'IntentResponse',
           payload: { studentId: 'student-s2', negotiatedIntentId: 'ni-1', decision: 'accepted', respondedAt: '2025-01-01T09:01:00Z' },
@@ -71,7 +71,7 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 4, sleepBucket: '7-8', backlogPressure: 3, openedAt: '2025-01-02T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '7-8', highPressureDetected: true, openedAt: '2025-01-02T09:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -99,7 +99,7 @@ export const s2RevengeFixture: StoryboardFixture = {
         },
       ],
       expectedOutputs: [
-        { protocol: 1, mode: 'Rescue' }, // still Rescue due to pressure=4
+        { protocol: 1, mode: 'Rescue' }, // still Rescue due to highPressureDetected
         // P3 not asserted on mode: student already verified inline (RetrievalVerified present),
         // so P3 label is CONFIDENT/NEUTRAL based on healthy aggregates
       ],
@@ -112,11 +112,12 @@ export const s2RevengeFixture: StoryboardFixture = {
     // Scene 6 (Day 3-4): "The relapse risk" — EI_Storyboard_S2_RevengePlanning_Day1-21.md
     {
       day: 4,
-      description: 'Day 4: Relapse risk, pressure still elevated (energy 4, pressure 3)',
+      // V1: energy=4 + no highPressureDetected → Boost (moderate pressure detection requires V3 triggers, Stage 2)
+      description: 'Day 4: Relapse risk — moderate pressure not yet detectable (energy 4, Boost in V1)',
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 3, sleepBucket: '7-8', backlogPressure: 3, openedAt: '2025-01-04T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '7-8', openedAt: '2025-01-04T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -135,7 +136,7 @@ export const s2RevengeFixture: StoryboardFixture = {
         },
       ],
       expectedOutputs: [
-        { protocol: 1, mode: 'Neutral' },
+        { protocol: 1, mode: 'Boost' }, // V1: no moderate pressure detection; Stage 2 will route Neutral via V3 triggers
       ],
       expectedSignals: {
         pendingChecks: 1,
@@ -150,7 +151,7 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 2, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-06T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '7-8', openedAt: '2025-01-06T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -188,7 +189,7 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 3, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-09T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '7-8', openedAt: '2025-01-09T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -220,7 +221,7 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 3, pressure: 2, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-11T21:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 3, sleepBucket: '7-8', openedAt: '2025-01-11T21:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -253,7 +254,7 @@ export const s2RevengeFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s2', energy: 4, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-17T09:00:00Z' },
+          payload: { studentId: 'student-s2', energy: 4, sleepBucket: '>=8', openedAt: '2025-01-17T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',

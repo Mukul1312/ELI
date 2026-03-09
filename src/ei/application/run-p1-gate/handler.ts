@@ -40,8 +40,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
   async execute(command: RunP1GateCommand): Promise<NegotiatedIntentIssuedOutput> {
     const { studentId, topicId, sessionId, energy } = command;
     const sleepBucket = (command.sleepBucket ?? '7-8') as SleepBucket;
-    const pressure = command.pressure ?? 3;
-    const backlogPressure = command.backlogPressure ?? 3;
+    const highPressureDetected = command.highPressureDetected ?? false;
 
     // ── 1. Load student signals (aggregates + policy) ────────────────────────
     const signals = await this.signalsPort.getSignals(studentId);
@@ -59,10 +58,10 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     const policy = signals?.policy ?? {};
 
     // ── 2. Compute state score ───────────────────────────────────────────────
-    const stateScore = computeStateScore({ energy, sleepBucket, pressure, backlogPressure });
+    const stateScore = computeStateScore({ energy, sleepBucket });
 
     // ── 3. Assess loop health (mode) ─────────────────────────────────────────
-    const p1LhaContext = { energy, sleepBucket, pressure, backlogPressure };
+    const p1LhaContext = { energy, sleepBucket, highPressureDetected };
     const snapshot = await this.assessLoopHealth.execute({
       studentId,
       gatePhase: 'P1',
@@ -73,11 +72,11 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
 
     // ── 4. Apply DoNoHarm guardrail ──────────────────────────────────────────
     let mode = snapshot.mode;
-    mode = applyDoNoHarmGuardrail(mode, aggregates, energy, pressure, sleepBucket);
+    mode = applyDoNoHarmGuardrail(mode, aggregates, energy, highPressureDetected, sleepBucket);
 
     // ── 5. Compute escalation context ────────────────────────────────────────
     const escalation = computeEscalationContext(
-      aggregates, energy, pressure, backlogPressure, sleepBucket,
+      aggregates, energy, highPressureDetected, sleepBucket,
     );
     const tightnessLevel = escalation.tightnessLevel;
 
@@ -89,8 +88,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
       tightnessLevel,
       p1FailurePatterns: escalation.p1FailurePatterns,
       currentEnergy: energy,
-      currentPressure: pressure,
-      currentBacklogPressure: backlogPressure,
+      highPressureDetected,
       loopLatencyTrend: aggregates.loopLatencyTrend,
     };
     const play = this.protocolEngine.selectPlay(1, mode, playContext);
@@ -99,8 +97,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     const gateCtx = P1GateContext.create({
       studentId,
       energy,
-      pressure,
-      backlogPressure,
+      highPressureDetected,
       sleepDebt: sleepBucket === '<6',
       openLoops: aggregates.openLoops,
       verificationRate7d: aggregates.verificationRate7d,

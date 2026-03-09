@@ -32,7 +32,7 @@ describe('AssessLoopHealthHandler', () => {
     const snapshot = await handler.execute({
       studentId: 's1',
       gatePhase: 'P1',
-      gateContext: { energy: 3, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 },
+      gateContext: { energy: 3, sleepBucket: '7-8', highPressureDetected: false },
       aggregates: baseAggregates(),
       policy: undefined,
     });
@@ -56,7 +56,7 @@ describe('AssessLoopHealthHandler', () => {
       handler.execute({
         studentId: 'unknown',
         gatePhase: 'P1',
-        gateContext: { energy: 3, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 },
+        gateContext: { energy: 3, sleepBucket: '7-8', highPressureDetected: false },
       })
     ).rejects.toThrow(MissingAggregatesError);
   });
@@ -93,7 +93,7 @@ describe('AssessLoopHealthHandler', () => {
     await expect(
       handler.execute({
         studentId: '',
-        gateContext: { energy: 3, sleepBucket: '7-8', pressure: 2, backlogPressure: 2 },
+        gateContext: { energy: 3, sleepBucket: '7-8', highPressureDetected: false },
       })
     ).rejects.toThrow('studentId is required');
   });

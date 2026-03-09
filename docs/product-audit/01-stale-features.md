@@ -6,7 +6,7 @@
 
 ## Overview
 
-Three student-facing features were removed or replaced between the original UX brief and the current `docs/student-ux-architecture/` specs. Two additional taxonomy mismatches exist independently of these removals.
+Three student-facing features were removed or replaced between the original UX brief and the current `docs/ux/` specs. Two additional taxonomy mismatches exist independently of these removals.
 
 | # | Stale Feature | Status | Routing Impact |
 |---|---|---|---|
@@ -211,7 +211,7 @@ IntentSet(topic, taskType, scope(optional), difficultyTier(optional), setAt)
 
 ### What changed and why
 
-`docs/student-ux-architecture/05-phase1-the-open.md` moved task type chips to the checkin screen (AppOpen). The rationale: taskType shapes the entire Phase 1 experience — a student declaring "Practice" gets different scope negotiation, different firstAction framing, and different verification defaults than a student declaring "Learn." If taskType is collected only at IntentSet (after topic pick), the P1 gate is composing the Phase 1 view without knowing task type. It then has to re-compose after IntentSet, creating a two-step design problem.
+`docs/ux/phase1/00-overview.md` moved task type chips to the checkin screen (AppOpen). The rationale: taskType shapes the entire Phase 1 experience — a student declaring "Practice" gets different scope negotiation, different firstAction framing, and different verification defaults than a student declaring "Learn." If taskType is collected only at IntentSet (after topic pick), the P1 gate is composing the Phase 1 view without knowing task type. It then has to re-compose after IntentSet, creating a two-step design problem.
 
 Moving taskType to AppOpen means the P1 gate has all routing inputs before rendering Phase 1.
 
@@ -247,7 +247,7 @@ The NegotiatedIntentIssued output includes `taskType ∈ { learn, practice, revi
 
 ### What it is
 
-`docs/student-ux-architecture/05-phase1-the-open.md` specifies time commitment chips at the checkin screen: 4 options (10 min / 20 min / 45 min / 1h+). The student's declared time is a primary routing input — it directly affects scope calculation, and it shapes ELI's firstAction instruction.
+`docs/ux/phase1/00-overview.md` specifies time commitment chips at the checkin screen: 4 options (10 min / 20 min / 45 min / 1h+). The student's declared time is a primary routing input — it directly affects scope calculation, and it shapes ELI's firstAction instruction.
 
 ### The gap
 
@@ -261,7 +261,7 @@ No `timeCommitment` field.
 
 ### The V3 and V1 special cases
 
-`docs/student-ux-architecture/05-phase1-the-open.md` documents two variants where time is not student-declared but internally fixed:
+`docs/ux/phase1/00-overview.md` documents two variants where time is not student-declared but internally fixed:
 - **V3 (HIGH_PRESSURE)**: time hidden from checkin, fixed at 2 min internally
 - **V1 (SILENCE_RE_ENTRY)**: time hidden from checkin, fixed at 5 min internally
 

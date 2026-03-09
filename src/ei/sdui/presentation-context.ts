@@ -24,7 +24,7 @@ export interface PresentationContext {
   readonly isFirstOfDay: boolean;
   readonly tightnessLevel: 'Loose' | 'Normal' | 'Tight';
   readonly energy: number;
-  readonly pressure: number;
+  readonly highPressureDetected: boolean;
   readonly closeOpenLoopFirst: boolean;
   /** Real verification rate from ei_student_aggregates (0–1). */
   readonly verificationRate7d: number;
@@ -40,7 +40,7 @@ export interface PresentationContext {
   readonly lastIdentityShownAt: Date | null;
   /** True if there was a 3+ day stretch with no SessionEnd in the last 14 days (resolution signal). */
   readonly hadSilenceInLast14d: boolean;
-  /** True if any AppOpen in the last 14 days had pressure >= 4 (resolution signal). */
+  /** True if any AppOpen in the last 14 days had highPressureDetected or legacy pressure >= 4 (resolution signal). */
   readonly hadHighPressureInLast14d: boolean;
   /** True if the user has ever opened the app before. */
   readonly hasPriorOpen: boolean;
@@ -67,7 +67,6 @@ export function buildP1PresentationContext(
   },
   workflowInput: {
     energy: number;
-    pressure: number;
   },
   aggregates?: AggregatesForPresentation | null,
   topicSnapshots?: TopicStateSnapshot[],
@@ -88,7 +87,7 @@ export function buildP1PresentationContext(
     isFirstOfDay: true,
     tightnessLevel: 'Normal',
     energy: workflowInput.energy,
-    pressure: workflowInput.pressure,
+    highPressureDetected: false,
     closeOpenLoopFirst,
     verificationRate7d: aggregates?.verificationRate7d ?? 0,
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
@@ -128,7 +127,7 @@ export function buildCheckinPresentationContext(
     isFirstOfDay,
     tightnessLevel: 'Normal',
     energy: 3,
-    pressure: 1,
+    highPressureDetected: false,
     closeOpenLoopFirst: false,
     verificationRate7d: aggregates?.verificationRate7d ?? 0,
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
@@ -165,7 +164,7 @@ export function buildP2PresentationContext(
     isFirstOfDay: true,
     tightnessLevel: 'Normal',
     energy: 3,
-    pressure: 1,
+    highPressureDetected: false,
     closeOpenLoopFirst: false,
     verificationRate7d: 0,
     stateTrend7d: 'flat',
@@ -181,7 +180,7 @@ export function buildP2PresentationContext(
 
 /**
  * Build PresentationContext from P3 (Verification) domain output.
- * Pass real aggregates + workflowInput (energy/pressure) so Phase 3 can compute the "clearMore" CTA and footer.
+ * Pass real aggregates + workflowInput (energy) so Phase 3 can compute the "clearMore" CTA and footer.
  */
 export function buildP3PresentationContext(
   domainOutput: {
@@ -190,7 +189,7 @@ export function buildP3PresentationContext(
     playId: string;
     topic: string;
   },
-  workflowInput: { energy: number; pressure: number },
+  workflowInput: { energy: number },
   aggregates?: AggregatesForPresentation | null,
   eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
 ): PresentationContext {
@@ -205,7 +204,7 @@ export function buildP3PresentationContext(
     isFirstOfDay: true,
     tightnessLevel: 'Normal',
     energy: workflowInput.energy,
-    pressure: workflowInput.pressure,
+    highPressureDetected: false,
     closeOpenLoopFirst: false,
     verificationRate7d: aggregates?.verificationRate7d ?? 0,
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',

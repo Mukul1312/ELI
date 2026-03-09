@@ -23,7 +23,7 @@ The engine taxonomy is the shared contract between Product and Engineering. When
 
 ### What's missing
 
-The HIGH_PRESSURE checkin variant (V3) is defined in `docs/student-ux-architecture/05-phase1-the-open.md` and the plan for `docs/phase1-design/04-phase1-variants.md`. It fires on three behavioral triggers:
+The HIGH_PRESSURE checkin variant (V3) is defined in `docs/ux/phase1/00-overview.md` and the plan for `docs/ux/phase1/variants.md`. It fires on three behavioral triggers:
 
 - `examProximityDays <= 7`
 - `avoidancePattern` (3+ AppOpens without sessions in 24h)
@@ -98,7 +98,7 @@ The V3 variant is fully designed at UX level but has zero data contract. It cann
 
 ### What's missing
 
-`docs/student-ux-architecture/05-phase1-the-open.md` specifies 4 time commitment options at the checkin screen: 10 min / 20 min / 45 min / 1h+. This is a primary input to scope calculation.
+`docs/ux/phase1/00-overview.md` specifies 4 time commitment options at the checkin screen: 10 min / 20 min / 45 min / 1h+. This is a primary input to scope calculation.
 
 The AppOpen event in the taxonomy:
 ```
@@ -146,7 +146,7 @@ Additionally, `NegotiatedIntentIssued.scope` should reference `timeCommitment` a
 
 ### What's missing
 
-`docs/student-ux-architecture/15-chat-companion.md` is fully designed at UX level: entry point (footer → bottom sheet), opening message rules, in-scope vs. out-of-scope topics, ELI's voice rules, availability by phase, chat history model, data ELI can reference.
+`docs/ux/systems/chat-companion.md` is fully designed at UX level: entry point (footer → bottom sheet), opening message rules, in-scope vs. out-of-scope topics, ELI's voice rules, availability by phase, chat history model, data ELI can reference.
 
 The engine taxonomy has zero coverage of chat. No events, no context type, no history model.
 

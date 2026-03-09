@@ -75,7 +75,7 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 
 | Event type | Required fields | Producer | Consumer(s) | Projection side-effects |
 |------------|-----------------|----------|-------------|--------------------------|
-| AppOpen | studentId, energy, openedAt; `timeCommitment` (optional, int: 10\|20\|45\|60 — student-declared minutes); `taskType` (optional, string: Learn\|Practice\|Revise — student-declared). Both optional: absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent. | UI | P1, Ledger | — |
+| AppOpen | studentId, energy, openedAt; `timeCommitment` (optional, int: 10\|20\|45\|60 — student-declared minutes); `taskType` (optional, string: Learn\|Practice\|Revise — student-declared); `highPressureDetected` (optional, boolean — system-derived from V3 triggers; absent = false). `timeCommitment` and `taskType` absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent. | UI | P1, Ledger | — |
 | IntentSet | studentId, topic, setAt | UI | P2, Ledger | — |
 | SessionEnd | studentId, topic, endedAt | UI | P3, Ledger | ei_topic_state.last_effort_at |
 | NegotiatedIntentIssued | studentId, mode, topic, scope, verificationPlan, issuedAt; `taskType` (optional, string: Learn\|Practice\|Revise); `scope.timeboxMin` = student's `timeCommitment` when provided, mode-range midpoint fallback when absent | P1 | Ledger, P3 (cross-protocol floor) | — |
@@ -92,6 +92,29 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 | StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt; optional: tightnessLevel, nextCycleConstraints | SA, setPolicyTool | Projections | ei_student_policy |
 
 > **Topic ID evolution — see detailed subsection below.**
+
+### V3 Trigger Signals (Stage 2 — system-derived pressure detection)
+
+**Context:** The self-reported Pressure (1-5) and BacklogPressure (1-5) scales have been retired from student UX. Students in genuine high-pressure states do not stop to self-report; the scales were least reliable for the archetypes (S2, S5) that most depended on them. The pressure signal is now system-detected via V3 triggers that feed a single boolean: `highPressureDetected`.
+
+**Definition:**
+
+```
+highPressureDetected = examProximityDays <= 7 OR avoidancePattern OR recentMockFailure
+```
+
+| Signal | Type | Source | Detection logic |
+|--------|------|--------|----------------|
+| `examProximityDays` | number (days) | Institute exam schedule import or student self-report | Days until next known exam; trigger when <= 7 |
+| `avoidancePattern` | boolean | Behavioral (Projections) | 3+ AppOpen events without a matching SessionEnd event within any 24h window |
+| `recentMockFailure` | boolean | Mock result import or student self-report | True when a mock result below threshold was recorded in last 14d |
+
+**Staging:**
+
+- **Stage 1 (v1 ship):** `highPressureDetected` defaults to `false`. All downstream logic (P1GateContext, assignP1Label) uses the boolean; no V3 trigger infrastructure is required. The V3 HIGH_PRESSURE checkin variant cannot fire until Stage 2.
+- **Stage 2 (post-launch):** Implement V3 trigger detection. `avoidancePattern` can be derived from existing Projections (AppOpen count without SessionEnd). `examProximityDays` and `recentMockFailure` require new data ingestion (institute import or student self-report screen).
+
+**Consumers:** P1GateContext (EI Runtime), assignP1Label (LoopHealthAssessment). Both use `highPressureDetected` where they previously used `pressure >= 4` or `backlogPressure >= 4`.
 
 ### Topic ID evolution (CurriculumCatalog integration)
 

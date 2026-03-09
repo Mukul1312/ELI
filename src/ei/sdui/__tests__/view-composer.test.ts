@@ -38,7 +38,7 @@ function baseCtx(overrides: Partial<PresentationContext> = {}): PresentationCont
     isFirstOfDay: true,
     tightnessLevel: 'Normal',
     energy: 3,
-    pressure: 2,
+    highPressureDetected: false,
     closeOpenLoopFirst: false,
     verificationRate7d: 0,
     stateTrend7d: 'flat',
@@ -235,29 +235,18 @@ describe('composeCheckinView', () => {
     expect(energyScale).toBeDefined();
   });
 
-  it('shows sleep and backlog scales when isFirstOfDay is true', () => {
+  it('shows sleep scale when isFirstOfDay is true', () => {
     const result = composeCheckinView(baseCtx({ isFirstOfDay: true }));
     const scales = findAllComponents(result.view.body, 'scale-input');
     const inputIds = scales.map((s: any) => s.props.inputId);
     expect(inputIds).toContain('sleepBucket');
-    expect(inputIds).toContain('backlogPressure');
   });
 
-  it('hides sleep and backlog scales when isFirstOfDay is false', () => {
+  it('hides sleep scale when isFirstOfDay is false', () => {
     const result = composeCheckinView(baseCtx({ isFirstOfDay: false }));
     const scales = findAllComponents(result.view.body, 'scale-input');
     const inputIds = scales.map((s: any) => s.props.inputId);
     expect(inputIds).not.toContain('sleepBucket');
-    expect(inputIds).not.toContain('backlogPressure');
-  });
-
-  it('always shows pressure scale as collapsible', () => {
-    const result = composeCheckinView(baseCtx());
-    const scales = findAllComponents(result.view.body, 'scale-input');
-    const pressureScale = scales.find((s: any) => s.props.inputId === 'pressure') as any;
-    expect(pressureScale).toBeDefined();
-    expect(pressureScale.props.collapsible).toBeDefined();
-    expect(pressureScale.props.collapsible.defaultOpen).toBe(false);
   });
 
   it('includes submit_checkin action', () => {
@@ -285,9 +274,9 @@ describe('selectPhase1Variant', () => {
     expect(selectPhase1Variant(baseCtx({ sessionsLast7d: 5, silenceDays: 1, energy: 2, mode: 'Rescue' }))).toBe('LOW_ENERGY');
   });
 
-  it('returns HIGH_PRESSURE when Rescue + pressure >= 4', () => {
-    expect(selectPhase1Variant(baseCtx({ sessionsLast7d: 5, energy: 4, pressure: 4, mode: 'Rescue' }))).toBe('HIGH_PRESSURE');
-    expect(selectPhase1Variant(baseCtx({ sessionsLast7d: 5, energy: 3, pressure: 5, mode: 'Rescue' }))).toBe('HIGH_PRESSURE');
+  it('returns HIGH_PRESSURE when Rescue + highPressureDetected', () => {
+    expect(selectPhase1Variant(baseCtx({ sessionsLast7d: 5, energy: 4, highPressureDetected: true, mode: 'Rescue' }))).toBe('HIGH_PRESSURE');
+    expect(selectPhase1Variant(baseCtx({ sessionsLast7d: 5, energy: 3, highPressureDetected: true, mode: 'Rescue' }))).toBe('HIGH_PRESSURE');
   });
 
   it('returns CLEAR_THEN_CHALLENGE when Boost + pendingChecks >= 1', () => {
@@ -330,7 +319,7 @@ describe('composeCheckinView variant behavior', () => {
   });
 
   it('HIGH_PRESSURE: resume-context-card has makeItSmallerContent and micro_start action', () => {
-    const result = composeCheckinView(baseCtx({ energy: 4, pressure: 5, mode: 'Rescue', sessionsLast7d: 5 }));
+    const result = composeCheckinView(baseCtx({ energy: 4, highPressureDetected: true, mode: 'Rescue', sessionsLast7d: 5 }));
     const card = (result.view.body as any[]).find((c: any) => c.type === 'resume-context-card');
     expect(card).toBeDefined();
     expect(card.props.variant).toBe('HIGH_PRESSURE');
@@ -364,7 +353,7 @@ describe('composeCheckinView variant behavior', () => {
   });
 
   it('V3 micro_start payload conforms to AppOpen micro schema (timeboxMin: 1)', () => {
-    const result = composeCheckinView(baseCtx({ energy: 4, pressure: 5, mode: 'Rescue', sessionsLast7d: 5 }));
+    const result = composeCheckinView(baseCtx({ energy: 4, highPressureDetected: true, mode: 'Rescue', sessionsLast7d: 5 }));
     const microAction = result.actions.micro_start;
     expect(microAction).toBeDefined();
     const rawPayload = (microAction.payload as any).payload;
@@ -377,8 +366,6 @@ describe('composeCheckinView variant behavior', () => {
       ...(rawPayload.sleepBucket && !String(rawPayload.sleepBucket).startsWith('{{')
         ? { sleepBucket: rawPayload.sleepBucket as '<6' | '6-7' | '7-8' | '>=8' }
         : {}),
-      ...(typeof rawPayload.pressure === 'number' ? { pressure: rawPayload.pressure } : {}),
-      ...(typeof rawPayload.backlogPressure === 'number' ? { backlogPressure: rawPayload.backlogPressure } : {}),
     };
     const parsed = AppOpenMicroPayloadSchema.safeParse(resolved);
     if (!parsed.success) {

@@ -35,9 +35,10 @@ export type VerificationFormat = z.infer<typeof VerificationFormatEnum>;
 export const AppOpenSchema = z.object({
   studentId: z.string(),
   energy: z.number().int().min(1).max(5),
-  pressure: z.number().int().min(1).max(5).optional(),
+  pressure: z.number().int().min(1).max(5).optional(),          // Deprecated — kept for backward compat with existing ledger events
   sleepBucket: SleepBucketEnum.optional(),
-  backlogPressure: z.number().int().min(1).max(5).optional(),
+  backlogPressure: z.number().int().min(1).max(5).optional(),   // Deprecated — kept for backward compat with existing ledger events
+  highPressureDetected: z.boolean().optional(),                  // System-derived; defaults false (V3 triggers, Stage 2)
   openedAt: z.string().datetime(),
 });
 export type AppOpen = z.infer<typeof AppOpenSchema>;

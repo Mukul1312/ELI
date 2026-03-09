@@ -9,6 +9,5 @@ export interface RunP1GateCommand {
   sessionId: string;
   energy: number;          // 1–5
   sleepBucket?: string;    // '<6' | '6-7' | '7-8' | '>=8'
-  pressure?: number;       // 1–5
-  backlogPressure?: number; // 1–5
+  highPressureDetected?: boolean; // System-derived; defaults false
 }

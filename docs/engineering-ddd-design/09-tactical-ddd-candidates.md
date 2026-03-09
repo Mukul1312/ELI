@@ -45,6 +45,7 @@
 | OccurredAt | ISO datetime; validation | string |
 | TopicReference | Published Language VO: `{ topicId: UUID, topicName: string }` — stable topic identity consumed by EI Runtime, Projections, Radar | (to be implemented) |
 | TimeCommitment | Student-declared study duration; constrained to 10/20/45/60 minutes; feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint fallback when absent (for variants that hide time chips) | (to be implemented) |
+| HighPressureDetected | System-derived boolean: true when V3 triggers fire (`examProximityDays <= 7`, `avoidancePattern`, `recentMockFailure`); replaces retired self-reported Pressure and BacklogPressure scales; defaults to false in Stage 1; see `05-cross-cutting-concerns.md` §V3 Trigger Signals | (to be implemented) |
 
 ---
 

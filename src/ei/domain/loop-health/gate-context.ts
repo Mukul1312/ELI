@@ -8,8 +8,7 @@ export type SleepBucket = '<6' | '6-7' | '7-8' | '>=8';
 export interface P1Context {
   energy: number; // 1-5
   sleepBucket: SleepBucket;
-  pressure: number; // 1-5
-  backlogPressure: number; // 1-5
+  highPressureDetected: boolean; // System-derived; defaults false (V3 triggers, Stage 2)
 }
 
 export interface P2Context {

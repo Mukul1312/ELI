@@ -127,10 +127,10 @@ const appOpenBranchStep = createStep({
         );
         if (!intentProgressed) {
           // Load aggregates + event counts for PresentationContext (same pattern as protocol1-ignition .map() step).
-          const [aggregates, eventCounts, energyPressure, intentTopicName] = await Promise.all([
+          const [aggregates, eventCounts, lastEnergy, intentTopicName] = await Promise.all([
             Q.getAggregates(db, studentId),
             Q.countStudentEventsLast7d(db, studentId),
-            Q.getLastAppOpenEnergyPressure(db, studentId),
+            Q.getLastAppOpenEnergy(db, studentId),
             Q.getTopicName(db, studentId, intentTopicId),
           ]);
 
@@ -170,7 +170,7 @@ const appOpenBranchStep = createStep({
               stateScore: intentOutput.stateScore,
               constraints: intentOutput.constraints,
             },
-            energyPressure,
+            lastEnergy,
             aggregatesForPresentation,
             undefined,
             eventCounts,
@@ -198,8 +198,6 @@ const appOpenBranchStep = createStep({
         topicName: topicRef.topicName,
         energy: 3,
         sleepBucket: '7-8' as const,
-        pressure: 1,
-        backlogPressure: 1,
         idempotencyKey,
         correlationId,
       };
@@ -215,8 +213,6 @@ const appOpenBranchStep = createStep({
         topicName?: string;
         energy: number;
         sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
-        pressure?: number;
-        backlogPressure?: number;
         openedAt?: string;
       };
       const topicRef = microPayload.topicId
@@ -241,8 +237,6 @@ const appOpenBranchStep = createStep({
       topicName?: string;
       energy: number;
       sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
-      pressure?: number;
-      backlogPressure?: number;
       openedAt?: string;
     };
     const commandWithStudent: EiCommandWithStudent = {
@@ -266,8 +260,6 @@ const appOpenBranchStep = createStep({
         topicName: topicRef.topicName,
         energy: fullPayload.energy,
         sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
-        pressure: fullPayload.pressure ?? 1,
-        backlogPressure: fullPayload.backlogPressure ?? 1,
         openedAt: fullPayload.openedAt,
         idempotencyKey,
         correlationId,

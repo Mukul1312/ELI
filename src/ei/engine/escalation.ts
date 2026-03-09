@@ -140,21 +140,20 @@ export interface NegotiatedIntentEvent {
 
 /**
  * Detect Pattern A: Revenge Planning
- * 
+ *
  * From EI_Protocol_1_Ignition.md lines 146-155:
- * - High anxiety (pressure >= 4 or backlogPressure >= 4)
+ * - High pressure detected (system-derived V3 triggers)
  * - Repeated high Ambition Delta (>= +3) over recent intents
  * - Followed by schedule misses or avoidant exits
- * 
+ *
  * This pattern indicates student is over-planning due to anxiety.
  */
 export function detectPatternA(
   recentIntents: NegotiatedIntentEvent[],
   aggregates: StudentAggregates,
-  currentPressure: number,
-  currentBacklogPressure: number
+  highPressureDetected: boolean
 ): boolean {
-  const hasHighAnxiety = currentPressure >= 4 || currentBacklogPressure >= 4;
+  const hasHighAnxiety = highPressureDetected;
 
   // Count recent intents with high ambition delta (last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -227,15 +226,13 @@ export function getP1FailurePatterns(
   recentIntents: NegotiatedIntentEvent[],
   recentResponses: IntentResponseEvent[],
   aggregates: StudentAggregates,
-  currentPressure: number,
-  currentBacklogPressure: number
+  highPressureDetected: boolean
 ): P1FailurePatterns {
   return {
     patternA: detectPatternA(
       recentIntents,
       aggregates,
-      currentPressure,
-      currentBacklogPressure
+      highPressureDetected
     ),
     patternB: detectPatternB(recentResponses, aggregates),
     patternC: detectPatternC(aggregates),
@@ -331,14 +328,14 @@ export function getP3Escalation(aggregates: StudentAggregates): P3Escalation {
 export function shouldSuppressTightening(
   aggregates: StudentAggregates,
   currentEnergy: number,
-  currentPressure: number,
+  highPressureDetected: boolean,
   currentSleep: '<6' | '6-7' | '7-8' | '>=8'
 ): boolean {
   // Check if state is collapsing
   const stateCollapsing =
     aggregates.stateTrend7d === 'worsening' ||
     currentEnergy <= 2 ||
-    currentPressure >= 4 ||
+    highPressureDetected ||
     currentSleep === '<6';
 
   // If state is collapsing AND tightness would increase demands, suppress
@@ -354,14 +351,14 @@ export function applyDoNoHarmGuardrail(
   currentMode: 'Rescue' | 'Neutral' | 'Boost',
   aggregates: StudentAggregates,
   currentEnergy: number,
-  currentPressure: number,
+  highPressureDetected: boolean,
   currentSleep: '<6' | '6-7' | '7-8' | '>=8'
 ): 'Rescue' | 'Neutral' | 'Boost' {
   if (
     shouldSuppressTightening(
       aggregates,
       currentEnergy,
-      currentPressure,
+      highPressureDetected,
       currentSleep
     )
   ) {
@@ -390,8 +387,7 @@ export interface EscalationContext {
 export function computeEscalationContext(
   aggregates: StudentAggregates,
   currentEnergy: number,
-  currentPressure: number,
-  currentBacklogPressure: number,
+  highPressureDetected: boolean,
   currentSleep: '<6' | '6-7' | '7-8' | '>=8',
   recentIntents?: NegotiatedIntentEvent[],
   recentResponses?: IntentResponseEvent[],
@@ -406,8 +402,7 @@ export function computeEscalationContext(
           recentIntents,
           recentResponses,
           aggregates,
-          currentPressure,
-          currentBacklogPressure
+          highPressureDetected
         )
       : undefined;
 
@@ -421,7 +416,7 @@ export function computeEscalationContext(
   const doNoHarmActive = shouldSuppressTightening(
     aggregates,
     currentEnergy,
-    currentPressure,
+    highPressureDetected,
     currentSleep
   );
 

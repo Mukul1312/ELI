@@ -188,21 +188,22 @@ class P1GateContext {
   private constructor(private readonly props: P1GateContextProps) {}
 
   static create(props: {
-    studentId: string;        energy: number;       pressure: number
-    backlogPressure: number;  sleepDebt: boolean;   openLoops: number
+    studentId: string;        energy: number;       sleepDebt: boolean
+    highPressureDetected: boolean;  // System-derived from V3 triggers (Stage 2); defaults to false when absent
+    openLoops: number
     verificationRate7d: number; scheduleMisses7d: number; silenceDays: number
     startLatencyMedian7d: number | null;   tightnessLevel: TightnessLevel
     loopLatencyTrend: 'improving' | 'stable' | 'worsening'
     timeCommitment: number | null;  // Student-declared minutes (10/20/45/60); null = use mode fallback
     taskType: string | null;        // Student-declared: 'Learn' | 'Practice' | 'Revise'; null = system default
   }): P1GateContext
-  // Validates: energy 1-5, pressure 1-5, openLoops >= 0, verificationRate7d 0-1
+  // Validates: energy 1-5, openLoops >= 0, verificationRate7d 0-1
 
   isLowEnergy(): boolean               // energy <= 2
-  isHighPressure(): boolean            // pressure >= 4
+  isHighPressure(): boolean            // highPressureDetected === true
   hasOpenLoopRisk(): boolean           // openLoops >= 3
   hasSilenceRisk(): boolean            // silenceDays >= 3
-  isRevengePlanningRisk(): boolean     // pressure >= 4 AND energy >= 3 (S2 scenario)
+  isRevengePlanningRisk(): boolean     // highPressureDetected === true AND energy >= 3 (S2 scenario)
   hasStudentDeclaredTime(): boolean    // timeCommitment !== null
 }
 ```
@@ -575,7 +576,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     // 2. Assess loop health → LoopHealthSnapshot
     const loopHealth = await this.assessLoopHealth.execute({
       studentId: command.studentId,
-      p1StateInput: { energy: command.energy, pressure: command.pressure, ... }
+      p1StateInput: { energy: command.energy, highPressureDetected: command.highPressureDetected ?? false, ... }
     })
 
     // 3. Build P1GateContext value object (throws DomainError on invalid input)
@@ -687,7 +688,7 @@ Per `01-ei-tactical-conventions.md` §13: domain unit tests use no mocks; applic
 | P1GateContext energy=0 → throws DomainError | Domain | Unit — DomainError thrown |
 | VerificationDecision: p1Floor=3, play gives 1Q → raised to 3 | Domain | Unit — verifyNow.minQuestions === 3 |
 | VerificationDecision: p2WatchOnly + Skip → VerifyNow | Domain | Unit — decision === 'VerifyNow' |
-| Full S2: energy=4 pressure=5 → Rescue play P1-R3 | Domain | Unit — issueNegotiatedIntent succeeds |
+| Full S2: energy=4 highPressureDetected=true → Rescue play P1-R3 | Domain | Unit — issueNegotiatedIntent succeeds |
 | Full S7: energy=5 openLoops=4 → RiskOverride, closeLoopFirst | Domain | Unit — NegotiatedIntent.closeLoopFirst() === true |
 | RunP1GateHandler: happy path with fake ports | Application | Unit — events appended, output returned |
 | RunP3GateHandler: P1 floor threading via P3GateContext | Application | Unit — VerificationDecision respects floor |
@@ -733,7 +734,7 @@ The compose step receives the gate handler output merged with original workflow 
 
 ```
 .then(runP1Gate)           ← AdaptiveCoaching: domain decisions
-.map(mergeWithInitData)    ← merge NegotiatedIntentIssued + energy/pressure
+.map(mergeWithInitData)    ← merge NegotiatedIntentIssued + energy/context
 .then(composeP1ViewStep)   ← StudySessionOrchestration: SduiResponse
 ```
 

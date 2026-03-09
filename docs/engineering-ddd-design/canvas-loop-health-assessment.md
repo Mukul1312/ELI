@@ -50,14 +50,14 @@ Assess loop health and produce a LoopHealthSnapshot (labels + key evidence numbe
 | StateTrend | Trend in energy/state over recent period |
 | AVOIDANT | P3 label: verification avoidance; low rate, high openLoops |
 | CONFIDENT | P3 label: verification integrity; high rate, bounded openLoops |
-| LOW_ENERGY | P1 label: low capacity (energy, anxiety, backlog pressure) |
+| LOW_ENERGY | P1 label: low capacity (energy, sleep, highPressureDetected) |
 | HIGH_ENERGY | P1 label: high capacity; may still be overridden by risk |
 | STALLED | P2 label: high start latency, replans |
 | FLOWING | P2 label: fast starts, no replans |
 | Precedence rules | Risk overrides ambition; e.g. AVOIDANT overrides CONFIDENT, openLoops≥3 overrides HIGH_ENERGY |
 | PendingChecks | Student-facing term for topics with scheduled verification due |
 | AvoidantExit | SessionEnd with no retrieval now and no scheduled retrieval |
-| StateTrend7d | Coarse direction (improving/flat/worsening) from energy/pressure/sleep/backlog taps |
+| StateTrend7d | Coarse direction (improving/flat/worsening) from energy/sleep taps and behavioral signals |
 
 ### Label conditions (v1 defaults)
 
@@ -65,8 +65,8 @@ Source: EI_Engine_Taxonomy §3
 
 | Label | Protocol | Condition (v1 defaults) |
 |-------|----------|-------------------------|
-| **LOW_ENERGY** | P1 | energy ≤2, sleepBucket "<6", pressure ≥4, backlogPressure ≥4, or StateTrend7d worsening |
-| **HIGH_ENERGY** | P1 | energy ≥4, sleepBucket 7-8 or ≥8, pressure ≤2, backlogPressure ≤3; no SilenceDays ≥2 or OpenLoops ≥3 |
+| **LOW_ENERGY** | P1 | energy ≤2, sleepBucket "<6", highPressureDetected === true, or StateTrend7d worsening |
+| **HIGH_ENERGY** | P1 | energy ≥4, sleepBucket 7-8 or ≥8, highPressureDetected === false; no SilenceDays ≥2 or OpenLoops ≥3 |
 | **STALLED** | P2 | StartLatencyMin ≥15, ≥2 Replans before start, or intent set but no start within ~20 min |
 | **FLOWING** | P2 | StartLatencyMin ≤3, no repeated replans; not AVOIDANT |
 | **AVOIDANT** | P3 | session ends without retrieval/schedule, VerificationRate7d <0.60, OpenLoops ≥3, or SilenceDays ≥2 |

@@ -35,8 +35,6 @@ export const AppOpenMicroPayloadSchema = z
     topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
-    pressure: z.number().min(1).max(5).optional(),
-    backlogPressure: z.number().min(1).max(5).optional(),
     timeboxMin: z.literal(1),
     openedAt: z.string().datetime().optional(),
   })
@@ -50,8 +48,6 @@ export const AppOpenFullPayloadSchema = z
     topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
-    pressure: z.number().min(1).max(5).optional(),
-    backlogPressure: z.number().min(1).max(5).optional(),
     openedAt: z.string().datetime().optional(),
   })
   .strict();

@@ -661,7 +661,7 @@ export interface HistoricalIdentityIndicators {
 
 /**
  * hadSilenceInLast14d: true if there was a 3+ day stretch with no SessionEnd in last 14 days.
- * hadHighPressureInLast14d: true if any AppOpen in last 14 days had pressure >= 4.
+ * hadHighPressureInLast14d: true if any AppOpen in last 14 days had highPressureDetected = true (or legacy pressure >= 4).
  */
 export async function getHistoricalIdentityIndicators(
   db: DbClient,
@@ -684,7 +684,7 @@ export async function getHistoricalIdentityIndicators(
     db.oneOrNone<{ count: string }>(
       `SELECT COUNT(*) AS count FROM ei_events
        WHERE student_id = $1 AND event_type = 'AppOpen' AND occurred_at >= $2
-         AND (payload->>'pressure')::int >= 4`,
+         AND ((payload->>'highPressureDetected')::boolean = true OR (payload->>'pressure')::int >= 4)`,
       [studentId, since],
     ),
   ]);
@@ -708,11 +708,11 @@ export async function getHistoricalIdentityIndicators(
   };
 }
 
-/** Get energy and pressure from the most recent AppOpen event for P3 context. */
-export async function getLastAppOpenEnergyPressure(
+/** Get energy from the most recent AppOpen event for P3 context. */
+export async function getLastAppOpenEnergy(
   db: DbClient,
   studentId: string,
-): Promise<{ energy: number; pressure: number }> {
+): Promise<{ energy: number }> {
   const row = await db.oneOrNone<{ payload: Record<string, unknown> }>(
     `SELECT payload FROM ei_events
      WHERE student_id = $1 AND event_type = 'AppOpen'
@@ -722,6 +722,5 @@ export async function getLastAppOpenEnergyPressure(
   const payload = row?.payload ?? {};
   return {
     energy: (payload.energy as number) ?? 3,
-    pressure: (payload.pressure as number) ?? 1,
   };
 }

@@ -203,7 +203,7 @@ The problem is not that the vision is wrong — it is that the vision has been m
 
 ## 4. Energy × Time-of-Day Pattern Claim
 
-**Source:** `docs/student-ux-architecture/15-chat-companion.md` §4 and §8, various storyboard scenes
+**Source:** `docs/ux/systems/chat-companion.md` §4 and §8, various storyboard scenes
 
 ### The exact text
 
@@ -275,7 +275,7 @@ The distinction: small-N observations vs. pattern claims. ELI can make the forme
 
 ## 5. Template Ceiling on the Recognition Beat
 
-**Source:** All three storyboards (Days 1–21); `docs/student-ux-architecture/01-craving-loop.md` §Beat 2
+**Source:** All three storyboards (Days 1–21); `docs/ux/foundations/craving-loop.md` §Beat 2
 
 ### The exact text
 

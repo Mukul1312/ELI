@@ -188,18 +188,16 @@ function assertPartialMatch(
 /**
  * Returns true if the P1 context forces LOW_ENERGY regardless of aggregate history.
  * These conditions produce Rescue purely from context, not from computed stateTrend7d:
- *   energy ≤ 2, sleep='<6', pressure ≥ 4, backlogPressure ≥ 4
+ *   energy ≤ 2, sleep='<6', highPressureDetected=true
  */
 function isContextForcedRescue(payload: Record<string, unknown>): boolean {
   const energy = payload.energy as number | undefined;
   const sleep = payload.sleepBucket as string | undefined;
-  const pressure = payload.pressure as number | undefined;
-  const backlog = payload.backlogPressure as number | undefined;
+  const highPressure = payload.highPressureDetected as boolean | undefined;
   return (
     (energy !== undefined && energy <= 2) ||
     sleep === '<6' ||
-    (pressure !== undefined && pressure >= 4) ||
-    (backlog !== undefined && backlog >= 4)
+    highPressure === true
   );
 }
 
@@ -222,14 +220,13 @@ async function runP1Assertion(
     sessionId,
     energy: (payload.energy as number) ?? 3,
     sleepBucket: (payload.sleepBucket as string | undefined) ?? '7-8',
-    pressure: (payload.pressure as number | undefined) ?? 3,
-    backlogPressure: (payload.backlogPressure as number | undefined) ?? 3,
+    highPressureDetected: (payload.highPressureDetected as boolean | undefined) ?? false,
   });
 
   // Assert mode only when the aggregate history cannot override the expectation:
   //   (a) First fixture day — aggregates are safe defaults, context determines mode.
   //   (b) Expected Rescue AND context alone forces LOW_ENERGY (energy≤2, sleep='<6',
-  //       pressure≥4, backlog≥4) — these conditions beat stateTrend7d.
+  //       highPressureDetected=true) — these conditions beat stateTrend7d.
   // Late-day Boost/Neutral expectations depend on stateTrend7d which the real
   // RecomputeStudentAggregatesHandler may compute differently from mock values.
   if (expected.mode) {
@@ -412,8 +409,6 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-boost',
       energy: 4,
       sleepBucket: '7-8',
-      pressure: 1,
-      backlogPressure: 1,
     });
     expect(output.mode).toBe('Boost');
     expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
@@ -428,8 +423,7 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-rescue',
       energy: 2,
       sleepBucket: '<6',
-      pressure: 5,
-      backlogPressure: 5,
+      highPressureDetected: true,
     });
     expect(output.mode).toBe('Rescue');
     // Rescue still enforces scope floors
@@ -445,8 +439,6 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-neutral',
       energy: 3,
       sleepBucket: '7-8',
-      pressure: 3,
-      backlogPressure: 3,
     });
     expect(['Neutral', 'Boost', 'Rescue']).toContain(output.mode);
     expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);

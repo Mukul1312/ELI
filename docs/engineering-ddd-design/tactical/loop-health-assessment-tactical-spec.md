@@ -29,7 +29,7 @@
 | P3Label            | **Enum Value Object:** `AVOIDANT \| CONFIDENT \| NEUTRAL` — immutable string union, equality by value.                                                               |
 | Mode               | **Enum Value Object:** `Rescue \| Neutral \| Boost` — immutable string union, equality by value.                                                                     |
 | Precedence rules   | Risk overrides ambition; AVOIDANT/STALLED → Rescue; openLoops/silenceDays block Boost.                                                                              |
-| P1Context          | **Input Value Object (structural):** immutable gate-input shape — energy, sleepBucket, pressure, backlogPressure.                                                    |
+| P1Context          | **Input Value Object (structural):** immutable gate-input shape — energy, sleepBucket, highPressureDetected.                                                         |
 | P2Context          | **Input Value Object (structural):** immutable gate-input shape — startLatencyMin, replanCount, hasStartSignal, timeSinceIntentSet.                                  |
 | P3Context          | **Input Value Object (structural):** immutable gate-input shape — hasRetrieval, hasSchedule.                                                                         |
 
@@ -98,7 +98,7 @@ Per [05-cross-cutting-concerns.md#invariants](../05-cross-cutting-concerns.md):
 
 | Operation                          | Location                                                                                   | Responsibility                                                                   |
 | ---------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| assignP1Label                      | [assess-loop-health.ts](../../src/ei/domain/loop-health/assess-loop-health.ts)             | Energy, sleep, pressure → P1 label                                               |
+| assignP1Label                      | [assess-loop-health.ts](../../src/ei/domain/loop-health/assess-loop-health.ts)             | Energy, sleep, highPressureDetected → P1 label                                   |
 | assignP2Label                      | assess-loop-health.ts                                                                      | Start latency, replans → P2 label                                                |
 | assignP3Label                      | assess-loop-health.ts                                                                      | Retrieval/schedule, verification rate → P3 label                                 |
 | resolveMode                        | assess-loop-health.ts                                                                      | Label + aggregates → Rescue/Neutral/Boost (6 precedence rules)                   |
@@ -163,8 +163,8 @@ Taxonomy reference: [EI_Engine_Taxonomy.md](../../ei/EI_Engine_Taxonomy.md) §3 
 
 | Scenario                            | Input                                                       | Expected outcome                      |
 | ----------------------------------- | ----------------------------------------------------------- | ------------------------------------- |
-| S2 lowCapacity                      | Revenge planning; energy low, pressure high                 | P1 LOW_ENERGY; mode Rescue or Neutral |
-| S5 lowEnergy                        | Burnout/silence; energy ≤ 2, sleep '<6', pressure ≥ 4, or backlog ≥ 4 | P1 LOW_ENERGY; risk signals elevated |
+| S2 lowCapacity                      | Revenge planning; energy low, highPressureDetected=true     | P1 LOW_ENERGY; mode Rescue or Neutral |
+| S5 lowEnergy                        | Burnout/silence; energy ≤ 2, sleep '<6', or highPressureDetected | P1 LOW_ENERGY; risk signals elevated |
 | S7 avoidantRisk                     | Pending checks pile up; no retrieval/schedule at SessionEnd | P3 AVOIDANT; mode Rescue              |
 | Precedence: risk overrides ambition | HIGH_ENERGY label but openLoops≥3                           | mode Neutral or Rescue (no Boost)     |
 | Precedence: AVOIDANT → Rescue       | P3 AVOIDANT                                                 | mode Rescue always                    |
@@ -184,7 +184,7 @@ Taxonomy reference: [EI_Engine_Taxonomy.md](../../ei/EI_Engine_Taxonomy.md) §3 
 
 | Decision | Resolution |
 |----------|------------|
-| **`stateTrend7d === 'worsening'` in `assignP1Label`** | Removed from LOW_ENERGY condition. Worsening trend **caps mode at Neutral** (via `resolveMode`'s `hasStability` check) but does **not force Rescue**. LOW_ENERGY is only triggered by energy ≤ 2, sleep '<6', pressure ≥ 4, or backlogPressure ≥ 4. A recovering student with good current context gets Neutral, not Rescue. |
+| **`stateTrend7d === 'worsening'` in `assignP1Label`** | Removed from LOW_ENERGY condition. Worsening trend **caps mode at Neutral** (via `resolveMode`'s `hasStability` check) but does **not force Rescue**. LOW_ENERGY is only triggered by energy ≤ 2, sleep '<6', or highPressureDetected === true. Self-reported pressure and backlogPressure scales have been retired; pressure detection is now system-derived via V3 triggers (see `05-cross-cutting-concerns.md` §V3 Trigger Signals). |
 
 ---
 

@@ -57,7 +57,7 @@ Maintain a faithful, append-only record of what happened (domain events) as the 
 
 | Collaborator | Message type | Message name | Key data | Integration style | Relationship (from context map) |
 |--------------|--------------|--------------|----------|-------------------|-----------------------------------|
-| EI Runtime | Event | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse | energy, pressure, sleep, backlogPressure, `timeCommitment` (optional), `taskType` (optional); topic-bearing events carry topicId (UUID) + topicName from CC | Sync append | Customer-Supplier |
+| EI Runtime | Event | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse | energy, sleep, `timeCommitment` (optional), `taskType` (optional); topic-bearing events carry topicId (UUID) + topicName from CC | Sync append | Customer-Supplier |
 | EI Runtime | Event | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued | scope, mode, verificationDecision | Sync append | Customer-Supplier |
 | EI Runtime | Event | RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, ScheduleMissed | questions, dueAt, reason | Sync append | Customer-Supplier |
 

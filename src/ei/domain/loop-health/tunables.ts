@@ -11,10 +11,6 @@ export const OPEN_LOOPS_THRESHOLD = 3;
 // P1 Label thresholds
 export const P1_LOW_ENERGY_THRESHOLD = 2;
 export const P1_HIGH_ENERGY_THRESHOLD = 4;
-export const P1_HIGH_PRESSURE_THRESHOLD = 4;
-export const P1_HIGH_BACKLOG_THRESHOLD = 4;
-export const P1_HIGH_ENERGY_PRESSURE_MAX = 2;
-export const P1_HIGH_ENERGY_BACKLOG_MAX = 3;
 
 // P2 Label thresholds
 export const P2_STALLED_LATENCY_THRESHOLD = 15;

@@ -32,8 +32,6 @@ const P1Input = z.object({
   topicName: z.string().optional(),
   energy: z.number().min(1).max(5),
   sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']),
-  pressure: z.number().min(1).max(5),
-  backlogPressure: z.number().min(1).max(5),
   openedAt: z.string().datetime().optional(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -48,7 +46,7 @@ const runP1Gate = createStep({
   inputSchema: P1Input,
   outputSchema: NegotiatedIntentIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
-    const { studentId, topic, topicName, energy, sleepBucket, pressure, backlogPressure, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, energy, sleepBucket, idempotencyKey } = inputData;
     const db = eiStore.db;
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
@@ -69,8 +67,6 @@ const runP1Gate = createStep({
       payload: {
         energy,
         sleepBucket,
-        pressure,
-        backlogPressure,
         openedAt: new Date().toISOString(),
         ...(topicName && { topicName }),
       },
@@ -83,8 +79,6 @@ const runP1Gate = createStep({
       sessionId: session.sessionId,
       energy,
       sleepBucket,
-      pressure,
-      backlogPressure,
     });
     return { ...result, topicName };
   },
@@ -117,7 +111,6 @@ export const protocol1IgnitionWorkflow = createWorkflow({
       domainOutput: inputData,
       workflowInput: {
         energy: workflowInput.energy,
-        pressure: workflowInput.pressure,
       },
       aggregates: aggregates ?? null,
       topicStates: topicStates,

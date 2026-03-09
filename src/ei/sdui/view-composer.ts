@@ -43,22 +43,6 @@ const SLEEP_CHIPS = [
   { label: 'Fully slept', value: '>=8' },
 ] as const;
 
-const BACKLOG_CHIPS = [
-  { label: 'On track', value: 1 },
-  { label: 'Mostly on track', value: 2 },
-  { label: 'Some pending', value: 3 },
-  { label: 'Behind', value: 4 },
-  { label: 'Drowning', value: 5 },
-] as const;
-
-const PRESSURE_CHIPS = [
-  { label: 'Calm', value: 1 },
-  { label: 'Slightly tense', value: 2 },
-  { label: 'Uneasy', value: 3 },
-  { label: 'Very stressed', value: 4 },
-  { label: 'Panicky', value: 5 },
-] as const;
-
 const TASK_TYPE_CHIPS = [
   { label: 'Learn', value: 'Learn' },
   { label: 'Practice', value: 'Practice' },
@@ -716,7 +700,7 @@ export function composePhase3View(
       endpoint: { method: 'POST', path: '/api/ei/command' },
       payload: {
         commandType: 'AppOpen',
-        payload: { topic, energy: ctx.energy, pressure: ctx.pressure, initial: false },
+        payload: { topic, energy: ctx.energy, initial: false },
       },
     };
   }
@@ -775,7 +759,7 @@ export function selectPhase1Variant(ctx: PresentationContext): Phase1Variant {
   if (!ctx.hasPriorOpen) return 'ONBOARDING';
   if (ctx.silenceDays >= 3) return 'SILENCE_RE_ENTRY';
   if (ctx.energy <= 2) return 'LOW_ENERGY';
-  if (ctx.mode === 'Rescue' && ctx.pressure >= 4) return 'HIGH_PRESSURE';
+  if (ctx.mode === 'Rescue' && ctx.highPressureDetected) return 'HIGH_PRESSURE';
   if (ctx.mode === 'Boost' && ctx.pendingChecks >= 1) return 'CLEAR_THEN_CHALLENGE';
   if (ctx.mode === 'Boost') return 'CHALLENGE';
   if (ctx.pendingChecks >= 3 && ctx.closeOpenLoopFirst) return 'DEAL_CARD';
@@ -799,12 +783,8 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
   let makeItSmallerContent: { greeting: string; subGreeting?: string; primaryCta: { label: string; actionId: string } } | undefined;
 
   if (variant === 'HIGH_PRESSURE') {
-    greeting = ctx.pressure >= 5
-      ? resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_greeting_p5', mode: ctx.mode, playId }, {})
-      : resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_greeting_p4', mode: ctx.mode, playId }, {});
-    subGreeting = ctx.pressure >= 5
-      ? resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_body_p5', mode: ctx.mode, playId }, {})
-      : resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_body_p4', mode: ctx.mode, playId }, {});
+    greeting = resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_greeting_p4', mode: ctx.mode, playId }, {});
+    subGreeting = resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_body_p4', mode: ctx.mode, playId }, {});
     secondaryCta = { label: resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_high_pressure_cta_smaller', mode: ctx.mode, playId }, {}), actionId: 'make_it_smaller' };
     makeItSmallerContent = {
       greeting: resolveMicrocopy(microcopyCatalog, { gate: 'P1', slot: 'phase1_make_it_smaller_greeting', mode: ctx.mode, playId }, {}),
@@ -1043,35 +1023,6 @@ export function composeCheckinView(
       },
     });
 
-    // BacklogPressure scale (conditional: first of day, skip for V1 silence)
-    body.push({ type: 'spacer', props: { size: 'sm' } });
-    body.push({
-      type: 'scale-input',
-      props: {
-        inputId: 'backlogPressure',
-        label: p1Copy('checkin_backlog_label', ctx),
-        chips: [...BACKLOG_CHIPS],
-        required: true,
-      },
-    });
-  }
-
-  // Pressure scale (collapsible "More context", skip for V1 silence)
-  if (phase1Variant !== 'SILENCE_RE_ENTRY') {
-    body.push({ type: 'spacer', props: { size: 'sm' } });
-    body.push({
-      type: 'scale-input',
-      props: {
-        inputId: 'pressure',
-        label: p1Copy('checkin_pressure_label', ctx),
-        chips: [...PRESSURE_CHIPS],
-        required: false,
-        collapsible: {
-          toggleLabel: p1Copy('checkin_pressure_toggle', ctx),
-          defaultOpen: false,
-        },
-      },
-    });
   }
 
   // Submit
@@ -1106,8 +1057,6 @@ export function composeCheckinView(
       topicName: '{{topicName}}',
       energy: '{{energy}}',
       sleepBucket: '{{sleepBucket}}',
-      pressure: '{{pressure}}',
-      backlogPressure: '{{backlogPressure}}',
     },
   };
 
@@ -1119,8 +1068,6 @@ export function composeCheckinView(
       topicName: '{{topicName}}',
       energy: '{{energy}}',
       sleepBucket: '{{sleepBucket}}',
-      pressure: '{{pressure}}',
-      backlogPressure: '{{backlogPressure}}',
       timeboxMin: 1,
     },
   };

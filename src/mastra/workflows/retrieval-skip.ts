@@ -39,10 +39,10 @@ const appendAndComposeStep = createStep({
 
     const db = eiStore.db;
 
-    const [aggregates, eventCounts, energyPressure, topicName] = await Promise.all([
+    const [aggregates, eventCounts, lastEnergy, topicName] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
-      Q.getLastAppOpenEnergyPressure(db, studentId),
+      Q.getLastAppOpenEnergy(db, studentId),
       Q.getTopicName(db, studentId, topic),
     ]);
 
@@ -73,7 +73,7 @@ const appendAndComposeStep = createStep({
       : null;
     const ctx = buildP3PresentationContext(
       { studentId, mode, playId: 'P3-N1', topic },
-      energyPressure,
+      lastEnergy,
       aggregatesForPresentation,
       eventCounts,
     );

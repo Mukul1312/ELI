@@ -67,7 +67,6 @@ export const ComposeP1ViewInputSchema = z.object({
   domainOutput: NegotiatedIntentIssuedSchema,
   workflowInput: z.object({
     energy: z.number(),
-    pressure: z.number(),
   }),
   aggregates: AggregatesSubsetSchema,
   topicStates: z.array(TopicStateSubsetSchema),

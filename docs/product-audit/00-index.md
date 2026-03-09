@@ -102,7 +102,7 @@ Two source documents audited here are **v1 legacy docs** — written for the ori
 
 | Document | Status | Disposition direction |
 |---|---|---|
-| `docs/ux-design-brief.md` | Legacy v1.0 (Feb 2026) — written for design agency, before major design decisions were revised | Needs full review: remove stale inputs (BacklogPressure, "More context", DifficultyTier as student pick), update success criteria, add chat surface to scope, or dissolve and point to `docs/student-ux-architecture/` as the authoritative spec |
+| `docs/ux-design-brief.md` | Legacy v1.0 (Feb 2026) — written for design agency, before major design decisions were revised | Needs full review: remove stale inputs (BacklogPressure, "More context", DifficultyTier as student pick), update success criteria, add chat surface to scope, or dissolve and point to `docs/ux/` as the authoritative spec |
 | `docs/ei/EI_Engine_Taxonomy.md` | Legacy internal contract — inputs and routing conditions not updated after student-input removals | Needs update: remove student-tapped inputs that no longer exist, add missing fields (`timeCommitment`, V3 triggers, chat events), correct routing conditions that reference ghost values |
 
 **"Dissolve" means:** content that is valid and still authoritative gets moved to the doc that now owns that decision. Content that is stale gets deleted. The legacy doc itself either becomes a redirect pointer or is removed.
@@ -131,11 +131,11 @@ The rewrite requires the lovable product gaps (doc 04) to be resolved first — 
 
 The following are already in-progress via existing plans and are not re-diagnosed here:
 
-- Checkin signal strategy changes (`03-ux-scales.md`, `02-scales-input-ux.md`, `04-phase1-variants.md`, `05-phase1-the-open.md`) — documented in the deferred plan
-- Phase 2 active session design — already specced in `docs/phase2-design/`
-- Push notification design — already specced in `docs/phase2-design/03-push-notifications.md`
-- Topic selection system — already specced in `docs/student-ux-architecture/14-topic-selection-system.md`
-- ELI chat companion UX — already designed in `docs/student-ux-architecture/15-chat-companion.md` (the gap is the data contract, not the UX design)
+- Checkin signal strategy changes (`ux-scales.md`, `scales-input.md`, `variants.md`, `phase1/00-overview.md`) — documented in the deferred plan
+- Phase 2 active session design — already specced in `docs/ux/phase2/`
+- Push notification design — already specced in `docs/ux/phase2/push-notifications.md`
+- Topic selection system — already specced in `docs/ux/systems/topic-selection.md`
+- ELI chat companion UX — already designed in `docs/ux/systems/chat-companion.md` (the gap is the data contract, not the UX design)
 
 ---
 

@@ -128,31 +128,31 @@ Once the minimum lovable product is validated with real students, features are a
 
 | Feature | Add when you see... | What it solves | Reference doc |
 |---|---|---|---|
-| Scope picker (~15/~30/~45) | Students consistently over- or under-scoping sessions | Session length mismatch | [16-formation-period.md](../student-ux-architecture/16-formation-period.md) |
-| "Don't want to answer now" (3rd P3 option) | Students hard-closing the app at Phase 3 instead of answering | Verification pressure causing exits | [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) |
-| Same-day re-entry greeting ("Back again") | Students doing 2+ sessions/day and seeing stale greeting | Greeting feels disconnected from reality | [19-silence-and-reentry.md](../student-ux-architecture/19-silence-and-reentry.md) |
-| "Clear one more" CTA after closure | Students closing one loop and leaving, when they have energy for more | Missed momentum opportunity | [07-phase3-the-close.md](../student-ux-architecture/07-phase3-the-close.md) |
-| First Encounter Override (Practice on new topic) | Students picking Practice for topics they learned at coaching | App forces Learn on topics the student already knows | [17-task-types-and-phase3.md](../student-ux-architecture/17-task-types-and-phase3.md) |
+| Scope picker (~15/~30/~45) | Students consistently over- or under-scoping sessions | Session length mismatch | [formation-period.md](../ux/systems/formation-period.md) |
+| "Don't want to answer now" (3rd P3 option) | Students hard-closing the app at Phase 3 instead of answering | Verification pressure causing exits | [task-types.md](../ux/systems/task-types.md) |
+| Same-day re-entry greeting ("Back again") | Students doing 2+ sessions/day and seeing stale greeting | Greeting feels disconnected from reality | [silence-reentry.md](../ux/systems/silence-reentry.md) |
+| "Clear one more" CTA after closure | Students closing one loop and leaving, when they have energy for more | Missed momentum opportunity | [phase3/00-overview.md](../ux/phase3/00-overview.md) |
+| First Encounter Override (Practice on new topic) | Students picking Practice for topics they learned at coaching | App forces Learn on topics the student already knows | [task-types.md](../ux/systems/task-types.md) |
 
 ### Tier 2: After 30 students (add when patterns emerge across students)
 
 | Feature | Add when you see... | What it solves | Reference doc |
 |---|---|---|---|
-| Dropout signal (3 defers → shrunk deal card) | Multiple students hitting 3+ consecutive defers | Verification avoidance with no system response | [11-archetype-experience-map.md](../student-ux-architecture/11-archetype-experience-map.md) |
-| Greeting with session count ("9 sessions so far") | Students who don't realise how much they've done | No sense of progress beyond the counter | [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md) |
-| Pending count in footer (always visible) | Students not aware of their pending debt | Counter only visible at Phase 3, not during browse | [08-footer-and-identity.md](../student-ux-architecture/08-footer-and-identity.md) |
-| Seed (forward hook at Phase 3) | Students closing a loop and not knowing what's next | No anticipation for next session | [07-phase3-the-close.md](../student-ux-architecture/07-phase3-the-close.md) |
-| Honest mirror greeting ("5 revisits. None closed.") | Students with high session count but zero closures (S4 pattern) | Avoidance invisible to the student | [05-phase1-the-open.md](../student-ux-architecture/05-phase1-the-open.md) |
+| Dropout signal (3 defers → shrunk deal card) | Multiple students hitting 3+ consecutive defers | Verification avoidance with no system response | [archetypes.md](../ux/systems/archetypes.md) |
+| Greeting with session count ("9 sessions so far") | Students who don't realise how much they've done | No sense of progress beyond the counter | [relationship-arc.md](../ux/systems/relationship-arc.md) |
+| Pending count in footer (always visible) | Students not aware of their pending debt | Counter only visible at Phase 3, not during browse | [footer-identity.md](../ux/systems/footer-identity.md) |
+| Seed (forward hook at Phase 3) | Students closing a loop and not knowing what's next | No anticipation for next session | [phase3/00-overview.md](../ux/phase3/00-overview.md) |
+| Honest mirror greeting ("5 revisits. None closed.") | Students with high session count but zero closures (S4 pattern) | Avoidance invisible to the student | [phase1/00-overview.md](../ux/phase1/00-overview.md) |
 
 ### Tier 3: After 50+ students (add when the system needs intelligence)
 
 | Feature | Add when you see... | What it solves | Reference doc |
 |---|---|---|---|
-| Pattern claim tiers (T1–T4) | Greeting observations feel either too confident or too vague | Trust calibration — ELI claims what it can't prove | [16-formation-period.md](../student-ux-architecture/16-formation-period.md) |
-| Checkin observations ("You prefer evenings") | Students who've done 7+ sessions and the greeting is still generic | Recognition beat stagnating | [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md) |
-| Identity moments ("Your sessions count now") | Students who've achieved high verification rates but don't feel recognised | No emotional payoff for behaviour change | [08-footer-and-identity.md](../student-ux-architecture/08-footer-and-identity.md) |
-| Silence/re-entry rules | Students returning after 3+ day gaps and getting a generic greeting | Re-entry doesn't acknowledge the gap | [19-silence-and-reentry.md](../student-ux-architecture/19-silence-and-reentry.md) |
-| Energy-based recommendation adjustment | Students getting hard-topic recommendations when energy is Low | Recommendation ignores student state | [18-topic-recommendation.md](../student-ux-architecture/18-topic-recommendation.md) |
+| Pattern claim tiers (T1–T4) | Greeting observations feel either too confident or too vague | Trust calibration — ELI claims what it can't prove | [formation-period.md](../ux/systems/formation-period.md) |
+| Checkin observations ("You prefer evenings") | Students who've done 7+ sessions and the greeting is still generic | Recognition beat stagnating | [relationship-arc.md](../ux/systems/relationship-arc.md) |
+| Identity moments ("Your sessions count now") | Students who've achieved high verification rates but don't feel recognised | No emotional payoff for behaviour change | [footer-identity.md](../ux/systems/footer-identity.md) |
+| Silence/re-entry rules | Students returning after 3+ day gaps and getting a generic greeting | Re-entry doesn't acknowledge the gap | [silence-reentry.md](../ux/systems/silence-reentry.md) |
+| Energy-based recommendation adjustment | Students getting hard-topic recommendations when energy is Low | Recommendation ignores student state | [topic-recommendation.md](../ux/systems/topic-recommendation.md) |
 
 ### Maybe Never (validate need before designing)
 
@@ -239,7 +239,7 @@ IF "Not yet" on Phase 3 AND energy <= 2:
 
 ## Storyboard as North Star
 
-The S4 storyboard ([S4-flowing-but-avoidant.md](../student-ux-architecture/storyboards/S4-flowing-but-avoidant.md)) is not the v1 spec. It is the **north star** — the product at its best, after all systems are active, for one specific student type. It shows what the product looks like when everything works.
+The S4 storyboard ([S4-flowing-but-avoidant.md](../ux/validation/storyboards/S4-flowing-but-avoidant.md)) is not the v1 spec. It is the **north star** — the product at its best, after all systems are active, for one specific student type. It shows what the product looks like when everything works.
 
 The path to that north star:
 
@@ -274,9 +274,9 @@ The following are diagnosed in the product audit but are not part of this roadma
 | Realism failures in storyboards | [02-realism-failures.md](02-realism-failures.md) |
 | Engine signal gaps | [03-engine-gaps.md](03-engine-gaps.md) |
 | Lovable product gap diagnosis | [04-lovable-product-gaps.md](04-lovable-product-gaps.md) |
-| Formation period deep design | [16-formation-period.md](../student-ux-architecture/16-formation-period.md) |
-| Topic recommendation algorithm | [18-topic-recommendation.md](../student-ux-architecture/18-topic-recommendation.md) |
-| Full archetype map | [11-archetype-experience-map.md](../student-ux-architecture/11-archetype-experience-map.md) |
+| Formation period deep design | [formation-period.md](../ux/systems/formation-period.md) |
+| Topic recommendation algorithm | [topic-recommendation.md](../ux/systems/topic-recommendation.md) |
+| Full archetype map | [archetypes.md](../ux/systems/archetypes.md) |
 
 ---
 

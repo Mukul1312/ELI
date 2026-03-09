@@ -102,7 +102,6 @@ export class RunP2GateHandler implements IRunP2GateUseCase {
       replanCount,
       startLatencyMin: startLatencyMin ?? undefined,
       currentEnergy: undefined,
-      currentPressure: undefined,
     };
     const play = this.protocolEngine.selectPlay(2, mode, playContext);
 

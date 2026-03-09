@@ -32,7 +32,7 @@ These are the **only** meanings storyboards and UI should use.
 - `sleepHours: number` (optional raw; used to derive `sleepBucket`)
 - `sleepBucket: "<6"|"6-7"|"7-8"|">=8"`
 - `difficultyTier: 1|2|3|4` (only when the student is choosing difficulty)
-- `taskType: "learn"|"practice"|"revise"` (selected at `IntentSet`)
+- `taskType: "learn"|"practice"|"revise"` (selected at checkin / `AppOpen`)
 
 ---
 
@@ -215,7 +215,7 @@ What ELI will do (plain language):
 
 ---
 
-## `TaskType` (selected at `IntentSet`)
+## `TaskType` (selected at checkin / `AppOpen`)
 
 What this captures: **what kind of work the student is doing right now**.
 

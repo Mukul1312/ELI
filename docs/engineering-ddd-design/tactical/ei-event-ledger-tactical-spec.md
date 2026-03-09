@@ -156,7 +156,7 @@ Current implementation: `insertEvent` and `queryEvents` in [`src/ei/db/queries.t
 | -------- | ----- | ---------------- |
 | Idempotent insert (key provided) | Same `idempotencyKey` twice | Second call: `duplicate: true`, same `eventId`, no new `ei_events` row |
 | Idempotent insert (no key) | Two inserts without `idempotencyKey` | Two separate rows created |
-| Schema validation — valid | `AppOpen` payload with valid energy/pressure fields | Insert succeeds |
+| Schema validation — valid | `AppOpen` payload with valid energy field | Insert succeeds |
 | Schema validation — invalid | `AppOpen` payload missing required field | Reject with schema error before insert |
 | Immutability | Attempt to update/delete `ei_events` row | Not permitted (port contract; no update path exists) |
 | Timeline query | Multiple events for student | Returns EventRecord[] ordered by occurred_at ASC |

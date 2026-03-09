@@ -40,7 +40,7 @@
 | ----------- | --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | studentId   | string                            | Yes      | Student identifier                                                                                                                      |
 | aggregates  | StudentAggregates                 | Yes      | openLoops, verificationRate7d, silenceDays, scheduleMisses7d, startLatencyMin, stateTrend7d, loopLatencyTrend, etc.                     |
-| gateContext | P1Context \| P2Context \| P3Context | Yes | Input Value Objects — protocol-specific context shapes (immutable, passed by value): energy, sleepBucket, pressure for P1; startLatencyMin, replanCount for P2; hasRetrieval, hasSchedule for P3 |
+| gateContext | P1Context \| P2Context \| P3Context | Yes | Input Value Objects — protocol-specific context shapes (immutable, passed by value): energy, sleepBucket, highPressureDetected for P1; startLatencyMin, replanCount for P2; hasRetrieval, hasSchedule for P3 |
 | policy      | StudentPolicy                     | No       | Optional; influences mode resolution                                                                                                    |
 
 

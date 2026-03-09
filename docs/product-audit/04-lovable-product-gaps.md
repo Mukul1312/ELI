@@ -10,12 +10,12 @@ The existing documentation correctly describes the mechanics of what ELI does (r
 
 | # | Gap | Loop Beat affected | Risk if undesigned | Resolution status |
 |---|---|---|---|---|
-| 1 | Day 1–7 formation period | All beats (formation window) | Loop never forms — students leave in Week 1 | **RESOLVED** → [16-formation-period.md](../student-ux-architecture/16-formation-period.md) |
-| 2 | Topic recommendation intelligence | Anticipation (Beat 1) | ELI feels arbitrary — trust erodes | **RESOLVED** → [18-topic-recommendation.md](../student-ux-architecture/18-topic-recommendation.md) |
+| 1 | Day 1–7 formation period | All beats (formation window) | Loop never forms — students leave in Week 1 | **RESOLVED** → [formation-period.md](../ux/systems/formation-period.md) |
+| 2 | Topic recommendation intelligence | Anticipation (Beat 1) | ELI feels arbitrary — trust erodes | **RESOLVED** → [topic-recommendation.md](../ux/systems/topic-recommendation.md) |
 | 3 | ELI greeting generation at scale | Recognition (Beat 2) | Craving loop expires at Day 10 | **MITIGATED** — pattern claim tiers extend template useful life; AI generation deferred |
-| 4 | Emotional event detection | Rescue (Beat 3), Closure (Beat 4) | Re-entry experience is one-size-fits-all | **RESOLVED** → [19-silence-and-reentry.md](../student-ux-architecture/19-silence-and-reentry.md) |
-| 5 | Success criteria that measure product love | — | We optimise for the wrong signals | **RESOLVED** → [20-success-criteria.md](../student-ux-architecture/20-success-criteria.md) |
-| 6 | The ELI relationship arc over 21 days | All beats | No arc = no deepening = loop stays shallow | **RESOLVED** → [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md) |
+| 4 | Emotional event detection | Rescue (Beat 3), Closure (Beat 4) | Re-entry experience is one-size-fits-all | **RESOLVED** → [silence-reentry.md](../ux/systems/silence-reentry.md) |
+| 5 | Success criteria that measure product love | — | We optimise for the wrong signals | **RESOLVED** → [success-criteria.md](../ux/validation/success-criteria.md) |
+| 6 | The ELI relationship arc over 21 days | All beats | No arc = no deepening = loop stays shallow | **RESOLVED** → [relationship-arc.md](../ux/systems/relationship-arc.md) |
 
 ---
 
@@ -23,7 +23,7 @@ The existing documentation correctly describes the mechanics of what ELI does (r
 
 ### What the gap is
 
-`docs/student-ux-architecture/01-craving-loop.md` explicitly defines Days 1–7 as a formation period where the craving loop is not yet circular. Anticipation (Beat 1) does not function — students haven't developed the "I wonder what ELI has for me" pull yet. Recognition (Beat 2) is shallow because ELI has minimal data.
+`docs/ux/foundations/craving-loop.md` explicitly defines Days 1–7 as a formation period where the craving loop is not yet circular. Anticipation (Beat 1) does not function — students haven't developed the "I wonder what ELI has for me" pull yet. Recognition (Beat 2) is shallow because ELI has minimal data.
 
 But no document designs what the first seven days actually look like. Every storyboard starts mid-journey with students who already have session history, pending checks, and behavioural patterns. Day 1 is a blank slate with no spec.
 
@@ -61,12 +61,12 @@ The ONBOARDING greeting variant exists (`resume-context-card` variant: `ONBOARDI
 
 ### Resolution
 
-**RESOLVED** by [16-formation-period.md](../student-ux-architecture/16-formation-period.md). All five questions answered:
+**RESOLVED** by [formation-period.md](../ux/systems/formation-period.md). All five questions answered:
 1. Session 1 greeting designed (purposeful but not warm — warmth comes from data)
 2. Session 2 (memory-based greeting); Session 5+ (pattern claims, Tier 2 minimum)
 3. Phase 1 with zero pending: show topic search directly, no pending list
 4. Session 7 = week-level observations (Tier 2+ claims available)
-5. Topic setup via [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection-system.md) — recent chips, type-ahead, browse tree
+5. Topic setup via [topic-selection.md](../ux/systems/topic-selection.md) — recent chips, type-ahead, browse tree
 
 ---
 
@@ -105,7 +105,7 @@ The Anticipation beat ("I wonder what ELI has for me today") depends on students
 
 ### Resolution
 
-**RESOLVED** by [18-topic-recommendation.md](../student-ux-architecture/18-topic-recommendation.md). All five questions answered:
+**RESOLVED** by [topic-recommendation.md](../ux/systems/topic-recommendation.md). All five questions answered:
 1. Primary ordering: 4-level priority stack (overdue revisit 5+ days → continuation → youngest revisit → free pick)
 2. Avoidance detection: 3+ skips in 7 days → stop pushing in Phase 1, surface in chat
 3. Reasoning shown as one-line label below recommended topic in pending list
@@ -145,7 +145,7 @@ The difference between a product students recommend to their friends and one the
 
 ### Resolution
 
-**MITIGATED** — not fully resolved. Pattern claim tiers ([16-formation-period.md](../student-ux-architecture/16-formation-period.md)) extend template useful life by multiplying combinations (data slots × tier-gated language × variant). The [usable-to-lovable roadmap](05-usable-to-lovable-roadmap.md) categorizes AI-generated greetings as "Maybe Never" — template greetings with data slots ("3 loops closed this week") might never feel stale if the data changes every session. AI generation deferred beyond Session 20+. If students at Session 20+ report recognition fatigue, this becomes a Tier 3 feature.
+**MITIGATED** — not fully resolved. Pattern claim tiers ([formation-period.md](../ux/systems/formation-period.md)) extend template useful life by multiplying combinations (data slots × tier-gated language × variant). The [usable-to-lovable roadmap](05-usable-to-lovable-roadmap.md) categorizes AI-generated greetings as "Maybe Never" — template greetings with data slots ("3 loops closed this week") might never feel stale if the data changes every session. AI generation deferred beyond Session 20+. If students at Session 20+ report recognition fatigue, this becomes a Tier 3 feature.
 
 ---
 
@@ -197,7 +197,7 @@ The current one-size-fits-all re-entry experience is safe but not loving. A lova
 
 ### Resolution
 
-**RESOLVED** by [19-silence-and-reentry.md](../student-ux-architecture/19-silence-and-reentry.md). Key design decisions:
+**RESOLVED** by [silence-reentry.md](../ux/systems/silence-reentry.md). Key design decisions:
 - **Two-clock model:** Sessions measure progression, calendar time measures decay — distinct dimensions, not interchangeable
 - **Three duration tiers:** Tier 1 (2–3 days, light touch), Tier 2 (4–6 days, reduced scope), Tier 3 (7+ days, maximum ease)
 - **Formation-aware interpretation:** Formation students (Sessions 1–7) get gentler treatment, no pattern claims
@@ -251,7 +251,7 @@ Designing for D7 retention looks different from designing for AppOpen speed. It 
 
 ### Resolution
 
-**RESOLVED** by [20-success-criteria.md](../student-ux-architecture/20-success-criteria.md). Comprehensive metrics framework:
+**RESOLVED** by [success-criteria.md](../ux/validation/success-criteria.md). Comprehensive metrics framework:
 - **Launchable (Day 1):** S7/S14/S21 retention gates, session milestones, loop closure rate, verification rate trend, completion rate, scope accuracy, recommendation acceptance, re-entry success
 - **Signal-dependent (future):** Silent exit rate, V3 conversion, chat engagement, "feel known" perception
 - **Checkpoint metrics:** Day 7/14/21 thresholds with warning signals
@@ -314,7 +314,7 @@ The Day 15 guardrails moment (however it ends up being designed — see `02-real
 
 ### Resolution
 
-**RESOLVED** by [21-relationship-arc.md](../student-ux-architecture/21-relationship-arc.md). Key design decisions:
+**RESOLVED** by [relationship-arc.md](../ux/systems/relationship-arc.md). Key design decisions:
 - **Session-by-session capability map:** Sessions 1–2 (Stranger) → 3–4 (Acquaintance) → 5–7 (Early Trust) → 8–10 (Established) → 11–20 (Deepening) → 20+ (Companion)
 - **Pattern claim tiers** gate what ELI can say at each stage (Tier 1–4 with minimum data thresholds)
 - **Checkin evolution:** Observation line appears at Session 5+, tier-gated language

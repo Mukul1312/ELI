@@ -53,7 +53,7 @@ sequenceDiagram
     CohortAccess-->>Runtime: R/AuthSession {studentId, cohortId, instituteId}
 
     Note over Student,Runtime: timeCommitment and taskType absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE,<br/>V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent.
-    Student->>Runtime: C/AppOpen {energy, pressure, sleep, backlogPressure, timeCommitment?, taskType?}
+    Student->>Runtime: C/AppOpen {energy, sleep, timeCommitment?, taskType?}
 
     Note over Runtime,CC: ViewComposer renders topic picker
     Runtime->>CC: Q/SearchTopics {query, instituteId, limit}
@@ -84,7 +84,7 @@ sequenceDiagram
 
 ## S2 DMF - Revenge planning after a bad mock
 
-Scenario intent: pressure is high despite decent energy, so Runtime must negotiate scope and force a tiny start plus tiny proof-of-learning.
+Scenario intent: high-pressure situation detected (post-mock failure) despite decent energy, so Runtime must negotiate scope and force a tiny start plus tiny proof-of-learning.
 
 > **Topic pre-resolved:** Topics are resolved via the [Topic Selection Flow](#topic-selection-flow-all-scenarios) before gate entry. Events below carry `topicId: UUID` + `topicName: string` from CurriculumCatalog.
 
@@ -102,7 +102,8 @@ sequenceDiagram
     Student->>CohortAccess: (request with session)
     CohortAccess->>CohortAccess: Q/ResolveAuthSession
     CohortAccess-->>Runtime: R/AuthSession {studentId, cohortId, role}
-    Student->>Runtime: C/AppOpen {energy=4, pressure=5, timeCommitment=20, taskType=Practice}
+    Note over Student,Runtime: highPressureDetected=true (system-derived via V3 triggers: recentMockFailure)
+    Student->>Runtime: C/AppOpen {energy=4, timeCommitment=20, taskType=Practice}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {startLatency, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
@@ -123,7 +124,7 @@ sequenceDiagram
     end
 
     loop Day2_to_Day21 pressure days
-        Student->>Runtime: C/AppOpen {energy=3to4, pressure=3to4}
+        Student->>Runtime: C/AppOpen {energy=3to4}
         Runtime-->>Student: C/ActivationPlanIssued {smallWin, oneSetOneCheck}
     end
 ```
@@ -132,7 +133,7 @@ sequenceDiagram
 
 ## S5 DMF - Burnout runway plus silence
 
-Scenario intent: re-entry and dignity preservation are primary. DMF emphasizes low-pressure rescue, silence handling, and minimal compliance asks. Radar obtains LoopHealthSnapshot via Q/AssessLoopHealth when building daily triage; no push event.
+Scenario intent: re-entry and dignity preservation are primary. DMF emphasizes low-friction rescue, silence handling, and minimal compliance asks. Radar obtains LoopHealthSnapshot via Q/AssessLoopHealth when building daily triage; no push event.
 
 > **Topic pre-resolved:** Topics are resolved via the [Topic Selection Flow](#topic-selection-flow-all-scenarios) before gate entry. Events below carry `topicId: UUID` + `topicName: string` from CurriculumCatalog.
 
@@ -146,8 +147,8 @@ sequenceDiagram
     participant Radar
     participant Ledger
 
-    Note over Student,Runtime: Day1 low energy + high pressure
-    Student->>Runtime: C/AppOpen {energy=2, sleepDebt=true, pressure=4, backlogPressure=5, timeCommitment=10}
+    Note over Student,Runtime: Day1 low energy + burnout signals
+    Student->>Runtime: C/AppOpen {energy=2, sleepDebt=true, timeCommitment=10}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {silenceDays, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
@@ -188,7 +189,7 @@ sequenceDiagram
     participant Ledger
 
     Note over Student,Runtime: Day1-Day4 pattern - fast starts, delayed verification
-    Student->>Runtime: C/AppOpen {energy=5, anxiety=1, timeCommitment=60, taskType=Practice}
+    Student->>Runtime: C/AppOpen {energy=5, timeCommitment=60, taskType=Practice}
     Runtime->>Projections: Q/GetStudentSignals {studentId, horizon=7d}
     Projections-->>Runtime: R/Signals {openLoops=4, scheduleMisses7d=high, verificationRate7d=low}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
