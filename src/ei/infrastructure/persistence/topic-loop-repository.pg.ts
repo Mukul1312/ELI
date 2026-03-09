@@ -14,7 +14,7 @@ export class PostgresTopicLoopRepository implements ITopicLoopRepository {
     return TopicLoopMapper.toDomain(row);
   }
 
-  async save(topicLoop: TopicLoop, topicName?: string | null): Promise<void> {
+  async save(topicLoop: TopicLoop): Promise<void> {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const eventCounts = await getTopicEventCounts7d(
       this.db,
@@ -34,7 +34,6 @@ export class PostgresTopicLoopRepository implements ITopicLoopRepository {
         ...updates,
         effort_count_7d: effortCount7d,
         retrieval_count_7d: retrievalCount7d,
-        ...(topicName != null && { topic_name: topicName }),
       },
     );
   }

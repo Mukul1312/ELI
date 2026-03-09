@@ -6,6 +6,7 @@
 export interface RunP3GateCommand {
   studentId: string;
   topicId: string;
+  topicName?: string;
   sessionId: string;
   /** ISO datetime when the session ended */
   endedAt: string;

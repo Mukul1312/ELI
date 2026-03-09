@@ -3,5 +3,5 @@ import type { TopicLoopId } from './value-objects';
 
 export interface ITopicLoopRepository {
   findById(id: TopicLoopId): Promise<TopicLoop | null>;
-  save(topicLoop: TopicLoop, topicName?: string | null): Promise<void>;
+  save(topicLoop: TopicLoop): Promise<void>;
 }

@@ -18,6 +18,7 @@ import * as Q from '../../ei/db/queries';
 import { eiStore } from '../../ei/runtime/db';
 import { isTopicLoopEventType } from '../../ei/domain/topic-loop/events';
 import { PostgresTopicLoopRepository } from '../../ei/infrastructure/persistence/topic-loop-repository.pg';
+import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { ApplyEventToTopicLoopHandler } from '../../ei/application/apply-event-to-topic-loop/handler';
 
 export const appendEventTool = createTool({
@@ -53,7 +54,8 @@ export const appendEventTool = createTool({
 
     if (topicId && isTopicLoopEventType(eventType)) {
       const repo = new PostgresTopicLoopRepository(db);
-      const handler = new ApplyEventToTopicLoopHandler(repo);
+      const displayNameWriter = new PostgresTopicDisplayNameWriter(db);
+      const handler = new ApplyEventToTopicLoopHandler(repo, displayNameWriter);
       await handler.execute({
         studentId,
         topicId,

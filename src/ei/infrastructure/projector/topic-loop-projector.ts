@@ -1,6 +1,7 @@
 import type { EiDb } from '../../runtime/db';
 import { PostgresEventStreamReader } from '../persistence/event-stream-reader.pg';
 import { PostgresTopicLoopRepository } from '../persistence/topic-loop-repository.pg';
+import { PostgresTopicDisplayNameWriter } from '../persistence/topic-display-name-writer.pg';
 import { TopicLoop } from '../../domain/topic-loop/topic-loop';
 import { TopicLoopId } from '../../domain/topic-loop/value-objects';
 
@@ -30,5 +31,11 @@ export async function recomputeTopicLoop(
     }
   }
 
-  await repo.save(topicLoop, topicName);
+  await repo.save(topicLoop);
+
+  // Persist display name via dedicated port (not domain repo concern).
+  if (topicName) {
+    const displayNameWriter = new PostgresTopicDisplayNameWriter(db);
+    await displayNameWriter.upsertDisplayName(studentId, topicId, topicName);
+  }
 }

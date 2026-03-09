@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { eiStore } from '../../ei/runtime/db';
 import * as Q from '../../ei/db/queries';
+import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
@@ -71,6 +72,13 @@ const runP1Gate = createStep({
         ...(topicName && { topicName }),
       },
     });
+
+    // Persist display name early via driven port (AppOpen is not a TopicLoop event,
+    // so sync-on-append projector won't extract it). Pending-items-list needs it immediately.
+    if (topicName) {
+      const displayNameWriter = new PostgresTopicDisplayNameWriter(db);
+      await displayNameWriter.upsertDisplayName(studentId, topic, topicName);
+    }
 
     const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine, sessionRepo);
     const result = await handler.execute({

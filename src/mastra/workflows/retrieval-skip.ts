@@ -16,6 +16,7 @@ import * as Q from '../../ei/db/queries';
 const RetrievalSkipInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   reason: z.string(),
   idempotencyKey: z.string().optional(),
@@ -27,24 +28,27 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalSkipInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', reason, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', reason, idempotencyKey } = inputData;
     const skippedAt = new Date().toISOString();
 
     const payload = validateEventPayload('RetrievalSkipped', {
       studentId,
       topic,
+      ...(topicNameFromInput && { topicName: topicNameFromInput }),
       reason,
       skippedAt,
     });
 
     const db = eiStore.db;
 
-    const [aggregates, eventCounts, lastEnergy, topicName] = await Promise.all([
+    // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergy(db, studentId),
-      Q.getTopicName(db, studentId, topic),
+      topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
     ]);
+    const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -85,7 +89,7 @@ const appendAndComposeStep = createStep({
     };
     const scenario: Phase3Scenario = skipScenarios[reason.toLowerCase()] ?? 'skip_time';
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx, topicName ?? undefined);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName);
     return sdui;
   },
 });

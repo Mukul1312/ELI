@@ -71,6 +71,7 @@ const runP3Gate = createStep({
     const result = await handler.execute({
       studentId,
       topicId: topic,
+      topicName,
       sessionId: session.sessionId,
       endedAt,
     });

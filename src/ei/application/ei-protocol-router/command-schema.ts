@@ -62,6 +62,7 @@ export const AppOpenPayloadSchema = z.union([
 export const IntentSetPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     taskType: z.string().optional(),
     setAt: z.string().datetime(),
   })
@@ -70,6 +71,7 @@ export const IntentSetPayloadSchema = z
 export const SessionEndPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     endedAt: z.string().datetime(),
     effortSummary: z.record(z.unknown()).optional(),
   })
@@ -78,6 +80,7 @@ export const SessionEndPayloadSchema = z
 export const SessionStartPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     taskType: z.string().optional(),
     difficultyTier: z.string().optional(),
@@ -87,6 +90,7 @@ export const SessionStartPayloadSchema = z
 export const ReplanPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     reason: z.string().optional(),
   })
@@ -95,6 +99,7 @@ export const ReplanPayloadSchema = z
 export const VerificationCompletePayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     result: z.enum(['confident', 'partial', 'needs_review']),
     completedAt: z.string().datetime(),
@@ -104,6 +109,7 @@ export const VerificationCompletePayloadSchema = z
 export const RetrievalSchedulePayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     dueInHours: z.number(),
     minQuestions: z.number().int(),
@@ -113,6 +119,7 @@ export const RetrievalSchedulePayloadSchema = z
 export const RetrievalSkipPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     reason: z.string(),
   })
@@ -124,6 +131,7 @@ export const IntentResponsePayloadSchema = z
     decision: z.enum(['accepted', 'rejected', 'edited', 'ignored']),
     respondedAt: z.string().datetime(),
     topic: z.string().optional(),
+    topicName: z.string().optional(),
     taskType: z.string().optional(),
     difficultyTier: z.union([z.number(), z.string()]).optional(),
     setAt: z.string().datetime().optional(),

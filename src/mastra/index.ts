@@ -15,6 +15,7 @@ import { recomputeStudentPolicyTool } from './tools/recompute-student-policy';
 import { getTopicStateTool, getAllTopicStatesTool, updateTMSTool } from './tools/tms-store';
 import { getPolicyTool, setPolicyTool } from './tools/policy-store';
 import { upsertRadarAlertTool, getRadarAlertsTool } from './tools/radar-store';
+import { backfillTopicNamesTool } from './tools/backfill-topic-names';
 
 // Workflows
 import { protocol1IgnitionWorkflow } from './workflows/protocol1-ignition';
@@ -81,5 +82,6 @@ export const mastra = new Mastra({
     setPolicyTool,
     upsertRadarAlertTool,
     getRadarAlertsTool,
+    backfillTopicNamesTool,
   },
 });

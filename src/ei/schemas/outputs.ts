@@ -55,6 +55,8 @@ export const ActivationPlanIssuedSchema = z.object({
   studentId: z.string(),
   mode: ModeEnum,
   playId: z.string(),
+  topic: z.string().optional(),
+  topicName: z.string().optional(),
   firstAction: z.object({
     type: z.enum(['solve_q1', 'watch_only', 'standard', 'hard_first', 'continue_last']),
     timeboxMin: z.number().optional(),

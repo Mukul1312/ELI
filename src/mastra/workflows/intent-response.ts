@@ -21,6 +21,7 @@ const IntentResponseInput = z.object({
   decision: z.enum(['accepted', 'rejected', 'edited', 'ignored']),
   respondedAt: z.string().datetime(),
   topic: z.string().optional(),
+  topicName: z.string().optional(),
   taskType: z.string().optional(),
   difficultyTier: z.union([z.number(), z.string()]).optional(),
   setAt: z.string().datetime().optional(),
@@ -41,6 +42,7 @@ const intentResponseStep = createStep({
       decision,
       respondedAt,
       topic,
+      topicName,
       taskType,
       setAt,
       idempotencyKey,
@@ -73,6 +75,7 @@ const intentResponseStep = createStep({
         inputData: {
           studentId,
           topic,
+          topicName,
           taskType,
           difficultyTier: inputData.difficultyTier,
           setAt: setAt ?? respondedAt,

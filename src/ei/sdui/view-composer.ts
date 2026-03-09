@@ -224,6 +224,7 @@ export function composeP1View(
             decision: 'accepted',
             respondedAt,
             topic: output.topic,
+            ...(output.topicName && { topicName: output.topicName }),
             taskType: '{{taskType}}',
             difficultyTier: '{{difficultyTier}}',
             setAt: respondedAt,
@@ -240,6 +241,7 @@ export function composeP1View(
             decision: 'edited',
             respondedAt,
             topic: output.topic,
+            ...(output.topicName && { topicName: output.topicName }),
             taskType: '{{taskType}}',
             difficultyTier: '{{difficultyTier}}',
             setAt: respondedAt,
@@ -265,6 +267,7 @@ export function composeP1View(
           commandType: 'IntentSet',
           payload: {
             topic: output.topic,
+            ...(output.topicName && { topicName: output.topicName }),
             taskType: 'Revise',
             setAt: new Date().toISOString(),
           },
@@ -277,6 +280,7 @@ export function composeP1View(
           commandType: 'IntentSet',
           payload: {
             topic: output.topic,
+            ...(output.topicName && { topicName: output.topicName }),
             taskType: '{{taskType}}',
             setAt: new Date().toISOString(),
           },
@@ -382,7 +386,7 @@ export function composeP2View(
       endpoint: { method: 'POST', path: '/api/ei/command' },
       payload: {
         commandType: 'SessionEnd',
-        payload: { topic, mode: output.mode, endedAt: '{{__nowIso}}', isRetrieval: true },
+        payload: { topic, ...(topicName && { topicName }), mode: output.mode, endedAt: '{{__nowIso}}', isRetrieval: true },
       },
     };
   } else {
@@ -393,6 +397,7 @@ export function composeP2View(
         commandType: 'SessionStart',
         payload: {
           topic,
+          ...(topicName && { topicName }),
           mode: output.mode,
           ...(taskType && { taskType }),
           ...(difficultyTier && { difficultyTier }),
@@ -406,7 +411,7 @@ export function composeP2View(
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
           commandType: 'SessionEnd',
-          payload: { topic, mode: output.mode, endedAt: '{{__nowIso}}' },
+          payload: { topic, ...(topicName && { topicName }), mode: output.mode, endedAt: '{{__nowIso}}' },
         },
       };
     }
@@ -476,7 +481,7 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
           commandType: 'SessionEnd',
-          payload: { topic: input.topic, endedAt: '{{__nowIso}}' },
+          payload: { topic: input.topic, ...(input.topicName && { topicName: input.topicName }), endedAt: '{{__nowIso}}' },
         },
       },
     },
@@ -534,7 +539,7 @@ export function composeP3View(
     },
   }];
 
-  const tp = { topic: output.topic, mode: output.mode };
+  const tp = { topic: output.topic, ...(output.topicName && { topicName: output.topicName }), mode: output.mode };
 
   return {
     schemaVersion: 1,
@@ -700,7 +705,7 @@ export function composePhase3View(
       endpoint: { method: 'POST', path: '/api/ei/command' },
       payload: {
         commandType: 'AppOpen',
-        payload: { topic, energy: ctx.energy, initial: false },
+        payload: { topic, ...(topicName && { topicName }), energy: ctx.energy, initial: false },
       },
     };
   }
@@ -846,6 +851,7 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
           commandType: 'IntentSet',
           payload: {
             topic: t.topicId,
+            ...(t.topicName && { topicName: t.topicName }),
             taskType: 'Revise',
             setAt: new Date().toISOString(),
           },

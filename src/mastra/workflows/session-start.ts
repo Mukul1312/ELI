@@ -15,6 +15,7 @@ import { composeSessionView } from '../../ei/sdui/view-composer';
 const SessionStartInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   taskType: z.string().optional(),
   difficultyTier: z.string().optional(),
@@ -27,12 +28,13 @@ const appendAndComposeStep = createStep({
   inputSchema: SessionStartInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', taskType, difficultyTier, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, mode = 'Neutral', taskType, difficultyTier, idempotencyKey } = inputData;
     const startedAt = new Date().toISOString();
 
     const payload = validateEventPayload('FirstActionStarted', {
       studentId,
       topic,
+      ...(topicName && { topicName }),
       startedAt,
     });
 
@@ -47,6 +49,7 @@ const appendAndComposeStep = createStep({
 
     const sdui = composeSessionView({
       topic,
+      topicName,
       mode,
       playId: 'P2-N1',
       taskType,

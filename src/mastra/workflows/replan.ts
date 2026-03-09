@@ -15,6 +15,7 @@ import { protocol2ActivationWorkflow } from './protocol2-activation';
 const ReplanInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   reason: z.string().optional(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -25,12 +26,13 @@ const appendReplanStep = createStep({
   inputSchema: ReplanInput,
   outputSchema: ReplanInput,
   execute: async ({ inputData }) => {
-    const { studentId, topic, reason, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, reason, idempotencyKey } = inputData;
     const replannedAt = new Date().toISOString();
 
     const payload = validateEventPayload('Replan', {
       studentId,
       topic,
+      ...(topicName && { topicName }),
       reason: reason ?? 'student-initiated',
       replannedAt,
     });
@@ -53,11 +55,11 @@ const runP2Step = createStep({
   inputSchema: ReplanInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, idempotencyKey, correlationId } = inputData;
+    const { studentId, topic, topicName, idempotencyKey, correlationId } = inputData;
     const setAt = new Date().toISOString();
     const run = await protocol2ActivationWorkflow.createRun();
     const result = await run.start({
-      inputData: { studentId, topic, setAt, taskType: undefined, idempotencyKey, correlationId },
+      inputData: { studentId, topic, topicName, setAt, taskType: undefined, idempotencyKey, correlationId },
     });
     return result;
   },

@@ -1,4 +1,5 @@
 import type { ITopicLoopRepository } from '../../domain/topic-loop/repository';
+import type { ITopicDisplayNameWriter } from './display-name-port';
 import { EVENT_TIMESTAMP_FIELD, isTopicLoopEventType } from '../../domain/topic-loop/events';
 import { TopicLoop } from '../../domain/topic-loop/topic-loop';
 import { TopicLoopId } from '../../domain/topic-loop/value-objects';
@@ -14,7 +15,10 @@ function parseTimestamp(raw: unknown): Date | null {
 }
 
 export class ApplyEventToTopicLoopHandler implements IApplyEventToTopicLoopUseCase {
-  constructor(private readonly repo: ITopicLoopRepository) {}
+  constructor(
+    private readonly repo: ITopicLoopRepository,
+    private readonly displayNameWriter?: ITopicDisplayNameWriter,
+  ) {}
 
   async execute(command: ApplyEventCommand): Promise<void> {
     const { studentId, topicId, eventType, payload } = command;
@@ -42,5 +46,12 @@ export class ApplyEventToTopicLoopHandler implements IApplyEventToTopicLoopUseCa
 
     topicLoop.applyEvent(eventType, payload);
     await this.repo.save(topicLoop);
+
+    // Persist display name separately (driven port, not domain concern).
+    const rawName = payload.topicName;
+    const topicName = typeof rawName === 'string' && rawName.trim() ? rawName.trim() : undefined;
+    if (topicName && this.displayNameWriter) {
+      await this.displayNameWriter.upsertDisplayName(studentId, topicId, topicName);
+    }
   }
 }

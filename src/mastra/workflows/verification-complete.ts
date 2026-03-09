@@ -18,6 +18,7 @@ import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/st
 const VerificationCompleteInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   result: z.enum(['confident', 'partial', 'needs_review']),
   completedAt: z.string().datetime(),
@@ -30,24 +31,27 @@ const appendAndComposeStep = createStep({
   inputSchema: VerificationCompleteInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', result, completedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', result, completedAt, idempotencyKey } = inputData;
 
     const payload = validateEventPayload('VerificationCompleted', {
       studentId,
       topic,
+      ...(topicNameFromInput && { topicName: topicNameFromInput }),
       completedAt,
       result,
     });
 
     const db = eiStore.db;
 
-    // Load aggregates + energy before appending event (pre-event snapshot for counter display)
-    const [aggregates, eventCounts, lastEnergy, topicName] = await Promise.all([
+    // Load aggregates + energy before appending event (pre-event snapshot for counter display).
+    // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergy(db, studentId),
-      Q.getTopicName(db, studentId, topic),
+      topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
     ]);
+    const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -99,7 +103,7 @@ const appendAndComposeStep = createStep({
       scenario = 'verified';
     }
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx, topicName ?? undefined);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName);
     return sdui;
   },
 });

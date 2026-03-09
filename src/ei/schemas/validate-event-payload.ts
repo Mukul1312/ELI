@@ -28,6 +28,7 @@ const ScheduleMissedSchema = z
   .object({
     studentId: z.string(),
     topic: z.string(),
+    topicName: z.string().optional(),
     missedAt: z.string().datetime(),
   })
   .strict();
