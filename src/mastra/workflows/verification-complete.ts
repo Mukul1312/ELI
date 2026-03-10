@@ -20,7 +20,7 @@ const VerificationCompleteInput = z.object({
   topic: z.string(),
   topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  result: z.enum(['confident', 'partial', 'needs_review']),
+  result: z.enum(['confident', 'not_confident']),
   completedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -45,14 +45,17 @@ const appendAndComposeStep = createStep({
 
     // Load aggregates + energy before appending event (pre-event snapshot for counter display).
     // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
-    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic] = await Promise.all([
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergy(db, studentId),
       topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
       Q.getOldestPendingTopic(db, studentId, topic),
+      Q.getTopicState(db, studentId, topic),
+      Q.getSessionDurationSec(db, studentId, topic),
     ]);
     const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
+    const taskType = topicState?.last_task_type ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -71,11 +74,9 @@ const appendAndComposeStep = createStep({
       await sessionRepo.save(activeSession);
     }
 
-    // Sync-on-append: update projections after VerificationCompleted is written.
-    // This keeps aggregates fresh for subsequent sessions.
-    await recomputeTopicLoop(db, studentId, topic);
-    await recomputeStudentAggregates(db, studentId);
-
+    // Compose the view FIRST from pre-event snapshot (loaded above), then
+    // recompute projections in parallel — they keep data fresh for the *next*
+    // session but don't feed this response.
     const aggregatesForPresentation = aggregates
       ? {
           pendingChecks: aggregates.pending_checks,
@@ -93,11 +94,16 @@ const appendAndComposeStep = createStep({
     );
 
     // Determine scenario.
-    // first_ever (loopsClosedLast7d === 0) takes priority over milestone —
-    // a new user closing their first loop must see G, not F.
-    const countAfter = Math.max(0, ctx.pendingChecks - 1);
+    // not_confident: loop stays open, pending_checks unchanged.
+    // confident: loop closed, pending_checks decremented.
+    const isConfident = result === 'confident';
+    const countAfter = isConfident ? Math.max(0, ctx.pendingChecks - 1) : ctx.pendingChecks;
+
     let scenario: Phase3Scenario;
-    if (eventCounts.loopsClosedLast7d === 0) {
+    if (!isConfident) {
+      scenario = 'not_yet';
+    } else if (eventCounts.loopsClosedLast7d === 0) {
+      // first_ever takes priority over milestone — new user closing first loop sees G, not F.
       scenario = 'first_ever';
     } else if (countAfter === 0 && ctx.pendingChecks > 0) {
       scenario = 'milestone';
@@ -105,7 +111,15 @@ const appendAndComposeStep = createStep({
       scenario = 'verified';
     }
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName, taskType, sessionDurationSec);
+
+    // Sync-on-append: recompute projections in parallel after view is composed.
+    // Keeps aggregates fresh for subsequent sessions; does not affect this response.
+    await Promise.all([
+      recomputeTopicLoop(db, studentId, topic),
+      recomputeStudentAggregates(db, studentId),
+    ]);
+
     return sdui;
   },
 });

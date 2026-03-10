@@ -202,24 +202,33 @@ export const SduiActivationCardSchema = z.object({
 });
 export type SduiActivationCard = z.infer<typeof SduiActivationCardSchema>;
 
-/** Phase 3 verification ask — proof interstitial between SessionEnd and close card. */
+/** Phase 3 duration header — "[Topic] — [X]m" + "[TaskType] session complete." */
+export const SduiDurationHeaderSchema = z.object({
+  type: z.literal('duration-header'),
+  props: z.object({
+    /** "[Topic] — [X]m" */
+    topicLine: z.string(),
+    /** "Practice session complete." etc. */
+    taskTypeLine: z.string(),
+  }),
+});
+export type SduiDurationHeader = z.infer<typeof SduiDurationHeaderSchema>;
+
+/** Phase 3 verification ask — binary "Does it feel solid?" (standard or shrunk). */
 export const SduiVerificationCardSchema = z.object({
   type: z.literal('verification-card'),
   props: z.object({
-    topic: z.string(),
-    /** Mode drives opening line copy and CTA order (rescue flips primary/secondary). */
-    mode: z.enum(['standard', 'short', 'long', 'rescue', 'shrunk']),
-    /** Server-computed opening line by mode. */
-    openingLine: z.string(),
-    /** "Do 1 question..." prompt (16px). */
-    topicPrompt: z.string(),
-    /** Whether to show "Remind me tomorrow" (false if deferred ≥ 2 times for this topic). */
-    canDefer: z.boolean(),
-    /** Action IDs wired to server events via the SduiResponse actions map. */
-    gotItActionId: z.string(),
-    shakyActionId: z.string(),
-    needsReviewActionId: z.string(),
-    deferActionId: z.string(),
+    /** Standard: full card with escape hatch. Shrunk: side-by-side binary, no escape. */
+    mode: z.enum(['standard', 'shrunk']),
+    /** "Does it feel solid now?" or "Does it feel solid? Just a tap." */
+    askLine: z.string(),
+    /** "Yes, it's solid" → fires VerificationComplete(result: 'confident') */
+    solidActionId: z.string(),
+    /** "Not yet" → fires VerificationComplete(result: 'not_confident') */
+    notYetActionId: z.string(),
+    /** "Don't want to answer now" → fires RetrievalSchedule. Absent in shrunk mode. */
+    dontWantActionId: z.string().optional(),
+    /** Skip reason action IDs (expanded from "Can't right now ↓"). */
     skipTimeActionId: z.string(),
     skipFatigueActionId: z.string(),
     skipConfusionActionId: z.string(),
@@ -273,10 +282,10 @@ export const SduiSessionTimerSchema = z.object({
     /** Action ID fired when student taps "End session". */
     endActionId: z.string(),
     endLabel: z.string().optional(),
-    /** Session mode — drives nudge timing (Rescue: 20min, Neutral: 15min, Boost: no nudge). */
+    /** Session mode — retained for domain context (nudge will be a push notification, deferred). */
     mode: z.enum(['Rescue', 'Neutral', 'Boost']),
-    /** Nudge card copy shown once after mode-specific delay. Absent = no nudge. */
-    nudgeCopy: z.string().optional(),
+    /** First-action instruction text — visible for the entire session. 22px, weight 400, --color-text-secondary. */
+    firstActionText: z.string().optional(),
   }),
 });
 export type SduiSessionTimer = z.infer<typeof SduiSessionTimerSchema>;
@@ -356,13 +365,14 @@ export const SduiPendingHeroCardSchema = z.object({
 });
 export type SduiPendingHeroCard = z.infer<typeof SduiPendingHeroCardSchema>;
 
-/** Phase 3 scenario-specific closing card — counter animation + seed + optional clearMore. */
+/** Phase 3 scenario-specific outcome card — counter animation + seed + optional clearMore. */
 export const SduiLoopClosedCardSchema = z.object({
   type: z.literal('loop-closed-card'),
   props: z.object({
     scenario: z.enum([
       'verified', 'reminded', 'skip_time', 'skip_fatigue',
       'skip_confusion', 'milestone', 'first_ever',
+      'not_yet', 'learn_close',
     ]),
     /** Headline text (22px, --color-closed for loop-closed variants, --color-text-primary for others). */
     title: z.string(),
@@ -370,10 +380,12 @@ export const SduiLoopClosedCardSchema = z.object({
     subline: z.string().optional(),
     /** Quoted reflection (16px, --color-text-secondary, in quotes). Scenarios A and F only. */
     quote: z.string().optional(),
-    /** Counter: pending before this session. Present for verified/milestone/first_ever. */
+    /** Counter: pending before this session. Present for verified/milestone/first_ever/learn_close/reminded. */
     countBefore: z.number().optional(),
     /** Counter: pending after this session. */
     countAfter: z.number().optional(),
+    /** Counter animation direction: 'down' (loop closed), 'up' (Learn/FEO), 'static' (deferral). */
+    counterDirection: z.enum(['down', 'up', 'static']).optional(),
     /** Seed copy (14px, --color-text-tertiary). */
     seed: z.string().optional(),
     /** Primary CTA ("Done" / "Done for today"). */
@@ -498,6 +510,7 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiDealCardSchema,
   SduiTwoStepCardSchema,
   SduiActivationCardSchema,
+  SduiDurationHeaderSchema,
   SduiVerificationCardSchema,
   SduiGuardrailsCardSchema,
   SduiWelcomeBackCardSchema,
@@ -530,6 +543,7 @@ export type SduiComponent =
   | SduiDealCard
   | SduiTwoStepCard
   | SduiActivationCard
+  | SduiDurationHeader
   | SduiVerificationCard
   | SduiGuardrailsCard
   | SduiWelcomeBackCard

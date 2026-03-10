@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { eiStore } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composeSessionView } from '../../ei/sdui/view-composer';
+import { composeSessionView, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/sdui/view-composer';
 
 const SessionStartInput = z.object({
   studentId: z.string(),
@@ -19,6 +19,7 @@ const SessionStartInput = z.object({
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   taskType: z.string().optional(),
   timebox: z.number().optional(),
+  firstActionText: z.string().optional(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
 });
@@ -28,7 +29,7 @@ const appendAndComposeStep = createStep({
   inputSchema: SessionStartInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName, mode = 'Neutral', taskType, timebox, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, mode = 'Neutral', taskType, timebox, firstActionText, idempotencyKey } = inputData;
     const startedAt = new Date().toISOString();
 
     const payload = validateEventPayload('FirstActionStarted', {
@@ -47,6 +48,10 @@ const appendAndComposeStep = createStep({
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:FirstActionStarted` : undefined,
     });
 
+    const resolvedFirstAction = firstActionText
+      ?? (taskType ? FIRST_ACTION_BY_TASK[taskType] : undefined)
+      ?? FIRST_ACTION_DEFAULT;
+
     const sdui = composeSessionView({
       topic,
       topicName,
@@ -54,6 +59,7 @@ const appendAndComposeStep = createStep({
       playId: 'P2-N1',
       taskType,
       timebox,
+      firstActionText: resolvedFirstAction,
     });
 
     return sdui;

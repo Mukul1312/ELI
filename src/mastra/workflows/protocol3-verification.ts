@@ -3,6 +3,9 @@
  *
  * Orchestration delegates to RunP3GateHandler (same as POST /api/ei/protocol3).
  *
+ * Learn sessions (taskType === 'reading') skip 3A entirely: the gate auto-emits
+ * RetrievalScheduled and the compose step returns a direct 3B learn_close view.
+ *
  * @see EI_Protocol_3_Verification.md
  * @see EI_Engine_Taxonomy.md sections 3.3, 4
  */
@@ -20,6 +23,7 @@ import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
 import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composeP3ViewStep } from './steps/compose-p3-view';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
 import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
@@ -33,6 +37,7 @@ const P3Input = z.object({
   studentId: z.string(),
   topic: z.string(),
   topicName: z.string().optional(),
+  taskType: z.string().optional(),
   endedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -47,7 +52,7 @@ const runP3Gate = createStep({
   inputSchema: P3Input,
   outputSchema: VerificationDecisionIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof VerificationDecisionIssuedSchema>> => {
-    const { studentId, topic, topicName, endedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, taskType, endedAt, idempotencyKey } = inputData;
     const db = eiStore.db;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const baseAdapter = new PostgresAppendEventAdapter(db);
@@ -73,6 +78,7 @@ const runP3Gate = createStep({
       studentId,
       topicId: topic,
       topicName,
+      taskType,
       sessionId: session.sessionId,
       endedAt,
     });
@@ -80,13 +86,44 @@ const runP3Gate = createStep({
     // Sync-on-append: update projections after SessionEnd + VerificationDecisionIssued
     // are written to the Ledger. This ensures pending_checks is accurate when
     // verification-complete workflow reads pre-event aggregates.
-    await recomputeTopicLoop(db, studentId, topic);
-    await recomputeStudentAggregates(db, studentId);
+    await Promise.all([
+      recomputeTopicLoop(db, studentId, topic),
+      recomputeStudentAggregates(db, studentId),
+    ]);
+
+    // Learn sessions auto-create a revisit (no 3A ask needed).
+    // Append RetrievalScheduled so the loop opens and counter goes UP.
+    if (taskType === 'reading') {
+      const now = new Date();
+      const dueAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      const payload = validateEventPayload('RetrievalScheduled', {
+        studentId,
+        topic,
+        ...(topicName && { topicName }),
+        dueAt: dueAt.toISOString(),
+        questionsPlanned: 1,
+        tier: 'med',
+        format: 'standard',
+        scheduledAt: now.toISOString(),
+      });
+      await appendEvent.append({
+        studentId,
+        eventType: 'RetrievalScheduled',
+        topicId: topic,
+        payload,
+        idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalScheduled` : undefined,
+      });
+      // Re-sync projections after the new RetrievalScheduled event
+      await Promise.all([
+        recomputeTopicLoop(db, studentId, topic),
+        recomputeStudentAggregates(db, studentId),
+      ]);
+    }
 
     // Dropout Signal: query consecutive deferrals after projector sync
     const consecutiveDeferrals = await Q.getConsecutiveDeferrals(db, studentId, topic);
 
-    return { ...result, topicName, dropoutSignalActive: consecutiveDeferrals >= 3 };
+    return { ...result, topicName, taskType, dropoutSignalActive: consecutiveDeferrals >= 3 };
   },
 });
 

@@ -34,13 +34,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header
             style={{
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
               padding: 16,
               gap: 16,
               minHeight: 64,
             }}
           >
+            <div style={{ textAlign: 'left', }}>
+              <span style={{ textTransform: 'uppercase' as const }}>ELI</span>
+            </div>
             <UserButton size="icon" />
           </header>
           {children}

@@ -56,7 +56,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
       }
 
       case 'SessionEnd': {
-        const { topic, topicName, endedAt } = command.payload;
+        const { topic, topicName, taskType, endedAt } = command.payload;
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
           if (!phase.hasActivationPlan) {
@@ -64,7 +64,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
           }
         }
         const run = await protocol3VerificationWorkflow.createRun();
-        return run.start({ inputData: { studentId, topic, topicName, endedAt, idempotencyKey, correlationId } });
+        return run.start({ inputData: { studentId, topic, topicName, taskType, endedAt, idempotencyKey, correlationId } });
       }
 
       case 'SessionStart': {

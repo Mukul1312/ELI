@@ -42,7 +42,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
   ) {}
 
   async execute(command: RunP3GateCommand): Promise<VerificationDecisionIssuedOutput> {
-    const { studentId, topicId, topicName, sessionId, endedAt } = command;
+    const { studentId, topicId, topicName, taskType, sessionId, endedAt } = command;
 
     // ── 1. Load student signals (aggregates + policy) ────────────────────────
     const signals = await this.signalsPort.getSignals(studentId);
@@ -170,6 +170,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
         : undefined,
       reason: verificationDecision.skipReason,
       sessionDurationSec,
+      taskType,
       issuedAt: new Date().toISOString(),
     };
 
@@ -181,7 +182,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
       studentId,
       eventType: 'SessionEnd',
       topicId,
-      payload: { studentId, topic: topicId, ...(topicName && { topicName }), endedAt },
+      payload: { studentId, topic: topicId, ...(topicName && { topicName }), ...(taskType && { taskType }), endedAt },
     });
     for (const event of domainEvents) {
       await this.appendEvent.append({

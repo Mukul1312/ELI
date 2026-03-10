@@ -108,6 +108,61 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Counter UP animation — Phase 3 Learn/FEO (shorter ~540ms total)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Old number exits UP (reverse of down) */
+@keyframes counterUpExit {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-12px); }
+}
+
+/* New number enters from below */
+@keyframes counterUpEnter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.counter-up-old {
+  animation: counterUpExit 120ms ease-in 100ms forwards;
+}
+
+.counter-up-new {
+  animation: counterUpEnter 160ms ease-out 220ms forwards;
+  transition: color 200ms ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Skip chip expansion — slides in from bottom
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes skipChipsSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.skip-chips-enter {
+  animation: skipChipsSlideIn 200ms ease-out both;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Staged reveal — seed + CTAs fade in after counter settles
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes seedFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.seed-reveal {
+  animation: seedFadeIn 200ms ease-out 100ms both;
+}
+
+.cta-reveal {
+  animation: seedFadeIn 150ms ease-out 200ms both;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Progressive Disclosure — Vertical Stack slide-in
    ───────────────────────────────────────────────────────────────────────────── */
 

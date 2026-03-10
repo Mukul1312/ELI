@@ -32,6 +32,7 @@ import { SduiOnboardingTopicTaskForm } from './components/onboarding-topic-task-
 import { SduiTopicInput } from './components/topic-input';
 import { SduiFieldBreadcrumb } from './components/field-breadcrumb';
 import { SduiPendingHeroCard } from './components/pending-hero-card';
+import { SduiDurationHeader } from './components/duration-header';
 
 export type SduiComponentProps = {
   node: SduiComponent;
@@ -71,6 +72,7 @@ const REGISTRY: Record<string, ComponentType<SduiComponentProps>> = {
   'topic-input': SduiTopicInput as ComponentType<SduiComponentProps>,
   'field-breadcrumb': SduiFieldBreadcrumb as ComponentType<SduiComponentProps>,
   'pending-hero-card': SduiPendingHeroCard as ComponentType<SduiComponentProps>,
+  'duration-header': SduiDurationHeader as ComponentType<SduiComponentProps>,
 };
 
 export function getSduiComponent(type: string): ComponentType<SduiComponentProps> | null {

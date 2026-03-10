@@ -772,6 +772,27 @@ export async function getConsecutiveDeferrals(
   return row?.consecutive_deferrals ?? 0;
 }
 
+/** Get session duration in seconds from FirstActionStarted.startedAt to SessionEnd.endedAt. */
+export async function getSessionDurationSec(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<number | undefined> {
+  const row = await db.oneOrNone<{ duration_sec: number }>(
+    `SELECT EXTRACT(EPOCH FROM (
+       (SELECT (payload->>'endedAt')::timestamptz FROM ei_events
+        WHERE student_id = $1 AND topic_id = $2 AND event_type = 'SessionEnd'
+        ORDER BY occurred_at DESC LIMIT 1)
+       -
+       (SELECT (payload->>'startedAt')::timestamptz FROM ei_events
+        WHERE student_id = $1 AND topic_id = $2 AND event_type = 'FirstActionStarted'
+        ORDER BY occurred_at DESC LIMIT 1)
+     ))::int AS duration_sec`,
+    [studentId, topicId],
+  );
+  return row?.duration_sec != null && row.duration_sec >= 0 ? row.duration_sec : undefined;
+}
+
 /** Get the oldest pending topic (effort done, no retrieval after) for Dynamic Footer Seed. */
 export async function getOldestPendingTopic(
   db: DbClient,

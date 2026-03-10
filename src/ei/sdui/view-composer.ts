@@ -15,7 +15,7 @@ import type {
   Mode,
 } from '../schemas/outputs';
 import type { SduiResponse, SduiAction, SduiSlotEntry } from './types/sdui-contract';
-import type { SduiActivationCard, SduiComponent } from './types/components';
+import type { SduiComponent } from './types/components';
 import type { PresentationContext } from './presentation-context';
 import { resolveMicrocopy, type MicrocopyKey } from './microcopy/resolver';
 import { microcopyCatalog, type MicrocopySlot } from './microcopy/catalog';
@@ -86,15 +86,6 @@ function p1Copy(
     playId: ctx.playId,
   };
   return resolveMicrocopy(microcopyCatalog, key, vars);
-}
-
-function p2Copy(
-  slot: MicrocopySlot,
-  mode: Mode,
-  playId: string,
-  vars: Record<string, string | number> = {},
-): string {
-  return resolveMicrocopy(microcopyCatalog, { gate: 'P2', slot, mode, playId }, vars);
 }
 
 
@@ -310,37 +301,16 @@ export function composeP1View(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// P2 View Composer (activation)
+// P2 View Composer — single screen (delegates to composeSessionView)
 // ────────────────────────────────────────────────────────────────────────────
 
-// Play ID → activation card variant
-const P2_PLAY_VARIANT: Record<string, SduiActivationCard['props']['variant']> = {
-  'P2-N1': 'neutral',
-  'P2-R1': 'rescue_micro',
-  'P2-R2': 'rescue_two_min',
-  'P2-R3': 'rescue_watch',
-  'P2-B1': 'boost_isolation',
-  'P2-B2': 'boost_hard_first',
-  'P2-B3': 'boost_continue_last',
+// First-action instruction text by taskType (Neutral mode only for now)
+export const FIRST_ACTION_BY_TASK: Record<string, string> = {
+  Learn: 'Focus time. Read your notes or watch the lecture for this topic.',
+  Practice: 'Focus time. Solve problems from your coaching material or DPP.',
+  Revise: 'Focus time. Go through your notes and flag what\'s fuzzy.',
 };
-
-// Primary CTA label per play variant
-const P2_CTA_LABEL: Record<string, string> = {
-  neutral: 'Got it. Starting.',
-  rescue_micro: "I've opened it",
-  rescue_two_min: "I've started",
-  rescue_watch: 'Starting now',
-  boost_isolation: 'Starting now',
-  boost_hard_first: 'On it',
-  boost_continue_last: 'Continuing',
-  retrieval: "I've done it",
-};
-
-// Rationale line per rescue variant (14px, tertiary)
-const P2_RATIONALE: Partial<Record<string, string>> = {
-  rescue_micro: 'Motion creates momentum.',
-  rescue_watch: 'Low start. Full proof at the end.',
-};
+export const FIRST_ACTION_DEFAULT = 'Focus time. Start when ready.';
 
 export function composeP2View(
   output: ActivationPlanIssuedOutput,
@@ -350,101 +320,19 @@ export function composeP2View(
   timebox?: number,
   topicName?: string,
 ): SduiResponse {
-  const isRetrieval = taskType === 'Retrieval';
-  const variant: SduiActivationCard['props']['variant'] = isRetrieval
-    ? 'retrieval'
-    : (P2_PLAY_VARIANT[output.playId] ?? 'neutral');
+  const firstActionText = output.firstAction.description
+    ?? (taskType ? FIRST_ACTION_BY_TASK[taskType] : undefined)
+    ?? FIRST_ACTION_DEFAULT;
 
-  const firstAction = output.firstAction.description
-    ?? p2Copy('activation_description', output.mode, output.playId);
-
-  const rationale = P2_RATIONALE[variant];
-
-  const ctaLabel = P2_CTA_LABEL[variant] ?? 'Got it. Starting.';
-  const primaryCtaActionId = isRetrieval ? 'retrieval_done' : 'session_start';
-
-  // For rescue_two_min: include "Done for today" as secondaryCta (shown after 2-min transform)
-  const secondaryCta = variant === 'rescue_two_min'
-    ? { label: 'Done for today', actionId: 'session_end_early' }
-    : undefined;
-
-  // Focus reminder for boost isolation / hard-first (from focusContract)
-  const focusReminder = output.focusContract?.noSwitchingUntil
-    ? p2Copy('focus_note', output.mode, output.playId)
-    : undefined;
-
-  const displayName = getTopicDisplayName(topic, topicName);
-
-  const scopeLabel = timebox ? `~${timebox} min` : '~30 min';
-
-  const header: SduiComponent[] = [{
-    type: 'session-context-bar',
-    props: {
-      topic: displayName,
-      taskType: taskType ?? 'Practice',
-      scopeLabel,
-    },
-  }];
-
-  const body: SduiComponent[] = [{
-    type: 'activation-card',
-    props: {
-      variant,
-      firstAction,
-      rationale,
-      primaryCta: { label: ctaLabel, actionId: primaryCtaActionId },
-      secondaryCta,
-      focusReminder,
-    },
-  }];
-
-  const actionsMap: Record<string, SduiAction> = {};
-
-  if (isRetrieval) {
-    // Retrieval: "I've done it" → fires FirstActionStarted + SessionEnd → Phase 3 directly
-    actionsMap['retrieval_done'] = {
-      id: 'retrieval_done',
-      endpoint: { method: 'POST', path: '/api/ei/command' },
-      payload: {
-        commandType: 'SessionEnd',
-        payload: { topic, ...(topicName && { topicName }), mode: output.mode, endedAt: '{{__nowIso}}', isRetrieval: true },
-      },
-    };
-  } else {
-    actionsMap['session_start'] = {
-      id: 'session_start',
-      endpoint: { method: 'POST', path: '/api/ei/command' },
-      payload: {
-        commandType: 'SessionStart',
-        payload: {
-          topic,
-          ...(topicName && { topicName }),
-          mode: output.mode,
-          ...(taskType && { taskType }),
-          ...(timebox && { timebox }),
-        },
-      },
-    };
-    // rescue_two_min "Done for today" after 2-min transform
-    if (variant === 'rescue_two_min') {
-      actionsMap['session_end_early'] = {
-        id: 'session_end_early',
-        endpoint: { method: 'POST', path: '/api/ei/command' },
-        payload: {
-          commandType: 'SessionEnd',
-          payload: { topic, ...(topicName && { topicName }), mode: output.mode, endedAt: '{{__nowIso}}' },
-        },
-      };
-    }
-  }
-
-  return {
-    schemaVersion: 1,
-    phase: 'activation',
-    view: { header, body, actions: [], footer: [] },
-    domain: { ...output, topic },
-    actions: actionsMap,
-  };
+  return composeSessionView({
+    topic,
+    topicName,
+    mode: output.mode as 'Rescue' | 'Neutral' | 'Boost',
+    playId: output.playId,
+    taskType,
+    timebox,
+    firstActionText,
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -460,13 +348,11 @@ export interface SessionViewInput {
   taskType?: string;
   /** Student's declared time commitment in minutes (e.g. 45). Shown as ~N min in context bar. */
   timebox?: number;
+  /** First-action instruction text — visible for the entire session. */
+  firstActionText?: string;
+  /** ISO timestamp of when the session actually started. Falls back to now if not provided. */
+  sessionStartedAt?: string;
 }
-
-// Nudge copy per mode (absent for Boost — no nudge in flow state)
-const SESSION_NUDGE: Partial<Record<'Rescue' | 'Neutral' | 'Boost', string>> = {
-  Neutral: 'Still in it? Good.',
-  Rescue: 'Still here. No rush.',
-};
 
 export function composeSessionView(input: SessionViewInput): SduiResponse {
   const scopeLabel = input.timebox ? `~${input.timebox} min` : '~30 min';
@@ -478,18 +364,18 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
       topic: getTopicDisplayName(input.topic, input.topicName),
       taskType: input.taskType ?? 'Practice',
       scopeLabel,
-      sessionStartedAt: new Date().toISOString(),
+      sessionStartedAt: input.sessionStartedAt ?? new Date().toISOString(),
     },
   }];
 
-  // Body: intentionally empty middle + "I'm done" text link
+  // Body: first-action text (visible throughout) + "I'm done" text link
   const body: SduiComponent[] = [{
     type: 'session-timer',
     props: {
       endActionId: 'session_end',
       endLabel: "I'm done",
       mode: input.mode,
-      nudgeCopy: SESSION_NUDGE[input.mode],
+      ...(input.firstActionText && { firstActionText: input.firstActionText }),
     },
   }];
 
@@ -504,7 +390,7 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
           commandType: 'SessionEnd',
-          payload: { topic: input.topic, ...(input.topicName && { topicName: input.topicName }), endedAt: '{{__nowIso}}' },
+          payload: { topic: input.topic, ...(input.topicName && { topicName: input.topicName }), ...(input.taskType && { taskType: input.taskType }), endedAt: '{{__nowIso}}' },
         },
       },
     },
@@ -512,55 +398,55 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// P3 View Composer (verification)
+// P3 Duration Header helper
 // ────────────────────────────────────────────────────────────────────────────
 
-// Opening line and topic prompt by session mode
-const VERIFY_OPENING: Record<'standard' | 'short' | 'long' | 'rescue' | 'shrunk', string> = {
-  standard: 'Quick check so this session counts.',
-  short: 'Short session — that still counts.',
-  long: 'Strong session. One thing to make it stick.',
-  rescue: 'Good session.',
-  shrunk: 'Does it feel solid? Just a tap.',
+const TASK_TYPE_SESSION_LABEL: Record<string, string> = {
+  reading: 'Learn session complete.',
+  practice: 'Practice session complete.',
+  revision: 'Revision complete.',
+  Learn: 'Learn session complete.',
+  Practice: 'Practice session complete.',
+  Revise: 'Revision complete.',
+  Retrieval: 'Retrieval complete.',
 };
-const VERIFY_PROMPT: Record<'standard' | 'short' | 'long' | 'rescue' | 'shrunk', string> = {
-  standard: 'Do 1 question. In your head or on paper.',
-  short: '1 quick question. In your head.',
-  long: 'Do 1 question. In your head or on paper.',
-  rescue: '1 question when you\'re ready.',
-  shrunk: '',
-};
+
+function buildDurationHeader(topic: string, topicName?: string, taskType?: string, sessionDurationSec?: number): SduiComponent {
+  const durationMin = sessionDurationSec != null ? Math.round(sessionDurationSec / 60) : undefined;
+  const topicLine = durationMin != null
+    ? `${getTopicDisplayName(topic, topicName)} — ${durationMin}m`
+    : getTopicDisplayName(topic, topicName);
+  const taskTypeLine = TASK_TYPE_SESSION_LABEL[taskType ?? ''] ?? 'Session complete.';
+  return { type: 'duration-header', props: { topicLine, taskTypeLine } };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P3 View Composer — State 3A (The Ask)
+// ────────────────────────────────────────────────────────────────────────────
 
 export function composeP3View(
   output: VerificationDecisionIssuedOutput,
   sessionDurationSec?: number,
   dropoutSignalActive = false,
 ): SduiResponse {
-  let verifyMode: 'standard' | 'short' | 'long' | 'rescue' | 'shrunk';
-  if (dropoutSignalActive) {
-    verifyMode = 'shrunk';
-  } else if (output.mode === 'Rescue') {
-    verifyMode = 'rescue';
-  } else if (sessionDurationSec !== undefined && sessionDurationSec < 600) {
-    verifyMode = 'short';
-  } else if (sessionDurationSec !== undefined && sessionDurationSec > 2700) {
-    verifyMode = 'long';
-  } else {
-    verifyMode = 'standard';
-  }
+  // Binary: standard or shrunk (mode-specific variants deferred to v2)
+  const verifyMode: 'standard' | 'shrunk' = dropoutSignalActive ? 'shrunk' : 'standard';
+  const askLine = verifyMode === 'shrunk'
+    ? 'Does it feel solid? Just a tap.'
+    : 'Does it feel solid now?';
+
+  const header: SduiComponent[] = [
+    buildDurationHeader(output.topic, output.topicName, output.taskType, sessionDurationSec),
+  ];
 
   const body: SduiComponent[] = [{
     type: 'verification-card',
     props: {
-      topic: getTopicDisplayName(output.topic, output.topicName),
       mode: verifyMode,
-      openingLine: VERIFY_OPENING[verifyMode],
-      topicPrompt: VERIFY_PROMPT[verifyMode],
-      canDefer: true,
-      gotItActionId: 'verification_got_it',
-      shakyActionId: 'verification_shaky',
-      needsReviewActionId: 'verification_needs_review',
-      deferActionId: 'verification_defer',
+      askLine,
+      solidActionId: 'verification_solid',
+      notYetActionId: 'verification_not_yet',
+      ...(verifyMode === 'standard' && { dontWantActionId: 'verification_dont_want' }),
       skipTimeActionId: 'skip_time',
       skipFatigueActionId: 'skip_fatigue',
       skipConfusionActionId: 'skip_confusion',
@@ -572,26 +458,21 @@ export function composeP3View(
   return {
     schemaVersion: 1,
     phase: 'verification',
-    view: { header: [], body, actions: [], footer: [] },
+    view: { header, body, actions: [], footer: [] },
     domain: output,
     actions: {
-      verification_got_it: {
-        id: 'verification_got_it',
+      verification_solid: {
+        id: 'verification_solid',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: { commandType: 'VerificationComplete', payload: { ...tp, result: 'confident', completedAt: '{{__nowIso}}' } },
       },
-      verification_shaky: {
-        id: 'verification_shaky',
+      verification_not_yet: {
+        id: 'verification_not_yet',
         endpoint: { method: 'POST', path: '/api/ei/command' },
-        payload: { commandType: 'VerificationComplete', payload: { ...tp, result: 'partial', completedAt: '{{__nowIso}}' } },
+        payload: { commandType: 'VerificationComplete', payload: { ...tp, result: 'not_confident', completedAt: '{{__nowIso}}' } },
       },
-      verification_needs_review: {
-        id: 'verification_needs_review',
-        endpoint: { method: 'POST', path: '/api/ei/command' },
-        payload: { commandType: 'VerificationComplete', payload: { ...tp, result: 'needs_review', completedAt: '{{__nowIso}}' } },
-      },
-      verification_defer: {
-        id: 'verification_defer',
+      verification_dont_want: {
+        id: 'verification_dont_want',
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: { commandType: 'RetrievalSchedule', payload: { ...tp, dueInHours: 24, minQuestions: 1 } },
       },
@@ -615,19 +496,14 @@ export function composeP3View(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Phase 3 Close — scenario-driven done screen
+// P3 Close — State 3B (The Resolution)
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Compose the Phase 3 close screen with scenario-specific copy and counter animation.
+ * Compose the Phase 3 outcome screen (3B) with scenario-specific copy and counter animation.
  *
  * Called by verification-complete, retrieval-schedule, and retrieval-skip workflows
  * after the terminal event is appended.
- *
- * @param topic - the topic that was just studied/verified
- * @param mode  - current session mode (Rescue/Neutral/Boost)
- * @param scenario - one of 7 scenarios determined by the calling workflow
- * @param ctx   - PresentationContext with real aggregates (pre-event snapshot)
  */
 export function composePhase3View(
   topic: string,
@@ -635,61 +511,63 @@ export function composePhase3View(
   scenario: Phase3Scenario,
   ctx: PresentationContext,
   topicName?: string,
+  taskType?: string,
+  sessionDurationSec?: number,
 ): SduiResponse {
+  const header: SduiComponent[] = [
+    buildDurationHeader(topic, topicName, taskType, sessionDurationSec),
+  ];
   const body: SduiComponent[] = [];
-  const footer: SduiComponent[] = [];
 
-  // ── Exact copy per scenario (from 03-phase3-scenarios.md) ──────────────────
   const TITLE: Record<Phase3Scenario, string> = {
     verified:       '✓  Loop closed.',
-    reminded:       'Good session.',
+    reminded:       'Noted. I\'ll ask next time.',
     skip_time:      'Noted. Short day.',
     skip_fatigue:   'Noted. Rest is part of the plan.',
-    skip_confusion: "That's okay.\nDifferent approach next time.",
+    skip_confusion: "That's okay. Different approach next time.",
     milestone:      '✓  All clear.',
     first_ever:     '✓  First loop closed.',
+    not_yet:        '✓  Session logged.\nI\'ll keep it on your list.',
+    learn_close:    'Done for today.\nI\'ll suggest this when it\'s time to verify.',
   };
 
   const closesLoop =
     scenario === 'verified' || scenario === 'milestone' || scenario === 'first_ever';
+  const isLearn = scenario === 'learn_close';
   const countBefore = ctx.pendingChecks;
-  const countAfter = closesLoop ? Math.max(0, ctx.pendingChecks - 1) : ctx.pendingChecks;
+  const countAfter = closesLoop ? Math.max(0, ctx.pendingChecks - 1)
+    : isLearn ? ctx.pendingChecks + 1
+    : ctx.pendingChecks;
+
+  // Counter direction
+  let counterDirection: 'down' | 'up' | 'static' | undefined;
+  if (closesLoop) counterDirection = 'down';
+  else if (isLearn) counterDirection = 'up';
+  else if (scenario === 'reminded') counterDirection = 'static';
+  // skip_*, not_yet: no counter at all
 
   // Subline (below headline, 16px secondary)
   let subline: string | undefined;
-  if (scenario === 'verified') {
-    subline = `${getTopicDisplayName(topic, topicName)} — you proved you remember it.`;
-  } else if (scenario === 'milestone') {
-    subline = "Everything you've studied —\nyou've also proved.";
+  if (scenario === 'milestone') {
+    subline = "0 pending checks.\nEverything you've studied —\nyou've also proved.";
   } else if (scenario === 'first_ever') {
-    subline = 'That\'s what "closing the loop" means —\nyou studied it AND proved you remember it.';
+    subline = "That's what it means — you\nstudied it AND proved you\nremember it.";
   }
 
-  // Quoted reflection (16px, in quotes)
-  const quote =
-    scenario === 'verified' ? '"One less thing on your mind."' :
-    scenario === 'milestone' ? '"That\'s rare. Keep that."' :
-    undefined;
+  // Quoted reflection
+  const quote = scenario === 'milestone' ? '"That\'s rare. Keep that."' : undefined;
 
-  // Seed copy per spec — Dynamic Footer Seed takes priority when available
+  // Seed text — next pending topic hint (loop-closing scenarios only)
   let seed: string | undefined;
   if (closesLoop && countAfter >= 1 && ctx.nextPendingTopic) {
-    seed = `Next: ${ctx.nextPendingTopic.topicName} waiting since Day ${ctx.nextPendingTopic.waitingSinceDays}`;
-  } else if (scenario === 'verified' && countAfter >= 1) {
-    if (countAfter === 1) seed = '1 check left this week. Almost done.';
-    else if (countAfter === 2) seed = '2 checks left this week — you\'re ahead.';
-    else if (countAfter === 3) seed = '3 checks left. Steady progress.';
-    else seed = `${countAfter} checks remaining. One at a time.`;
-  } else if (scenario === 'reminded') {
-    seed = 'See you tomorrow.';
+    seed = `${ctx.nextPendingTopic.topicName} waiting\nsince Day ${ctx.nextPendingTopic.waitingSinceDays}.`;
   }
-  // skip_*, milestone, first_ever (no pending): no seed
 
-  // "Clear one more" CTA: verified + energy >= 4 + pending remaining + not needs_review
-  const showClearMore = scenario === 'verified' && ctx.energy >= 4 && countAfter >= 1;
+  // "Clear one more" CTA: loop-closing + energy >= 4 + pending remaining
+  const showClearMore = (scenario === 'verified' || scenario === 'first_ever') && ctx.energy >= 4 && countAfter >= 1;
 
-  // Primary CTA label
-  const primaryCtaLabel = scenario === 'verified' ? 'Done for today' : 'Done';
+  // Show counter for: loop-closing (down), learn_close (up), reminded (static)
+  const showCounter = counterDirection != null;
 
   body.push({
     type: 'loop-closed-card',
@@ -698,10 +576,11 @@ export function composePhase3View(
       title: TITLE[scenario],
       subline,
       quote,
-      countBefore: closesLoop ? countBefore : undefined,
-      countAfter: closesLoop ? countAfter : undefined,
+      countBefore: showCounter ? countBefore : undefined,
+      countAfter: showCounter ? countAfter : undefined,
+      counterDirection,
       seed,
-      primaryCta: { label: primaryCtaLabel, actionId: 'new_session' },
+      primaryCta: { label: 'Done', actionId: 'new_session' },
       clearMoreCta: showClearMore
         ? { label: 'Clear one more', actionId: 'clear_more' }
         : undefined,
@@ -710,16 +589,7 @@ export function composePhase3View(
     },
   });
 
-  // Footer with updated pending count + optional identity statement
-  const p3Pattern = detectIdentityPattern(ctx);
-  const p3IdentityStatement =
-    ctx.sessionsLast7d >= 3 && ctx.verificationRate7d >= 0.5
-      ? IDENTITY_STATEMENTS[p3Pattern].statement
-      : undefined;
-  footer.push(buildSessionSummaryFooter(ctx, {
-    pendingOverride: countAfter,
-    identityStatement: p3IdentityStatement,
-  }));
+  // No footer in Phase 3 (per brief: "No footer. No brand header. No context bar.")
 
   const actionsMap: Record<string, SduiAction> = {
     new_session: {
@@ -743,9 +613,54 @@ export function composePhase3View(
   return {
     schemaVersion: 1,
     phase: 'done',
-    view: { header: [], body, actions: [], footer },
+    view: { header, body, actions: [], footer: [] },
     domain: { topic, mode, scenario },
     actions: actionsMap,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P3 Learn Close — direct to 3B (no 3A ask)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Compose the Learn close screen (direct to 3B, no verification ask).
+ * Called when taskType === 'reading'. RetrievalScheduled already appended by P3 gate.
+ */
+export function composeLearnCloseView(
+  output: VerificationDecisionIssuedOutput,
+): SduiResponse {
+  const header: SduiComponent[] = [
+    buildDurationHeader(output.topic, output.topicName, output.taskType, output.sessionDurationSec),
+  ];
+
+  // For Learn, pending_checks doesn't come from PresentationContext here.
+  // We use 0 as countBefore since this is a fresh Learn session opening a new loop.
+  // The counter shows the number going UP (0 → 1 or N → N+1).
+  const body: SduiComponent[] = [{
+    type: 'loop-closed-card',
+    props: {
+      scenario: 'learn_close' as const,
+      title: 'Done for today.\nI\'ll suggest this when it\'s time to verify.',
+      counterDirection: 'up' as const,
+      primaryCta: { label: 'Done', actionId: 'new_session' },
+      milestone: false,
+      firstEver: false,
+    },
+  }];
+
+  return {
+    schemaVersion: 1,
+    phase: 'done',
+    view: { header, body, actions: [], footer: [] },
+    domain: { topic: output.topic, mode: output.mode, scenario: 'learn_close' },
+    actions: {
+      new_session: {
+        id: 'new_session',
+        endpoint: { method: 'POST', path: '/api/ei/command' },
+        payload: { commandType: 'AppOpen', payload: { initial: true } },
+      },
+    },
   };
 }
 
@@ -1002,13 +917,15 @@ function buildSessionSummaryFooter(
 // ────────────────────────────────────────────────────────────────────────────
 
 export type Phase3Scenario =
-  | 'verified'     // A: loop closed (VerifyNow, pending > 0 after)
-  | 'milestone'    // F: pendingChecks hits 0
-  | 'first_ever'   // G: first loop ever closed
-  | 'reminded'     // B: ScheduleVerify
-  | 'skip_time'    // C: Skip (time)
-  | 'skip_fatigue' // D: Skip (fatigue)
-  | 'skip_confusion'; // E: Skip (confusion)
+  | 'verified'       // A: loop closed (VerifyNow, pending > 0 after)
+  | 'milestone'      // F: pendingChecks hits 0
+  | 'first_ever'     // G: first loop ever closed
+  | 'reminded'       // B: ScheduleVerify / deferral
+  | 'skip_time'      // C: Skip (time)
+  | 'skip_fatigue'   // D: Skip (fatigue)
+  | 'skip_confusion' // E: Skip (confusion)
+  | 'not_yet'        // honest "Not yet" — loop stays open
+  | 'learn_close';   // Learn → auto-revisit, counter UP
 
 /**
  * Compose the checkin phase view (before P1 runs).

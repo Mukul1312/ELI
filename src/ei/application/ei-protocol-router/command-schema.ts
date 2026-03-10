@@ -74,6 +74,7 @@ export const SessionEndPayloadSchema = z
   .object({
     topic: z.string(),
     topicName: z.string().optional(),
+    taskType: z.string().optional(),
     endedAt: z.string().datetime(),
     effortSummary: z.record(z.unknown()).optional(),
   })
@@ -103,7 +104,7 @@ export const VerificationCompletePayloadSchema = z
     topic: z.string(),
     topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-    result: z.enum(['confident', 'partial', 'needs_review']),
+    result: z.enum(['confident', 'not_confident']),
     completedAt: z.string().datetime(),
   })
   .strict();

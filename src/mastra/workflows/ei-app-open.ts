@@ -25,7 +25,7 @@ import { protocol1IgnitionWorkflow } from './protocol1-ignition';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
 import { sessionStartWorkflow } from './session-start';
-import { composeOnboardingResponseView, composeSessionView, composeP1View } from '../../ei/sdui/view-composer';
+import { composeOnboardingResponseView, composeSessionView, composeP1View, composeP3View, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/sdui/view-composer';
 import { buildP1PresentationContext } from '../../ei/sdui/presentation-context';
 import type { NegotiatedIntentIssuedOutput } from '../../ei/schemas/outputs';
 import type { StateTrend } from '../../ei/domain/student-aggregates/student-aggregates';
@@ -85,6 +85,7 @@ const appOpenBranchStep = createStep({
           'NegotiatedIntentIssued', 'IntentResponse',
           'ActivationPlanIssued', 'FirstActionStarted',
           'SessionEnd', 'VerificationDecisionIssued', 'VerificationCompleted',
+          'RetrievalScheduled', 'RetrievalSkipped',
         ],
         since,
         limit: 50,
@@ -107,7 +108,51 @@ const appOpenBranchStep = createStep({
           const mode = (activationEvent?.payload?.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral';
           const playId = (activationEvent?.payload?.playId as string) ?? 'P2-N1';
           const sessionTopicName = await Q.getTopicName(db, studentId, topicId);
-          return composeSessionView({ topic: topicId, topicName: sessionTopicName ?? undefined, mode, playId });
+          const sessionStartedAt = (lastStarted.payload?.startedAt as string) ?? lastStarted.occurredAt;
+          const resumeTaskType = (activationEvent?.payload?.taskType as string)
+            ?? (lastStarted.payload?.taskType as string)
+            ?? undefined;
+          const firstActionText = (resumeTaskType ? FIRST_ACTION_BY_TASK[resumeTaskType] : undefined)
+            ?? FIRST_ACTION_DEFAULT;
+          return composeSessionView({ topic: topicId, topicName: sessionTopicName ?? undefined, mode, playId, taskType: resumeTaskType, firstActionText, sessionStartedAt });
+        }
+      }
+
+      // ── Phase 3 resume: VerificationDecisionIssued without terminal event ──
+      // If the student refreshed during the verification screen, re-compose it.
+      const lastVerificationDecision = recentEvents.find(e => e.eventType === 'VerificationDecisionIssued');
+      if (lastVerificationDecision?.topicId) {
+        const vTopicId = lastVerificationDecision.topicId;
+        const verificationTerminated = recentEvents.some(
+          e =>
+            (e.eventType === 'VerificationCompleted' ||
+              e.eventType === 'RetrievalScheduled' ||
+              e.eventType === 'RetrievalSkipped') &&
+            e.topicId === vTopicId &&
+            e.occurredAt > lastVerificationDecision.occurredAt,
+        );
+        if (!verificationTerminated) {
+          const p = lastVerificationDecision.payload;
+          const vTopicName = await Q.getTopicName(db, studentId, vTopicId);
+          const output = {
+            studentId,
+            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
+            playId: (p.playId as string) ?? 'P2-N1',
+            topic: vTopicId,
+            topicName: vTopicName ?? undefined,
+            verificationDecision: (p.verificationDecision as 'VerifyNow' | 'ScheduleVerify' | 'Skip') ?? 'VerifyNow',
+            verificationSpec: p.verificationSpec as any,
+            deadlineSpec: p.deadlineSpec as any,
+            reason: p.reason as string | undefined,
+            sessionDurationSec: (p.sessionDurationSec as number) ?? undefined,
+            dropoutSignalActive: (p.dropoutSignalActive as boolean) ?? false,
+            issuedAt: lastVerificationDecision.occurredAt.toISOString(),
+          };
+          return composeP3View(
+            output,
+            output.sessionDurationSec,
+            output.dropoutSignalActive,
+          );
         }
       }
 

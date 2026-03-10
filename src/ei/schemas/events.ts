@@ -61,6 +61,7 @@ export const SessionEndSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
   topicName: z.string().optional(),
+  taskType: z.string().optional(),
   endedAt: z.string().datetime(),
 });
 export type SessionEnd = z.infer<typeof SessionEndSchema>;
@@ -120,7 +121,7 @@ export const VerificationCompletedSchema = z.object({
   topic: z.string(),
   topicName: z.string().optional(),
   completedAt: z.string().datetime(),
-  result: z.enum(['confident', 'partial', 'needs_review']).optional(),
+  result: z.enum(['confident', 'not_confident']).optional(),
 });
 export type VerificationCompleted = z.infer<typeof VerificationCompletedSchema>;
 

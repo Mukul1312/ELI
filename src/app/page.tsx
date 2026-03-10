@@ -328,8 +328,9 @@ export default function Home() {
   const isInitialLoading = authState === 'initializing' || authState === 'loading';
   const view = currentSduiResponse?.view;
   const isSessionPhase = currentSduiResponse?.phase === 'session';
-  const isActivationPhase = currentSduiResponse?.phase === 'activation';
   const isCheckinPhase = currentSduiResponse?.phase === 'checkin';
+  const isVerificationPhase = currentSduiResponse?.phase === 'verification';
+  const isDonePhase = currentSduiResponse?.phase === 'done';
   // Checkin: domain.mode; P1/P2: mode at top level
   const pageMode = (currentSduiResponse?.domain as { mode?: 'Rescue' | 'Neutral' | 'Boost' } | null)?.mode
     ?? (currentSduiResponse as { mode?: 'Rescue' | 'Neutral' | 'Boost' })?.mode;
@@ -340,11 +341,6 @@ export default function Home() {
 
   return (
     <div style={pageStyles}>
-      {!isSessionPhase && (
-        <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
-          <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
-        </div>
-      )}
 
       {authState === 'error' && errorMessage && (
         <div style={{ ...s.card, borderColor: '#7f1d1d' }}>
@@ -418,8 +414,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Persisted footer — hidden during Phase 2 (activation + session) per spec */}
-      {authState === 'authenticated' && sessionFooter.length > 0 && !isSessionPhase && !isActivationPhase && (
+      {/* Persisted footer — hidden during Phase 2 (session) and Phase 3 (verification/done) per spec */}
+      {authState === 'authenticated' && sessionFooter.length > 0 && !isSessionPhase && !isVerificationPhase && !isDonePhase && (
         <SduiSlot components={sessionFooter} {...slotProps} />
       )}
     </div>

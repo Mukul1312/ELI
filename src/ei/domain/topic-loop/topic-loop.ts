@@ -66,8 +66,14 @@ export class TopicLoop extends AggregateRoot<TopicLoopId> {
         this._state = this._state.withLastEffortAt(timestamp);
         break;
       case 'RetrievalVerified':
-      case 'VerificationCompleted':
         this._state = this._state.withLastRetrievalAt(timestamp);
+        break;
+      case 'VerificationCompleted':
+        // Only close the loop (update last_retrieval_at) when result is 'confident'.
+        // 'not_confident' means the student honestly said "Not yet" — loop stays open.
+        if (payload.result === 'confident') {
+          this._state = this._state.withLastRetrievalAt(timestamp);
+        }
         break;
       case 'RetrievalScheduled':
         this._state = this._state.withLastScheduledDueAt(timestamp);

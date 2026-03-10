@@ -112,6 +112,8 @@ export const protocol2ActivationWorkflow = createWorkflow({
       taskType: initData.taskType,
       timebox: initData.timebox,
       replanCount: 0, // TODO: pass from context when Replan workflow re-runs P2
+      studentId: initData.studentId,
+      idempotencyKey: initData.idempotencyKey,
     };
   })
   .then(composeP2ViewStep)

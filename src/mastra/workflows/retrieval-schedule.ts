@@ -48,14 +48,17 @@ const appendAndComposeStep = createStep({
     const db = eiStore.db;
 
     // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
-    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic] = await Promise.all([
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergy(db, studentId),
       topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
       Q.getOldestPendingTopic(db, studentId, topic),
+      Q.getTopicState(db, studentId, topic),
+      Q.getSessionDurationSec(db, studentId, topic),
     ]);
     const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
+    const taskType = topicState?.last_task_type ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -90,7 +93,7 @@ const appendAndComposeStep = createStep({
       nextPendingTopic,
     );
 
-    const sdui = composePhase3View(topic, mode, 'reminded', ctx, resolvedTopicName);
+    const sdui = composePhase3View(topic, mode, 'reminded', ctx, resolvedTopicName, taskType, sessionDurationSec);
     return sdui;
   },
 });
