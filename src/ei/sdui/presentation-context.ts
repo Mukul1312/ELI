@@ -34,6 +34,8 @@ export interface PresentationContext {
   readonly sessionsLast7d: number;
   /** Number of verification events in the last 7 days. */
   readonly loopsClosedLast7d: number;
+  /** Total SessionEnd events (all time) — drives formation-period gating. */
+  readonly sessionsTotal: number;
   /** Per-topic state snapshots ordered by lastScheduledDueAt ASC (due soonest first). */
   readonly topicStates: TopicStateSnapshot[];
   /** Date of most recent IdentityMomentShown event; null if never shown. */
@@ -78,6 +80,7 @@ export function buildP1PresentationContext(
   lastIdentityShownAt?: Date | null,
   historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
   hasPriorOpen: boolean = true,
+  sessionsTotal = 0,
 ): PresentationContext {
   const closeOpenLoopFirst = domainOutput.constraints?.closeOpenLoopFirst ?? false;
   return {
@@ -97,6 +100,7 @@ export function buildP1PresentationContext(
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
     sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
     loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    sessionsTotal,
     topicStates: sortedTopicSnapshots(topicSnapshots),
     lastIdentityShownAt: lastIdentityShownAt ?? null,
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
@@ -121,6 +125,7 @@ export function buildCheckinPresentationContext(
   lastIdentityShownAt?: Date | null,
   historicalIndicators?: { hadSilenceInLast14d: boolean; hadHighPressureInLast14d: boolean },
   hasPriorOpen = true,
+  sessionsTotal = 0,
 ): PresentationContext {
   return {
     studentId,
@@ -139,6 +144,7 @@ export function buildCheckinPresentationContext(
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
     sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
     loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    sessionsTotal,
     topicStates: sortedTopicSnapshots(topicSnapshots),
     lastIdentityShownAt: lastIdentityShownAt ?? null,
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
@@ -178,6 +184,7 @@ export function buildP2PresentationContext(
     stateTrend7d: 'flat',
     sessionsLast7d: 0,
     loopsClosedLast7d: 0,
+    sessionsTotal: 0,
     topicStates: [],
     lastIdentityShownAt: null,
     hadSilenceInLast14d: false,
@@ -221,6 +228,7 @@ export function buildP3PresentationContext(
     stateTrend7d: aggregates?.stateTrend7d ?? 'flat',
     sessionsLast7d: eventCounts?.sessionsLast7d ?? 0,
     loopsClosedLast7d: eventCounts?.loopsClosedLast7d ?? 0,
+    sessionsTotal: 0,
     topicStates: [],
     lastIdentityShownAt: null,
     hadSilenceInLast14d: false,

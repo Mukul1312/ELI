@@ -39,7 +39,7 @@ export function resolvePayload(
 
 // ─── Slot Entry helpers ───────────────────────────────────────────────────
 
-function isGrouped(entry: SduiSlotEntry): entry is { component: SduiComponent; visibilityGroup: string; initiallyVisible: boolean } {
+function isGrouped(entry: SduiSlotEntry): entry is { component: SduiComponent; visibilityGroup: string; initiallyVisible: boolean; hiddenWhenGroup?: string } {
   return 'component' in entry && 'visibilityGroup' in entry;
 }
 
@@ -65,8 +65,12 @@ export function SduiSlot({
       {components.map((entry, i) => {
         const node = isGrouped(entry) ? entry.component : (entry as SduiComponent);
         const group = isGrouped(entry) ? entry.visibilityGroup : undefined;
+        const hiddenWhen = isGrouped(entry) ? entry.hiddenWhenGroup : undefined;
 
-        // Visibility check: ungrouped always visible; grouped requires group in set
+        // Collapse: hide when the specified group becomes visible
+        if (hiddenWhen && visibleGroups?.has(hiddenWhen)) return null;
+
+        // Reveal: grouped requires group in visible set
         if (group && visibleGroups && !visibleGroups.has(group)) return null;
 
         const Comp = getSduiComponent(node.type);

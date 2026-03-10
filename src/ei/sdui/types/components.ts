@@ -77,6 +77,12 @@ export const SduiScaleInputSchema = z.object({
       toggleLabel: z.string(),
       defaultOpen: z.boolean(),
     }).optional(),
+    /** Per-topic chip values to hide. Client reads formValues[topicSourceField] to resolve. */
+    hiddenChipsByTopic: z.record(z.array(z.union([z.string(), z.number()]))).optional(),
+    /** Per-topic default chip value. Client reads formValues[topicSourceField] to resolve. */
+    defaultByTopic: z.record(z.union([z.string(), z.number()])).optional(),
+    /** Form field ID to read current topic from (e.g. 'topicId'). Enables topic-aware overrides. */
+    topicSourceField: z.string().optional(),
   }),
 });
 export type SduiScaleInput = z.infer<typeof SduiScaleInputSchema>;
@@ -254,6 +260,7 @@ export const SduiActionGroupSchema = z.object({
       variant: z.enum(['primary', 'secondary', 'danger']),
       disabled: z.boolean().optional(),
       disabledReason: z.string().optional(),
+      size: z.enum(['default', 'large']).optional(),
     })),
   }),
 });
@@ -315,6 +322,8 @@ export const SduiResumeContextCardSchema = z.object({
       subGreeting: z.string().optional(),
       primaryCta: CtaSchema,
     }).optional(),
+    /** When true, renders compact (16px sans, no subGreeting, no CTAs). Two-node pattern: full in 1A, compact in 1B. */
+    compact: z.boolean().optional(),
   }),
 });
 export type SduiResumeContextCard = z.infer<typeof SduiResumeContextCardSchema>;
@@ -333,6 +342,19 @@ export const SduiPendingItemsListSchema = z.object({
   }),
 });
 export type SduiPendingItemsList = z.infer<typeof SduiPendingItemsListSchema>;
+
+/** Phase 1 hero card — oldest pending topic, prominent tappable card. */
+export const SduiPendingHeroCardSchema = z.object({
+  type: z.literal('pending-hero-card'),
+  props: z.object({
+    topicId: z.string(),
+    topicName: z.string(),
+    daysAgo: z.number(),
+    actionId: z.string(),
+    label: z.string().optional(),
+  }),
+});
+export type SduiPendingHeroCard = z.infer<typeof SduiPendingHeroCardSchema>;
 
 /** Phase 3 scenario-specific closing card — counter animation + seed + optional clearMore. */
 export const SduiLoopClosedCardSchema = z.object({
@@ -445,6 +467,18 @@ export const SduiOnboardingTopicTaskFormSchema = z.object({
 });
 export type SduiOnboardingTopicTaskForm = z.infer<typeof SduiOnboardingTopicTaskFormSchema>;
 
+/** Single-line breadcrumb: "Label: Value [Edit]" — replaces collapsed interactive inputs. */
+export const SduiFieldBreadcrumbSchema = z.object({
+  type: z.literal('field-breadcrumb'),
+  props: z.object({
+    inputId: z.string(),
+    label: z.string(),
+    valueLabels: z.record(z.string()).optional(),
+    editActionId: z.string().optional(),
+  }),
+});
+export type SduiFieldBreadcrumb = z.infer<typeof SduiFieldBreadcrumbSchema>;
+
 // ────────────────────────────────────────────────────────────────────────────
 // Union
 // ────────────────────────────────────────────────────────────────────────────
@@ -477,6 +511,8 @@ export const SduiComponentSchema: z.ZodType<SduiComponent> = z.discriminatedUnio
   SduiSessionContextBarSchema,
   SduiOnboardingWelcomeCardSchema,
   SduiOnboardingTopicTaskFormSchema,
+  SduiFieldBreadcrumbSchema,
+  SduiPendingHeroCardSchema,
 ]) as z.ZodType<SduiComponent>;
 
 export type SduiComponent =
@@ -506,4 +542,6 @@ export type SduiComponent =
   | SduiIdentityMomentCard
   | SduiSessionContextBar
   | SduiOnboardingWelcomeCard
-  | SduiOnboardingTopicTaskForm;
+  | SduiOnboardingTopicTaskForm
+  | SduiFieldBreadcrumb
+  | SduiPendingHeroCard;

@@ -30,6 +30,8 @@ import { SduiSessionContextBar } from './components/session-context-bar';
 import { SduiOnboardingWelcomeCard } from './components/onboarding-welcome-card';
 import { SduiOnboardingTopicTaskForm } from './components/onboarding-topic-task-form';
 import { SduiTopicInput } from './components/topic-input';
+import { SduiFieldBreadcrumb } from './components/field-breadcrumb';
+import { SduiPendingHeroCard } from './components/pending-hero-card';
 
 export type SduiComponentProps = {
   node: SduiComponent;
@@ -67,6 +69,8 @@ const REGISTRY: Record<string, ComponentType<SduiComponentProps>> = {
   'onboarding-welcome-card': SduiOnboardingWelcomeCard as ComponentType<SduiComponentProps>,
   'onboarding-topic-task-form': SduiOnboardingTopicTaskForm as ComponentType<SduiComponentProps>,
   'topic-input': SduiTopicInput as ComponentType<SduiComponentProps>,
+  'field-breadcrumb': SduiFieldBreadcrumb as ComponentType<SduiComponentProps>,
+  'pending-hero-card': SduiPendingHeroCard as ComponentType<SduiComponentProps>,
 };
 
 export function getSduiComponent(type: string): ComponentType<SduiComponentProps> | null {

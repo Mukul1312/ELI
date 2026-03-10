@@ -40,6 +40,8 @@ export class RecomputeStudentAggregatesHandler implements IRecomputeStudentAggre
       lastEffortAt: t.lastEffortAt,
       lastRetrievalAt: t.lastRetrievalAt,
       lastScheduledDueAt: t.lastScheduledDueAt,
+      effortCountTotal: 0,
+      lastTaskType: null,
     }));
 
     const allTimeLatestEvent: DomainEventSnapshot | null = latestEvent

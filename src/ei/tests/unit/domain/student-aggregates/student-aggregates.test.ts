@@ -33,6 +33,8 @@ function makeTopicState(overrides: Partial<TopicStateSnapshot> = {}): TopicState
     lastEffortAt: null,
     lastRetrievalAt: null,
     lastScheduledDueAt: null,
+    effortCountTotal: 0,
+    lastTaskType: null,
     ...overrides,
   };
 }

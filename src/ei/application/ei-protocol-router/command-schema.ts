@@ -49,6 +49,8 @@ export const AppOpenFullPayloadSchema = z
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
     openedAt: z.string().datetime().optional(),
+    taskType: z.string().optional(),
+    timebox: z.number().optional(),
   })
   .strict();
 

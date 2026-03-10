@@ -45,6 +45,7 @@ function baseCtx(overrides: Partial<PresentationContext> = {}): PresentationCont
     stateTrend7d: 'flat',
     sessionsLast7d: 5,
     loopsClosedLast7d: 2,
+    sessionsTotal: 0,
     topicStates: [],
     lastIdentityShownAt: null,
     hadSilenceInLast14d: false,

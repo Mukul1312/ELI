@@ -32,21 +32,45 @@ export function SduiScaleInput({
   node,
   value,
   onChange,
+  formValues,
 }: {
   node: SduiScaleInput;
   value?: string | number;
   onChange?: (id: string, v: string | number) => void;
+  formValues?: Record<string, string | number>;
 }) {
-  const { inputId, label, chips, required, collapsible, showNumber } = node.props;
+  const { inputId, label, chips, required, collapsible, showNumber, hiddenChipsByTopic, defaultByTopic, topicSourceField } = node.props;
   const [collapsed, setCollapsed] = React.useState(!collapsible?.defaultOpen);
+
+  // ── Topic-aware chip filtering & default ─────────────────────────────────
+  const selectedTopic = topicSourceField && formValues ? String(formValues[topicSourceField] ?? '') : '';
+  const hiddenValues = selectedTopic && hiddenChipsByTopic ? hiddenChipsByTopic[selectedTopic] : undefined;
+  const hiddenSet = React.useMemo(
+    () => new Set((hiddenValues ?? []).map(String)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedTopic],
+  );
+  const visibleChips = hiddenSet.size > 0 ? chips.filter((c) => !hiddenSet.has(String(c.value))) : chips;
+
+  // Auto-select default when topic changes and no value is selected yet (or current value is hidden)
+  const topicDefault = selectedTopic && defaultByTopic ? defaultByTopic[selectedTopic] : undefined;
+  const appliedDefaultRef = React.useRef('');
+  React.useEffect(() => {
+    if (!topicDefault || !selectedTopic || !onChange) return;
+    if (appliedDefaultRef.current === selectedTopic) return;
+    if (value === undefined || hiddenSet.has(String(value))) {
+      appliedDefaultRef.current = selectedTopic;
+      onChange(inputId, topicDefault);
+    }
+  }, [selectedTopic, topicDefault, value, hiddenSet, onChange, inputId]);
 
   const chipRow = (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-1)', marginBottom: 'var(--sp-4)' }}>
-      {chips.map((c, i) => (
+      {visibleChips.map((c, i) => (
         <button
           key={String(c.value)}
           type="button"
-          style={chipStyle(value === c.value, i, chips.length)}
+          style={chipStyle(value === c.value, i, visibleChips.length)}
           onClick={() => onChange?.(inputId, c.value)}
         >
           <span>{c.label}</span>

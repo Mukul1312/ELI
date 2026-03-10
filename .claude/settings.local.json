@@ -5,7 +5,8 @@
       "mcp__mastra__searchMastraDocs",
       "mcp__mastra__readMastraDocs",
       "mcp__mastra__mastraDocs",
-      "Bash(npx tsc --noEmit --pretty)"
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(grep -r \"isAppOpenFirstTouch\\\\|isAppOpenOnboarding\\\\|isAppOpenMicro\\\\|AppOpenPayload\" /c/Users/Mukul/code/personal-projects/ai-study-brother/src --include=*.ts)"
     ]
   }
 }

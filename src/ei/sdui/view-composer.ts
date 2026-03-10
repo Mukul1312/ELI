@@ -28,8 +28,8 @@ import { IDENTITY_STATEMENTS } from './microcopy/identity';
 // Progressive disclosure helper — wraps a component with visibility metadata
 // ────────────────────────────────────────────────────────────────────────────
 
-function grouped(component: SduiComponent, visibilityGroup: string, initiallyVisible = true): SduiSlotEntry {
-  return { component, visibilityGroup, initiallyVisible };
+function grouped(component: SduiComponent, visibilityGroup: string, initiallyVisible = true, hiddenWhenGroup?: string): SduiSlotEntry {
+  return { component, visibilityGroup, initiallyVisible, ...(hiddenWhenGroup ? { hiddenWhenGroup } : {}) };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -55,6 +55,12 @@ const TASK_TYPE_CHIPS = [
   { label: 'Learn', value: 'Learn' },
   { label: 'Practice', value: 'Practice' },
   { label: 'Revise', value: 'Revise' },
+] as const;
+
+const TIMEBOX_CHIPS = [
+  { label: '~15 min', value: 15 },
+  { label: '~30 min', value: 30 },
+  { label: '~45 min', value: 45 },
 ] as const;
 
 const DIFFICULTY_CHIPS = [
@@ -162,14 +168,19 @@ export function composeP1View(
     });
   }
 
-  // Task type scale
+  // Task type scale — hide Learn for known topics, pre-select lastTaskType for 8+ sessions
+  const topicState = ctx.topicStates.find((ts) => ts.topicId === ctx.topicId);
+  const p1TaskChips = topicState && topicState.effortCountTotal > 0
+    ? TASK_TYPE_CHIPS.filter((c) => c.value !== 'Learn')
+    : [...TASK_TYPE_CHIPS];
+
   body.push({ type: 'spacer', props: { size: 'md' } });
   body.push({
     type: 'scale-input',
     props: {
       inputId: 'taskType',
       label: 'What kind of work?',
-      chips: [...TASK_TYPE_CHIPS],
+      chips: [...p1TaskChips],
       required: true,
     },
   });
@@ -853,6 +864,7 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
         : variant === 'CLEAR_THEN_CHALLENGE'
           ? { label: 'Start something new', actionId: 'small_start' }
           : undefined;
+
     showGreetingAfterEnergySelected = variant === 'LOW_ENERGY' ? true : undefined;
 
     // Tier 2/3 observation: append to greeting at session 5+
@@ -901,12 +913,13 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
         id: actionId,
         endpoint: { method: 'POST', path: '/api/ei/command' },
         payload: {
-          commandType: 'IntentSet',
+          commandType: 'AppOpen',
           payload: {
             topic: t.topicId,
+            topicId: t.topicId,
             ...(t.topicName && { topicName: t.topicName }),
-            taskType: 'Revise',
-            setAt: new Date().toISOString(),
+            energy: '{{energy}}',
+            sleepBucket: '{{sleepBucket}}',
           },
         },
       };
@@ -915,14 +928,31 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
     });
 
     if (items.length > 0) {
-      const overflowCount = Math.max(0, pendingTopics.length - items.length);
+      // Hero card: first (oldest) pending topic
+      const hero = items[0];
       components.push({
-        type: 'pending-items-list',
+        type: 'pending-hero-card' as any,
         props: {
-          items,
-          overflowLabel: overflowCount > 0 ? `and ${overflowCount} more` : undefined,
+          topicId: hero.topicId,
+          topicName: hero.topicName,
+          daysAgo: hero.daysAgo,
+          actionId: hero.actionId,
+          label: items.length > 1 ? 'Continue where you left off' : undefined,
         },
       });
+
+      // Backlog: remaining topics as subtle list
+      if (items.length > 1) {
+        const backlogItems = items.slice(1);
+        const overflowCount = Math.max(0, pendingTopics.length - items.length);
+        components.push({
+          type: 'pending-items-list',
+          props: {
+            items: backlogItems,
+            overflowLabel: overflowCount > 0 ? `and ${overflowCount} more` : undefined,
+          },
+        });
+      }
     }
   }
 
@@ -1031,19 +1061,45 @@ export function composeCheckinView(
     phase1Variant = variant;
     // V2 LOW_ENERGY: energy scale first, then greeting (client reveals greeting after energy selected)
     if (variant === 'LOW_ENERGY') {
-      body.push(grouped(energyScaleComponent, '1A'));
-      body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1A'));
+      body.push(grouped(energyScaleComponent, '1A', true, '1B'));
+      body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1A', true, '1B'));
+      // Energy breadcrumb (appears in 1B when energy scale collapses)
+      body.push(grouped({
+        type: 'field-breadcrumb' as any,
+        props: {
+          inputId: 'energy',
+          label: 'Energy',
+          valueLabels: { '1': 'Exhausted (1)', '2': 'Low (2)', '3': 'Okay (3)', '4': 'Good (4)', '5': 'Sharp (5)' },
+          editActionId: 'edit_energy',
+        },
+      }, '1B', false));
     }
-    // Separate greeting (1A) from pending-items-list (1B)
+    // Two-node greeting + hero/backlog grouping
     for (const comp of components) {
-      if (comp.type === 'pending-items-list') {
-        body.push(grouped(comp, '1B', false));
+      if (comp.type === 'pending-items-list' || comp.type === 'pending-hero-card') {
+        body.push(grouped(comp, '1B', false, '1C'));
+      } else if (comp.type === 'resume-context-card') {
+        if (variant === 'LOW_ENERGY') {
+          // LOW_ENERGY: greeting hidden until energy selected (which triggers 1B).
+          // User never sees full greeting in 1A, so only emit compact in 1B.
+          body.push(grouped(
+            { ...comp, props: { ...comp.props, compact: true } } as SduiComponent,
+            '1B', false, '1C',
+          ));
+        } else {
+          // Two-node: full in 1A (hides when 1B), compact in 1B (hides when 1C)
+          body.push(grouped(comp, '1A', true, '1B'));
+          body.push(grouped(
+            { ...comp, props: { ...comp.props, compact: true } } as SduiComponent,
+            '1B', false, '1C',
+          ));
+        }
       } else {
-        body.push(grouped(comp, '1A'));
+        body.push(grouped(comp, '1A', true, '1C'));
       }
     }
-    if (components.length > 0) {
-      body.push(grouped({ type: 'divider', props: {} }, '1A'));
+    if (components.length > 0 && variant !== 'CLEAN_START') {
+      body.push(grouped({ type: 'divider', props: {} }, '1A', true, '1C'));
     }
     Object.assign(pendingActions, pendingTopicActions);
   }
@@ -1052,12 +1108,22 @@ export function composeCheckinView(
 
   // Energy scale (skip if already added for LOW_ENERGY)
   if (phase1Variant !== 'LOW_ENERGY') {
-    body.push(grouped(energyScaleComponent, '1A'));
+    body.push(grouped(energyScaleComponent, '1A', true, '1B'));
+    // Energy breadcrumb (appears in 1B when energy scale collapses)
+    body.push(grouped({
+      type: 'field-breadcrumb' as any,
+      props: {
+        inputId: 'energy',
+        label: 'Energy',
+        valueLabels: { '1': 'Exhausted (1)', '2': 'Low (2)', '3': 'Okay (3)', '4': 'Good (4)', '5': 'Sharp (5)' },
+        editActionId: 'edit_energy',
+      },
+    }, '1B', false));
   }
 
   // Sleep scale (revealed with topic after energy selected — part of 1B)
   if (ctx.isFirstOfDay && phase1Variant !== 'SILENCE_RE_ENTRY') {
-    body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1B', false));
+    body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1B', false, '1C'));
     body.push(grouped({
       type: 'scale-input',
       props: {
@@ -1066,7 +1132,7 @@ export function composeCheckinView(
         chips: [...SLEEP_CHIPS],
         required: true,
       },
-    }, '1B', false));
+    }, '1B', false, '1C'));
   }
 
   // ── 1B: Topic input (revealed when energy selected) ──────────────────────
@@ -1083,17 +1149,66 @@ export function composeCheckinView(
       browseEnabled: phase1Variant !== 'HIGH_PRESSURE',
       instituteId: null,
     },
-  }, '1B', false));
-  body.push(grouped({ type: 'spacer', props: { size: 'md' } }, '1B', false));
+  }, '1B', false, '1C'));
+  body.push(grouped({ type: 'spacer', props: { size: 'md' } }, '1B', false, '1C'));
 
-  // ── 1C: Submit button (revealed when topic selected) ─────────────────────
+  // ── 1C: Task type + timebox + Start (revealed when topic selected) ──────
+
+  // Topic breadcrumb (appears in 1C)
+  body.push(grouped({
+    type: 'field-breadcrumb' as any,
+    props: {
+      inputId: 'topicName',
+      label: 'Topic',
+      editActionId: 'edit_topic',
+    },
+  }, '1C', false));
+
+  // ── Topic-aware task type overrides ──────────────────────────────────────
+  // Learn chip hidden for known topics (effortCountTotal > 0).
+  // Pre-select lastTaskType for topics with 8+ sessions.
+  const hiddenChipsByTopic: Record<string, string[]> = {};
+  const defaultByTopic: Record<string, string> = {};
+  for (const ts of ctx.topicStates) {
+    if (ts.effortCountTotal > 0) {
+      hiddenChipsByTopic[ts.topicId] = ['Learn'];
+    }
+    if (ts.effortCountTotal >= 8 && ts.lastTaskType) {
+      defaultByTopic[ts.topicId] = ts.lastTaskType;
+    }
+  }
+
+  body.push(grouped({
+    type: 'scale-input',
+    props: {
+      inputId: 'taskType',
+      label: 'What kind of session?',
+      chips: [...TASK_TYPE_CHIPS],
+      required: true,
+      ...(Object.keys(hiddenChipsByTopic).length > 0 && { hiddenChipsByTopic }),
+      ...(Object.keys(defaultByTopic).length > 0 && { defaultByTopic }),
+      ...((Object.keys(hiddenChipsByTopic).length > 0 || Object.keys(defaultByTopic).length > 0) && { topicSourceField: 'topicId' }),
+    },
+  }, '1C', false));
+
+  // Formation period: scope picker hidden for Sessions 1-2 (no loop completed yet)
+  if (ctx.sessionsTotal >= 3) {
+    body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1C', false));
+
+    body.push(grouped({
+      type: 'scale-input',
+      props: { inputId: 'timebox', label: 'How long?', chips: [...TIMEBOX_CHIPS], required: false },
+    }, '1C', false));
+  }
+
+  body.push(grouped({ type: 'spacer', props: { size: 'md' } }, '1C', false));
 
   actions.push(grouped({
     type: 'action-group',
     props: {
-      layout: 'row',
+      layout: 'column',
       buttons: [
-        { label: 'Start Session', actionId: 'submit_checkin', variant: 'primary' },
+        { label: 'Start Session', actionId: 'submit_checkin', variant: 'primary', size: 'large' as const },
       ],
     },
   }, '1C', false));
@@ -1119,6 +1234,8 @@ export function composeCheckinView(
       topicName: '{{topicName}}',
       energy: '{{energy}}',
       sleepBucket: '{{sleepBucket}}',
+      taskType: '{{taskType}}',
+      timebox: '{{timebox}}',
     },
   };
 

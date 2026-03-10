@@ -24,6 +24,7 @@ import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { protocol1IgnitionWorkflow } from './protocol1-ignition';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
+import { sessionStartWorkflow } from './session-start';
 import { composeOnboardingResponseView, composeSessionView, composeP1View } from '../../ei/sdui/view-composer';
 import { buildP1PresentationContext } from '../../ei/sdui/presentation-context';
 import type { NegotiatedIntentIssuedOutput } from '../../ei/schemas/outputs';
@@ -238,6 +239,8 @@ const appOpenBranchStep = createStep({
       energy: number;
       sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
       openedAt?: string;
+      taskType?: string;
+      timebox?: number;
     };
     const commandWithStudent: EiCommandWithStudent = {
       commandType: 'AppOpen',
@@ -249,6 +252,28 @@ const appOpenBranchStep = createStep({
     const topicRef = fullPayload.topicId
       ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
       : await resolveTopicSafe(db, fullPayload.topic, studentId);
+
+    // ── Gate bypass: taskType present → skip P1/P2, go straight to session ──
+    // Gates remain intact for future re-enablement. sessionStartWorkflow writes
+    // FirstActionStarted event and returns composeSessionView().
+    if (fullPayload.taskType) {
+      // Persist last task type for pre-selection (formation-period feature)
+      await Q.upsertTopicState(db, studentId, topicRef.topicId, { last_task_type: fullPayload.taskType });
+      const run = await sessionStartWorkflow.createRun();
+      const sessionResult = await run.start({
+        inputData: {
+          studentId,
+          topic: topicRef.topicId,
+          topicName: topicRef.topicName,
+          mode: 'Neutral',
+          taskType: fullPayload.taskType,
+          idempotencyKey,
+          correlationId,
+        },
+      });
+      return sessionResult;
+    }
+
     const queryEvents = new PostgresQueryEventsAdapter(db);
     const router = new ProtocolRouter(queryEvents);
     const protocol = await router.decideProtocol(commandWithStudent);

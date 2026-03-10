@@ -242,6 +242,20 @@ export async function getTopicEventCounts7d(
   }));
 }
 
+/** Count total SessionEnd events per topic (all time) for Learn chip hiding. */
+export async function getTopicEffortCountTotal(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<number> {
+  const row = await db.one<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ei_events
+     WHERE student_id = $1 AND topic_id = $2 AND event_type = 'SessionEnd'`,
+    [studentId, topicId],
+  );
+  return parseInt(row.count, 10);
+}
+
 // ============================================================================
 // ei_topic_state queries
 // ============================================================================
@@ -259,6 +273,8 @@ export interface TopicStateRow {
   effort_count_7d: number;
   retrieval_count_7d: number;
   consecutive_deferrals: number;
+  effort_count_total: number;
+  last_task_type: string | null;
   updated_at: Date;
 }
 
@@ -327,7 +343,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals' | 'effort_count_total' | 'last_task_type'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];
@@ -626,6 +642,19 @@ export async function countStudentEventsLast7d(
     sessionsLast7d: parseInt(row.sessions, 10),
     loopsClosedLast7d: parseInt(row.loops, 10),
   };
+}
+
+/** Count total SessionEnd events (all time) for formation-period gating. */
+export async function countStudentSessionsTotal(
+  db: DbClient,
+  studentId: string,
+): Promise<number> {
+  const row = await db.one<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ei_events
+     WHERE student_id = $1 AND event_type = 'SessionEnd'`,
+    [studentId],
+  );
+  return parseInt(row.count, 10);
 }
 
 /** Get the timestamp of the most recent IdentityMomentShown event for rate-limiting. */

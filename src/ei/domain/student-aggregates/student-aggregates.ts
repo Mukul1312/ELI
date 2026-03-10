@@ -9,6 +9,8 @@ export interface TopicStateSnapshot {
   lastEffortAt: Date | null;
   lastRetrievalAt: Date | null;
   lastScheduledDueAt: Date | null;
+  effortCountTotal: number;
+  lastTaskType: string | null;
 }
 
 export interface DomainEventSnapshot {

@@ -49,6 +49,8 @@ function rowToTopicStateSnapshot(row: Q.TopicStateRow): TopicStateSnapshot {
     lastEffortAt: row.last_effort_at,
     lastRetrievalAt: row.last_retrieval_at,
     lastScheduledDueAt: row.last_scheduled_due_at,
+    effortCountTotal: row.effort_count_total ?? 0,
+    lastTaskType: row.last_task_type ?? null,
   };
 }
 

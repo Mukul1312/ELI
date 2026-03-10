@@ -150,7 +150,7 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [bootstrapTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket)
+  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket, taskType)
   const hasRequiredCheckinFields = useCallback(() => {
     const topic = formValues['topic'];
     const topicId = formValues['topicId'];
@@ -158,9 +158,11 @@ export default function Home() {
       || (typeof topic === 'string' && topic.trim() !== '');
     const energy = formValues['energy'];
     const sleepBucket = formValues['sleepBucket'];
+    const taskType = formValues['taskType'];
     return hasTopic
       && typeof energy === 'number' && energy >= 1 && energy <= 5
-      && typeof sleepBucket === 'string' && sleepBucket.length > 0;
+      && typeof sleepBucket === 'string' && sleepBucket.length > 0
+      && typeof taskType === 'string' && taskType.trim() !== '';
   }, [formValues]);
 
   // Compute initially-visible groups whenever response changes
@@ -199,12 +201,32 @@ export default function Home() {
     }, 250);
   }, []);
 
+  const revertToGroup = useCallback((targetGroupId: string) => {
+    const ORDER = ['1A', '1B', '1C'];
+    const targetIdx = ORDER.indexOf(targetGroupId);
+    if (targetIdx < 0) return;
+    setVisibleGroups(prev => {
+      const next = new Set(prev);
+      for (let i = targetIdx + 1; i < ORDER.length; i++) next.delete(ORDER[i]);
+      return next;
+    });
+  }, []);
+
   // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
     async (actionId: string) => {
       if (actionId === 'onboarding_next') {
         setCurrentSduiResponse(composeOnboardingTopicTaskView());
         setFormValues({});
+        return;
+      }
+
+      if (actionId === 'edit_energy') {
+        revertToGroup('1A');
+        return;
+      }
+      if (actionId === 'edit_topic') {
+        revertToGroup('1B');
         return;
       }
 
@@ -220,7 +242,7 @@ export default function Home() {
       // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
       if (isAppOpen && !isFirstTouch && !isOnboardingSubmit && !isMicroStart) {
         if (!hasRequiredCheckinFields()) {
-          setErrorMessage('Please fill in topic, energy, and sleep to continue.');
+          setErrorMessage('Please fill in topic, energy, sleep, and task type to continue.');
           return;
         }
       }
@@ -274,7 +296,7 @@ export default function Home() {
         setActionLoading(false);
       }
     },
-    [currentSduiResponse, formValues, api, hasRequiredCheckinFields, revealGroup],
+    [currentSduiResponse, formValues, api, hasRequiredCheckinFields, revealGroup, revertToGroup],
   );
 
   const handleFormChange = useCallback((id: string, value: string | number) => {

@@ -38,6 +38,8 @@ function mapTopicSnapshots(rows: Q.TopicStateRow[]): TopicStateSnapshot[] {
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,
+      effortCountTotal: r.effort_count_total ?? 0,
+      lastTaskType: r.last_task_type ?? null,
     }))
     .sort((a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0));
 }
@@ -57,7 +59,7 @@ export const composeCheckinViewStep = createStep({
     const { studentId, isFirstOfDay, idempotencyKey } = inputData;
     const db = eiStore.db;
 
-    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen, recentTopicRows] =
+    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen, recentTopicRows, sessionsTotal] =
       await Promise.all([
         Q.getAggregates(db, studentId),
         Q.getAllTopicStates(db, studentId),
@@ -66,6 +68,7 @@ export const composeCheckinViewStep = createStep({
         Q.getHistoricalIdentityIndicators(db, studentId),
         Q.hasPriorAppOpen(db, studentId),
         Q.getRecentTopics(db, studentId, 5),
+        Q.countStudentSessionsTotal(db, studentId),
       ]);
 
     const ctx = buildCheckinPresentationContext(
@@ -77,6 +80,7 @@ export const composeCheckinViewStep = createStep({
       lastIdentityShownAt,
       historicalIndicators,
       hasPriorOpen,
+      sessionsTotal,
     );
 
     // First-ever: show onboarding welcome (Screen 1) — no identity card, no energy/sleep

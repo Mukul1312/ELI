@@ -24,7 +24,9 @@ export function SduiActionGroup({
   };
   return (
     <div style={containerStyle}>
-      {buttons.map((b) => (
+      {buttons.map((b) => {
+        const isLarge = b.size === 'large';
+        return (
         <button
           key={b.actionId}
           type="button"
@@ -32,18 +34,21 @@ export function SduiActionGroup({
           disabled={b.disabled}
           title={b.disabledReason}
           style={{
-            padding: '10px 20px',
-            borderRadius: 8,
-            fontSize: 14,
+            padding: isLarge ? '14px 20px' : '10px 20px',
+            borderRadius: isLarge ? 16 : 8,
+            fontSize: isLarge ? 16 : 14,
             fontWeight: 600,
             cursor: b.disabled ? 'not-allowed' : 'pointer',
             opacity: b.disabled ? 0.6 : 1,
+            width: isLarge ? '100%' : undefined,
+            minHeight: isLarge ? 52 : undefined,
             ...btnStyles[b.variant],
           }}
         >
           {b.label}
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

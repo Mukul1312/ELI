@@ -35,6 +35,8 @@ const TopicStateSubsetSchema = z.object({
   last_effort_at: z.date().nullable(),
   last_retrieval_at: z.date().nullable(),
   last_scheduled_due_at: z.date().nullable(),
+  effort_count_total: z.number().optional(),
+  last_task_type: z.string().nullable().optional(),
 });
 
 function mapAggregatesForPresentation(row: z.infer<typeof AggregatesSubsetSchema>): AggregatesForPresentation | null {
@@ -55,6 +57,8 @@ function mapTopicSnapshots(rows: z.infer<typeof TopicStateSubsetSchema>[]): Topi
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,
+      effortCountTotal: r.effort_count_total ?? 0,
+      lastTaskType: r.last_task_type ?? null,
     }))
     .sort((a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0));
 }

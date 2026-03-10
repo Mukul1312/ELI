@@ -58,6 +58,7 @@ export const SduiGroupedComponentSchema = z.object({
   component: SduiComponentSchema,
   visibilityGroup: z.string(),
   initiallyVisible: z.boolean().default(true),
+  hiddenWhenGroup: z.string().optional(),
 });
 export type SduiGroupedComponent = z.infer<typeof SduiGroupedComponentSchema>;
 

@@ -84,6 +84,16 @@ const SQL_STATEMENTS = [
       ALTER TABLE ei_topic_state ADD COLUMN consecutive_deferrals INTEGER NOT NULL DEFAULT 0;
     END IF;
   END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'effort_count_total') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN effort_count_total INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'last_task_type') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN last_task_type TEXT;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)

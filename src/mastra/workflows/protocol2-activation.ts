@@ -69,6 +69,12 @@ const runP2Gate = createStep({
       await displayNameWriter.upsertDisplayName(studentId, topic, topicName);
     }
 
+    // Persist last task type for pre-selection (formation-period feature)
+    if (taskType) {
+      const { upsertTopicState } = await import('../../ei/db/queries');
+      await upsertTopicState(db, studentId, topic, { last_task_type: taskType });
+    }
+
     const handler = new RunP2GateHandler(
       signalsPort,
       assessLoopHealth,

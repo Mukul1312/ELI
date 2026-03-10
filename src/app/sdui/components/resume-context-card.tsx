@@ -30,12 +30,32 @@ export function SduiResumeContextCard({
     tertiaryCta,
     showGreetingAfterEnergySelected,
     makeItSmallerContent,
+    compact,
   } = node.props;
 
   const [makeItSmallerTapped, setMakeItSmallerTapped] = React.useState(false);
   const mode = variantToMode(variant);
   const energySelected = formValues['energy'] !== undefined && formValues['energy'] !== '';
   const showGreeting = !showGreetingAfterEnergySelected || energySelected;
+
+  if (compact) {
+    return (
+      <div style={{ marginBottom: 'var(--sp-3)' }}>
+        <div
+          style={{
+            fontFamily: 'inherit',
+            fontSize: 'var(--font-size-body)',
+            fontWeight: 400,
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.4,
+            whiteSpace: 'pre-line',
+          }}
+        >
+          {greeting}
+        </div>
+      </div>
+    );
+  }
 
   const content = makeItSmallerTapped && makeItSmallerContent
     ? {
