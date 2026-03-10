@@ -14,7 +14,7 @@ import type {
   VerificationDecisionIssuedOutput,
   Mode,
 } from '../schemas/outputs';
-import type { SduiResponse, SduiAction } from './types/sdui-contract';
+import type { SduiResponse, SduiAction, SduiSlotEntry } from './types/sdui-contract';
 import type { SduiActivationCard, SduiComponent } from './types/components';
 import type { PresentationContext } from './presentation-context';
 import { resolveMicrocopy, type MicrocopyKey } from './microcopy/resolver';
@@ -23,6 +23,14 @@ import { getTopicDisplayName } from './topic-display-name';
 import type { IdentityEligibilityResult } from './identity/compute-identity-eligibility';
 import { detectIdentityPattern } from './identity/compute-identity-eligibility';
 import { IDENTITY_STATEMENTS } from './microcopy/identity';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Progressive disclosure helper — wraps a component with visibility metadata
+// ────────────────────────────────────────────────────────────────────────────
+
+function grouped(component: SduiComponent, visibilityGroup: string, initiallyVisible = true): SduiSlotEntry {
+  return { component, visibilityGroup, initiallyVisible };
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Scale definitions (server-provided — replaces client hardcoded arrays)
@@ -493,25 +501,30 @@ export function composeSessionView(input: SessionViewInput): SduiResponse {
 // ────────────────────────────────────────────────────────────────────────────
 
 // Opening line and topic prompt by session mode
-const VERIFY_OPENING: Record<'standard' | 'short' | 'long' | 'rescue', string> = {
+const VERIFY_OPENING: Record<'standard' | 'short' | 'long' | 'rescue' | 'shrunk', string> = {
   standard: 'Quick check so this session counts.',
   short: 'Short session — that still counts.',
   long: 'Strong session. One thing to make it stick.',
   rescue: 'Good session.',
+  shrunk: 'Does it feel solid? Just a tap.',
 };
-const VERIFY_PROMPT: Record<'standard' | 'short' | 'long' | 'rescue', string> = {
+const VERIFY_PROMPT: Record<'standard' | 'short' | 'long' | 'rescue' | 'shrunk', string> = {
   standard: 'Do 1 question. In your head or on paper.',
   short: '1 quick question. In your head.',
   long: 'Do 1 question. In your head or on paper.',
   rescue: '1 question when you\'re ready.',
+  shrunk: '',
 };
 
 export function composeP3View(
   output: VerificationDecisionIssuedOutput,
   sessionDurationSec?: number,
+  dropoutSignalActive = false,
 ): SduiResponse {
-  let verifyMode: 'standard' | 'short' | 'long' | 'rescue';
-  if (output.mode === 'Rescue') {
+  let verifyMode: 'standard' | 'short' | 'long' | 'rescue' | 'shrunk';
+  if (dropoutSignalActive) {
+    verifyMode = 'shrunk';
+  } else if (output.mode === 'Rescue') {
     verifyMode = 'rescue';
   } else if (sessionDurationSec !== undefined && sessionDurationSec < 600) {
     verifyMode = 'short';
@@ -643,9 +656,11 @@ export function composePhase3View(
     scenario === 'milestone' ? '"That\'s rare. Keep that."' :
     undefined;
 
-  // Seed copy per spec
+  // Seed copy per spec — Dynamic Footer Seed takes priority when available
   let seed: string | undefined;
-  if (scenario === 'verified' && countAfter >= 1) {
+  if (closesLoop && countAfter >= 1 && ctx.nextPendingTopic) {
+    seed = `Next: ${ctx.nextPendingTopic.topicName} waiting since Day ${ctx.nextPendingTopic.waitingSinceDays}`;
+  } else if (scenario === 'verified' && countAfter >= 1) {
     if (countAfter === 1) seed = '1 check left this week. Almost done.';
     else if (countAfter === 2) seed = '2 checks left this week — you\'re ahead.';
     else if (countAfter === 3) seed = '3 checks left. Steady progress.';
@@ -653,7 +668,7 @@ export function composePhase3View(
   } else if (scenario === 'reminded') {
     seed = 'See you tomorrow.';
   }
-  // skip_*, milestone, first_ever: no seed
+  // skip_*, milestone, first_ever (no pending): no seed
 
   // "Clear one more" CTA: verified + energy >= 4 + pending remaining + not needs_review
   const showClearMore = scenario === 'verified' && ctx.energy >= 4 && countAfter >= 1;
@@ -754,9 +769,10 @@ const VARIANT_TO_PLAY: Record<Phase1Variant, string> = {
   HIGH_PRESSURE: 'P1-PRESSURE',
   CHALLENGE: 'P1-BOOST',
   CLEAR_THEN_CHALLENGE: 'P1-CLEAR-CHALLENGE',
-  CLEAN_START: 'P1-RESCUE',
+  CLEAN_START: 'P1-CLEAN',
   DEAL_CARD: 'P1-DEAL',
   PENDING_STANDARD: 'P1-PENDING',
+  
 };
 
 /** Phase 1 variant precedence: Onboarding > Silence > Low-energy Rescue > High-pressure Rescue > Boost variants > Neutral deal/pending > default. */
@@ -770,6 +786,37 @@ export function selectPhase1Variant(ctx: PresentationContext): Phase1Variant {
   if (ctx.pendingChecks >= 3 && ctx.closeOpenLoopFirst) return 'DEAL_CARD';
   if (ctx.pendingChecks > 0) return 'PENDING_STANDARD';
   return 'CLEAN_START';
+}
+
+/** Variants eligible for Tier 2/3 observations (Session 5+). */
+const OBSERVATION_ELIGIBLE_VARIANTS: readonly Phase1Variant[] = [
+  'CLEAN_START', 'PENDING_STANDARD', 'DEAL_CARD', 'CHALLENGE', 'CLEAR_THEN_CHALLENGE',
+];
+
+/**
+ * Build a Tier 2 or Tier 3 observation to append to the greeting.
+ * Returns undefined when below threshold or variant is ineligible.
+ */
+export function buildTierObservation(
+  ctx: PresentationContext,
+  variant: Phase1Variant,
+): string | undefined {
+  if (!OBSERVATION_ELIGIBLE_VARIANTS.includes(variant)) return undefined;
+  if (ctx.sessionsLast7d < 5) return undefined;
+
+  const suffix = ctx.sessionsLast7d >= 7 ? 't3' : 't2';
+
+  // Priority: energy > closure rate > trend > session count
+  if (ctx.energy >= 4) {
+    return p1Copy(`obs_energy_${suffix}` as MicrocopySlot, ctx);
+  }
+  if (ctx.verificationRate7d >= 0.7) {
+    return p1Copy(`obs_closure_${suffix}` as MicrocopySlot, ctx);
+  }
+  if (ctx.stateTrend7d === 'improving') {
+    return p1Copy(`obs_trend_${suffix}` as MicrocopySlot, ctx);
+  }
+  return p1Copy(`obs_count_${suffix}` as MicrocopySlot, ctx, { count: ctx.sessionsLast7d });
 }
 
 function buildPhase1OpenComponents(ctx: PresentationContext): {
@@ -807,6 +854,12 @@ function buildPhase1OpenComponents(ctx: PresentationContext): {
           ? { label: 'Start something new', actionId: 'small_start' }
           : undefined;
     showGreetingAfterEnergySelected = variant === 'LOW_ENERGY' ? true : undefined;
+
+    // Tier 2/3 observation: append to greeting at session 5+
+    const observation = buildTierObservation(variantCtx, variant);
+    if (observation) {
+      greeting = greeting + '\n' + observation;
+    }
   }
 
   const pendingItemsLabel =
@@ -936,21 +989,16 @@ export function composeCheckinView(
   recentTopics?: Array<{ id: string; name: string }>,
 ): SduiResponse {
   const header: SduiComponent[] = [];
-  const body: SduiComponent[] = [];
-  const actions: SduiComponent[] = [];
+  const body: SduiSlotEntry[] = [];
+  const actions: SduiSlotEntry[] = [];
   const footer: SduiComponent[] = [];
   const pendingActions: Record<string, SduiAction> = {};
 
-  header.push({
-    type: 'message',
-    props: { text: 'Check in', variant: 'heading' },
-  });
-  header.push({
-    type: 'message',
-    props: { text: "Let's set up your study session", variant: 'subheading' },
-  });
-
-  // ── Greeting section + form ──────────────────────────────────────────────
+  // ── Greeting section ─────────────────────────────────────────────────────
+  // Progressive disclosure groups:
+  //   1A (visible): greeting + energy — initial anchor
+  //   1B (hidden):  sleep + topic input + pending items — revealed when energy selected
+  //   1C (hidden):  Start button — revealed when topic selected
 
   let phase1Variant: Phase1Variant = selectPhase1Variant(ctx);
   const showNumber = ctx.sessionsLast7d <= 3;
@@ -968,7 +1016,7 @@ export function composeCheckinView(
 
   if (identityEligibility?.eligible && identityEligibility.statement) {
     // Identity moment — replaces regular greeting; footer hidden
-    body.push({
+    body.push(grouped({
       type: 'identity-moment-card',
       props: {
         statement: identityEligibility.statement.statement,
@@ -976,28 +1024,55 @@ export function composeCheckinView(
         ctaLabel: "Let's keep going",
         ctaActionId: 'submit_checkin',
       },
-    });
-    body.push({ type: 'divider', props: {} });
+    }, '1A'));
+    body.push(grouped({ type: 'divider', props: {} }, '1A'));
   } else {
     const { components, pendingTopicActions, variant } = buildPhase1OpenComponents(ctx);
     phase1Variant = variant;
     // V2 LOW_ENERGY: energy scale first, then greeting (client reveals greeting after energy selected)
     if (variant === 'LOW_ENERGY') {
-      body.push(energyScaleComponent);
-      body.push({ type: 'spacer', props: { size: 'sm' } });
+      body.push(grouped(energyScaleComponent, '1A'));
+      body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1A'));
     }
-    body.push(...components);
+    // Separate greeting (1A) from pending-items-list (1B)
+    for (const comp of components) {
+      if (comp.type === 'pending-items-list') {
+        body.push(grouped(comp, '1B', false));
+      } else {
+        body.push(grouped(comp, '1A'));
+      }
+    }
     if (components.length > 0) {
-      body.push({ type: 'divider', props: {} });
+      body.push(grouped({ type: 'divider', props: {} }, '1A'));
     }
     Object.assign(pendingActions, pendingTopicActions);
   }
 
-  // ── Form elements ─────────────────────────────────────────────────────────
+  // ── 1A: Energy (visible from start) ───────────────
 
-  // Topic input
+  // Energy scale (skip if already added for LOW_ENERGY)
+  if (phase1Variant !== 'LOW_ENERGY') {
+    body.push(grouped(energyScaleComponent, '1A'));
+  }
+
+  // Sleep scale (revealed with topic after energy selected — part of 1B)
+  if (ctx.isFirstOfDay && phase1Variant !== 'SILENCE_RE_ENTRY') {
+    body.push(grouped({ type: 'spacer', props: { size: 'sm' } }, '1B', false));
+    body.push(grouped({
+      type: 'scale-input',
+      props: {
+        inputId: 'sleepBucket',
+        label: p1Copy('checkin_sleep_label', ctx),
+        chips: [...SLEEP_CHIPS],
+        required: true,
+      },
+    }, '1B', false));
+  }
+
+  // ── 1B: Topic input (revealed when energy selected) ──────────────────────
+
   const showRecent = shouldShowRecentTopics(phase1Variant, ctx.pendingChecks, recentTopics);
-  body.push({
+  body.push(grouped({
     type: 'topic-input',
     props: {
       inputId: 'topic',
@@ -1008,31 +1083,12 @@ export function composeCheckinView(
       browseEnabled: phase1Variant !== 'HIGH_PRESSURE',
       instituteId: null,
     },
-  });
-  body.push({ type: 'spacer', props: { size: 'md' } });
+  }, '1B', false));
+  body.push(grouped({ type: 'spacer', props: { size: 'md' } }, '1B', false));
 
-  // Energy scale (skip if already added for LOW_ENERGY)
-  if (phase1Variant !== 'LOW_ENERGY') {
-    body.push(energyScaleComponent);
-  }
+  // ── 1C: Submit button (revealed when topic selected) ─────────────────────
 
-  // Sleep scale (conditional: first of day, skip for V1 silence)
-  if (ctx.isFirstOfDay && phase1Variant !== 'SILENCE_RE_ENTRY') {
-    body.push({ type: 'spacer', props: { size: 'sm' } });
-    body.push({
-      type: 'scale-input',
-      props: {
-        inputId: 'sleepBucket',
-        label: p1Copy('checkin_sleep_label', ctx),
-        chips: [...SLEEP_CHIPS],
-        required: true,
-      },
-    });
-
-  }
-
-  // Submit
-  actions.push({
+  actions.push(grouped({
     type: 'action-group',
     props: {
       layout: 'row',
@@ -1040,7 +1096,7 @@ export function composeCheckinView(
         { label: 'Start Session', actionId: 'submit_checkin', variant: 'primary' },
       ],
     },
-  });
+  }, '1C', false));
 
   // ── Footer: session summary (hidden when identity card is shown) ──────────
 

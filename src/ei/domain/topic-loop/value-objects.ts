@@ -34,6 +34,7 @@ interface TopicLoopStateProps {
   lastEffortAt: Date | null;
   lastRetrievalAt: Date | null;
   lastScheduledDueAt: Date | null;
+  consecutiveDeferrals: number;
 }
 
 export class TopicLoopState extends ValueObject<TopicLoopStateProps> {
@@ -46,6 +47,7 @@ export class TopicLoopState extends ValueObject<TopicLoopStateProps> {
       lastEffortAt: null,
       lastRetrievalAt: null,
       lastScheduledDueAt: null,
+      consecutiveDeferrals: 0,
     });
   }
 
@@ -63,6 +65,18 @@ export class TopicLoopState extends ValueObject<TopicLoopStateProps> {
 
   get lastScheduledDueAt(): Date | null {
     return this.props.lastScheduledDueAt;
+  }
+
+  get consecutiveDeferrals(): number {
+    return this.props.consecutiveDeferrals;
+  }
+
+  withIncrementedDeferrals(): TopicLoopState {
+    return new TopicLoopState({ ...this.props, consecutiveDeferrals: this.props.consecutiveDeferrals + 1 });
+  }
+
+  withDeferralsReset(): TopicLoopState {
+    return new TopicLoopState({ ...this.props, consecutiveDeferrals: 0 });
   }
 
   withLastEffortAt(date: Date): TopicLoopState {

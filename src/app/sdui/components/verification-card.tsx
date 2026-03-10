@@ -48,6 +48,83 @@ export function SduiVerificationCard({
 
   const [skipExpanded, setSkipExpanded] = useState(false);
   const isRescue = mode === 'rescue';
+  const isShrunk = mode === 'shrunk';
+
+  // ── Shrunk Card (Dropout Signal) ──────────────────────────────────────────
+  // Binary "Got it / Not yet" with demoted escape hatches as text links.
+  if (isShrunk) {
+    return (
+      <div>
+        <p style={{
+          fontSize: 'var(--font-size-body)',
+          color: 'var(--color-text-secondary)',
+          marginBottom: 'var(--sp-4)',
+        }}>
+          {openingLine}
+        </p>
+
+        <div style={{
+          background: 'var(--color-surface, #fff)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--color-accent-border)',
+          padding: 'var(--sp-4)',
+          marginBottom: 'var(--sp-4)',
+        }}>
+          <div style={{ fontSize: 'var(--font-size-greeting)', fontWeight: 400, color: 'var(--color-text-primary)' }}>
+            {topic}
+          </div>
+        </div>
+
+        {/* Binary primary buttons */}
+        <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+          <button
+            type="button"
+            style={{ ...CHIP_BASE, fontWeight: 600 }}
+            onClick={() => onAction?.(gotItActionId)}
+          >
+            Got it
+          </button>
+          <button
+            type="button"
+            style={CHIP_BASE}
+            onClick={() => onAction?.(deferActionId)}
+          >
+            Not yet
+          </button>
+        </div>
+
+        {/* Demoted escape hatches — small text links */}
+        <div style={{ marginTop: 'var(--sp-3)', display: 'flex', gap: 'var(--sp-4)' }}>
+          {canDefer && (
+            <button
+              type="button"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 'var(--font-size-caption)', color: 'var(--color-text-tertiary)',
+                padding: 0, textDecoration: 'underline',
+              }}
+              onClick={() => onAction?.(deferActionId)}
+            >
+              Remind me tomorrow
+            </button>
+          )}
+          <button
+            type="button"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 'var(--font-size-caption)', color: 'var(--color-text-tertiary)',
+              padding: 0, textDecoration: 'underline',
+            }}
+            onClick={() => onAction?.(skipTimeActionId)}
+          >
+            Can&apos;t right now
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Standard / Short / Long / Rescue ──────────────────────────────────────
 
   const resultChips = (
     <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>

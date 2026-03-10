@@ -1,7 +1,7 @@
 'use client';
 
 import type { SduiComponent } from '@/ei/sdui/types/components';
-import type { SduiViewTree, SduiAction } from '@/ei/sdui/types/sdui-contract';
+import type { SduiViewTree, SduiAction, SduiSlotEntry } from '@/ei/sdui/types/sdui-contract';
 import { getSduiComponent } from './registry';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -37,6 +37,12 @@ export function resolvePayload(
   return out;
 }
 
+// ─── Slot Entry helpers ───────────────────────────────────────────────────
+
+function isGrouped(entry: SduiSlotEntry): entry is { component: SduiComponent; visibilityGroup: string; initiallyVisible: boolean } {
+  return 'component' in entry && 'visibilityGroup' in entry;
+}
+
 // ─── SduiSlot ──────────────────────────────────────────────────────────────
 
 export function SduiSlot({
@@ -44,19 +50,30 @@ export function SduiSlot({
   formValues,
   onFormChange,
   onAction,
+  visibleGroups,
+  revealingGroups,
 }: {
-  components: SduiComponent[];
+  components: SduiSlotEntry[];
   formValues: Record<string, string | number>;
   onFormChange: (id: string, value: string | number) => void;
   onAction: (actionId: string) => void;
+  visibleGroups?: Set<string>;
+  revealingGroups?: Set<string>;
 }) {
   return (
     <>
-      {components.map((node, i) => {
+      {components.map((entry, i) => {
+        const node = isGrouped(entry) ? entry.component : (entry as SduiComponent);
+        const group = isGrouped(entry) ? entry.visibilityGroup : undefined;
+
+        // Visibility check: ungrouped always visible; grouped requires group in set
+        if (group && visibleGroups && !visibleGroups.has(group)) return null;
+
         const Comp = getSduiComponent(node.type);
         if (!Comp) return <span key={i} />;
         const value = 'inputId' in node.props ? formValues[node.props.inputId] : undefined;
-        return (
+
+        const inner = (
           <Comp
             key={i}
             node={node}
@@ -66,6 +83,12 @@ export function SduiSlot({
             formValues={formValues}
           />
         );
+
+        // Wrap with slide-in animation if this group is currently revealing
+        if (group && revealingGroups?.has(group)) {
+          return <div key={i} className="disclosure-reveal">{inner}</div>;
+        }
+        return inner;
       })}
     </>
   );

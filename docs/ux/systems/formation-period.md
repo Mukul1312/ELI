@@ -120,7 +120,7 @@ Session 1 is **setup mode**, not a thin version of normal Phase 1. The layout is
 
 | Normal Phase 1 | Session 1 (setup mode) |
 |---|---|
-| Greeting references session history | Greeting is purposeful but not warm — warmth requires shared history |
+| Greeting references session history | Greeting is hospitable but not presumptuous — warmth without fake familiarity |
 | Revisit list | Does not render — nothing to revisit yet |
 | Energy checkin | Present — first data point |
 | ELI's recommendation | Not present — ELI has nothing to base it on |
@@ -131,11 +131,11 @@ Session 1 is **setup mode**, not a thin version of normal Phase 1. The layout is
 ELI cannot be an elder brother with a stranger. The elder-brother tone comes from data. Day 1 has none.
 
 **Correct register for Session 1:**
-Direct and purposeful. Not warm. Not generic motivational.
+Hospitable and attentive, like a good concierge. Warm, but without presumptuous familiarity.
 
-- "What are you preparing for?" — collects exam type
+- "Welcome. What are you preparing for?" — collects exam type warmly
 - "Which topic are you starting with today?" — first topic enters tracking
-- "Good. Let's track it from here." — acknowledges the start without over-promising
+- "Good to see you. Let's set up." — acknowledges the start hospitably
 
 **Wrong register for Session 1:**
 - "Your drive is real." — no data behind it
@@ -273,9 +273,9 @@ By Session 2, ELI has 1 data point. It can reference what happened in Session 1 
 
 | Session count | What ELI can say |
 |---|---|
-| Session 2 | "Yesterday you started [Topic]" / "You've got 1 revisit from yesterday" |
-| Session 3 | "Two sessions so far. [Topic] still needs a revisit." |
-| Session 4 | "You've been coming back consistently." (only if sessions are on consecutive days) |
+| Session 2 | "Back again. Let's set up." / "You've got 1 revisit from yesterday." |
+| Session 3 | "Good to see you. [Topic] still needs a revisit." |
+| Session 4 | "You showed up. That's step one." (validates action without presuming character) |
 
 **What ELI cannot say yet (sessions 2–4):**
 - "You tend to study in the evenings" — 2 timestamps is not a pattern

@@ -116,6 +116,26 @@ highPressureDetected = examProximityDays <= 7 OR avoidancePattern OR recentMockF
 
 **Consumers:** P1GateContext (EI Runtime), assignP1Label (LoopHealthAssessment). Both use `highPressureDetected` where they previously used `pressure >= 4` or `backlogPressure >= 4`.
 
+### Dropout Signal (per-topic verification avoidance detection)
+
+**Context:** The AVOIDANT P3 label captures student-level verification avoidance (verificationRate7d < 0.60, openLoops ≥ 3). The Dropout Signal is a complementary **topic-level** signal: a single topic with 3+ consecutive deferrals or skips without an intervening VerificationCompleted event.
+
+**Definition:**
+
+```
+dropoutSignalActive(topicId) = consecutiveDeferrals(topicId) >= 3
+```
+
+Where `consecutiveDeferrals` counts sequential RetrievalScheduled + RetrievalSkipped events for a topic since the last VerificationCompleted (or since the first effort event if no VerificationCompleted exists).
+
+| Signal | Type | Source | Reset condition |
+|--------|------|--------|----------------|
+| `consecutiveDeferrals` | number | Projections (ei_topic_state) | Resets to 0 on VerificationCompleted for that topic |
+
+**Consumer:** PresentationContext (ViewComposer). Not consumed by LoopHealthAssessment or P3 gate logic — the Dropout Signal only affects presentation (Shrunk Card variant), not gate routing.
+
+**Data ownership:** `ei_topic_state.consecutive_deferrals` — maintained by TopicLoop projector on RetrievalScheduled, RetrievalSkipped, and VerificationCompleted events.
+
 ### Topic ID evolution (CurriculumCatalog integration)
 
 **Problem:** Events currently use `topic: z.string()` (raw student input). This causes normalization issues, duplicate topic identities, and unreliable analytics.
@@ -239,7 +259,7 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 | Table / area          | Context         | Owner responsibility                     |
 | --------------------- | --------------- | ---------------------------------------- |
 | ei_events             | EI Event Ledger | Append-only; query by student_id         |
-| ei_topic_state        | EI Projections  | Derived from events; TopicLoop lifecycle |
+| ei_topic_state        | EI Projections  | Derived from events; TopicLoop lifecycle; includes `consecutive_deferrals` (int, reset on VerificationCompleted — see §Dropout Signal) |
 | ei_student_aggregates | EI Projections  | Recomputed from events; 7d signals       |
 | ei_student_policy     | EI Projections  | Persisted by Projections from Ledger events; SA owns semantics; read by P1/P2/P3 |
 | ei_radar_alerts       | Institute Radar | Privacy boundary; never raw events       |

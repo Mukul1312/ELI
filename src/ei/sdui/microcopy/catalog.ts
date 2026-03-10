@@ -52,6 +52,15 @@ export type MicrocopySlot =
   | 'phase1_make_it_smaller_greeting'
   | 'phase1_make_it_smaller_cta'
   | 'phase1_cta'
+  // Phase 1 — Tier 2/3 observations (Session 5+)
+  | 'obs_energy_t2'
+  | 'obs_closure_t2'
+  | 'obs_trend_t2'
+  | 'obs_count_t2'
+  | 'obs_energy_t3'
+  | 'obs_closure_t3'
+  | 'obs_trend_t3'
+  | 'obs_count_t3'
   // Phase 3 "The Close" — scenario-specific copy (WS7)
   | 'close_verified'
   | 'close_reminded'

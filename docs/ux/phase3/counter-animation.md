@@ -40,24 +40,26 @@ The counter displays two elements:
 
 ```
 t=0ms     → Screen renders. Phase 3 card fades in (see 03-phase3-scenarios.md transition).
+              Topic name glows briefly with subject's accent color (e.g., Physics-Cyan) as the card collapses into the "Closure" state.
 t=200ms   → Short pause. Student sees the old number (3) for a beat. Anticipation.
 t=200ms   → Old number begins exit:
               opacity: 1 → 0
-              scale:   1.0 → 0.85
+              transform: translateY(0) → translateY(12px) (slides DOWN)
               duration: 160ms
               easing:  ease-in
 t=340ms   → Old number is invisible.
 t=340ms   → New number begins entrance:
               opacity: 0 → 1
-              scale:   0.85 → 1.0
+              transform: translateY(-16px) → translateY(0) (drops IN from above)
               duration: 200ms
               easing:  ease-out
-t=540ms   → New number is at full opacity, resting at scale 1.0.
-t=540ms   → Pulse: new number scales slightly up then back:
-              scale: 1.0 → 1.06 → 1.0
+t=540ms   → New number is at full opacity, resting at translateY(0).
+t=540ms   → Collision & Pop: new number scales slightly up then back (the "bounce"):
+              scale: 1.0 → 1.08 → 1.0
               duration: 140ms
               easing:  ease-in-out
 t=680ms   → New number fully settled.
+              HAPTIC: "Success" haptic (double-tap) fires to reinforce physical sensation of debt clearing.
 t=680ms   → Color transition begins: number color shifts from --color-accent to --color-closed
               duration: 200ms
               (This gives it a brief "active" accent-colored moment, then settles to muted green)
@@ -73,21 +75,21 @@ Total: ~1900ms from first number exit to settled state.
 ```css
 /* Old number exit */
 @keyframes counterExit {
-  from { opacity: 1; transform: scale(1.0); }
-  to   { opacity: 0; transform: scale(0.85); }
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(12px); }
 }
 
 /* New number entrance */
 @keyframes counterEnter {
-  from { opacity: 0; transform: scale(0.85); }
-  to   { opacity: 1; transform: scale(1.0); }
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Pulse after settle */
+/* Pulse (Collision & Pop) after settle */
 @keyframes counterPulse {
-  0%   { transform: scale(1.0); }
-  50%  { transform: scale(1.06); }
-  100% { transform: scale(1.0); }
+  0%   { transform: translateY(0) scale(1.0); }
+  50%  { transform: translateY(0) scale(1.08); }
+  100% { transform: translateY(0) scale(1.0); }
 }
 
 .counter-old {

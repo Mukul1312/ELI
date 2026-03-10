@@ -23,6 +23,7 @@ import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { composeP3ViewStep } from './steps/compose-p3-view';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
 import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
+import * as Q from '../../ei/db/queries';
 
 // ============================================================================
 // Schemas
@@ -82,7 +83,10 @@ const runP3Gate = createStep({
     await recomputeTopicLoop(db, studentId, topic);
     await recomputeStudentAggregates(db, studentId);
 
-    return { ...result, topicName };
+    // Dropout Signal: query consecutive deferrals after projector sync
+    const consecutiveDeferrals = await Q.getConsecutiveDeferrals(db, studentId, topic);
+
+    return { ...result, topicName, dropoutSignalActive: consecutiveDeferrals >= 3 };
   },
 });
 

@@ -46,6 +46,8 @@
 | TopicReference | Published Language VO: `{ topicId: UUID, topicName: string }` — stable topic identity consumed by EI Runtime, Projections, Radar | (to be implemented) |
 | TimeCommitment | Student-declared study duration; constrained to 10/20/45/60 minutes; feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint fallback when absent (for variants that hide time chips) | (to be implemented) |
 | HighPressureDetected | System-derived boolean: true when V3 triggers fire (`examProximityDays <= 7`, `avoidancePattern`, `recentMockFailure`); replaces retired self-reported Pressure and BacklogPressure scales; defaults to false in Stage 1; see `05-cross-cutting-concerns.md` §V3 Trigger Signals | (to be implemented) |
+| DropoutSignalActive | Per-topic boolean: `consecutiveDeferrals >= 3`. Consumed by PresentationContext for Shrunk Card rendering (binary Got it / Not yet). Not a domain routing signal — P3 gate uses AVOIDANT label for routing. See `05-cross-cutting-concerns.md` §Dropout Signal | (to be implemented) |
+| TopicSeed | Presentation VO: `{ topicName: string, waitingSinceDays: number }` for Dynamic Footer Seed in Phase 3 close view ("Next: [topic] waiting since [Day X]"). Sourced from oldest open TopicLoop in Projections. | (to be implemented) |
 
 ---
 

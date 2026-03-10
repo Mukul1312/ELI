@@ -79,6 +79,11 @@ const SQL_STATEMENTS = [
       ALTER TABLE ei_topic_state ADD COLUMN topic_name TEXT;
     END IF;
   END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'consecutive_deferrals') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN consecutive_deferrals INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)

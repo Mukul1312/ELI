@@ -55,14 +55,15 @@ export const P1_CATALOG: GateCatalog = {
       'P1-PRESSURE': "Today's a heavy day. Let's keep it small.",
       // CHALLENGE: Boost mode
       'P1-BOOST': "You're in a good rhythm. Time to raise the bar.",
-      // CLEAN_START: Rescue mode, default
       'P1-RESCUE': "Let's keep it simple today.",
+      // CLEAN_START: Clean Slate mode, default
+      'P1-CLEAN': "What are you working on today?",
       // DEAL_CARD: pending >= 3
       'P1-DEAL': 'A few things are waiting. Deal: clear one, then continue.',
       // PENDING_STANDARD: pending > 0, Neutral
       'P1-PENDING': 'A few things to pick up.',
       // ONBOARDING: first session ever
-      'P1-ONBOARD': "Good to have you here. Let's start small.",
+      'P1-ONBOARD': "Welcome. Let's set up.",
       // LOW_ENERGY: Energy 1–2, Rescue variant V2
       'P1-LOW-ENERGY': 'Keep it small today.',
       // CLEAR_THEN_CHALLENGE: Boost + pendingChecks >= 1, variant V8
@@ -118,4 +119,15 @@ export const P1_CATALOG: GateCatalog = {
       'P1-CLEAR-CHALLENGE': 'Clear 1 first, then go big',
     },
   },
+  // ─── Tier 2/3 observations (Session 5+) ──────────────────────────────────
+  // Tier 2 (5–6 sessions): hedged language
+  obs_energy_t2: { default: 'Good energy most of this week.' },
+  obs_closure_t2: { default: 'You seem to close loops fast.' },
+  obs_trend_t2: { default: 'Things seem to be looking up.' },
+  obs_count_t2: { default: '{{count}} sessions in.' },
+  // Tier 3 (7+ sessions): assertive language
+  obs_energy_t3: { default: 'Good energy again. You tend to show up ready.' },
+  obs_closure_t3: { default: 'You tend to close loops fast.' },
+  obs_trend_t3: { default: 'Things are looking up.' },
+  obs_count_t3: { default: '{{count}} sessions this week. Consistent.' },
 };

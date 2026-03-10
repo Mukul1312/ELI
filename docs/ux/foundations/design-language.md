@@ -1,207 +1,145 @@
-# Visual Language — Design System for Phase 1
+# Visual Language — The High-Focus Physical Desk
 
-> The visual language IS the emotional tone. For a student in burnout re-entry, the app needs to feel like a quiet room, not a scoreboard. Every color, size, and spacing decision below is derived from that principle — not from aesthetics.
+> The visual language IS the emotional tone. For an avoidant student in burnout re-entry, the app needs to feel like a high-quality physical notebook resting on a clean desk under a warm lamp — a psychologically safe, tactile space. Every color, font, and shadow decision below is derived from this "Tactile Companion" principle, explicitly rejecting both the "Corporate SaaS Tracker" and "Dark Mode Command Center" aesthetics.
 
 ---
 
 ## 1. Design Philosophy — Three Principles
 
-### 1.1 Calm by default, not plain
-The app is not minimal for aesthetic reasons. It's minimal because cognitive load is the enemy of starting. Every element that doesn't help the student decide or act is visual noise. Remove it.
+### 1.1 Physicality and Light
+The app must feel grounded and real, not like weightless digital software. We reject flat, border-heavy design that feels like a spreadsheet, and we reject high-contrast neon dark mode that feels like an exam terminal. 
+- Interfaces should look like thick cards resting on a surface.
+- Inputs should have subtle, physical grooves.
+- Backgrounds are paper-toned, not purely digital hex codes.
 
-- The greeting is the hero. Nothing competes with it.
-- Buttons are clear and large, not styled.
-- Data (footer, pending count) is available on demand, never forced.
+### 1.2 Conversational, Not Data-Driven
+Dashboards shout statistics; companions speak to you. The design must emphasize ELI's voice over raw metrics.
+- The greeting is the hero, styled distinctly from functional UI text.
+- Data is woven into sentences where possible, avoiding giant un-contextualized numbers.
+- Avoid traffic-light colors (red/yellow/green) for evaluation, as they trigger performance anxiety.
 
-### 1.2 Warmth signals safety
-Cold, clinical UI (pure white, pure black, sharp geometry) signals performance evaluation. JEE/NEET students already live in evaluation environments. This app should feel different from their test portal.
-
-- Warm off-white backgrounds (not pure #FFFFFF)
-- Rounded corners on all interactive surfaces
-- Soft shadows, never hard borders on cards
-- Type that reads like a person wrote it, not a system generated it
-
-### 1.3 Mode-responsive tone
-The same screen communicates different emotional states through density, spacing, and color weight — not through icons, illustrations, or decorative elements.
-
-- **Rescue mode:** More padding, fewer elements, warmer background tint, shorter copy
-- **Neutral mode:** Standard density, standard padding, normal background
-- **Boost mode:** Slightly crisper, more elements visible, slightly more contrast on CTAs
-
-The student should feel the difference between modes without consciously noticing it.
+### 1.3 Dynamic Expression
+The interface adapts its "lighting" and density based on the student's state, providing a CONSTANT foundation with DYNAMIC expression.
+- **Rescue mode:** The "lighting" warms up (softer peach/sand backgrounds), contrast lowers, and the space feels like a dim, quiet room. Less UI = less visual pressure.
+- **Neutral mode:** Standard "notebook paper" crispness and lighting.
+- **Boost mode:** Slightly higher contrast, feels like a bright, active workspace.
 
 ---
 
 ## 2. Color Tokens
 
-All colors are named by semantic role, not by hue. Engineers use tokens; designers use the values.
+All colors are named by semantic role. We use Paper Tones, Ink Colors, and Earthy Accents.
 
-### 2.1 Base palette
-
-```
-Token                   Value           Usage
-──────────────────────────────────────────────────────────────
---color-bg              #F9F8F6         Page background (warm near-white)
---color-bg-rescue       #FDF7F2         Page background in Rescue mode (warmer)
---color-surface         #FFFFFF         Card / chip surface
---color-surface-subtle  #F3F2EF         Subtle card bg (footer, secondary cards)
---color-border          #E4E3DE         Dividers, chip borders (warm, not grey-blue)
---color-border-strong   #C9C8C2         Focused chip border, active state
-```
-
-### 2.2 Text palette
+### 2.1 Base palette (Paper Tones)
 
 ```
 Token                   Value           Usage
 ──────────────────────────────────────────────────────────────
---color-text-primary    #1A1A18         Headings, greeting, primary body (warm near-black)
---color-text-secondary  #68675F         Supporting copy, scale labels, secondary info
---color-text-tertiary   #A5A49C         Timestamps, "X days ago", disabled states
---color-text-accent     #3B4FD8         Accent text (rare — only for the counter drop number)
+--color-bg              #F7F5F0         Page background (Warm Oatmeal/Sand)
+--color-bg-rescue       #FDF5EC         Page background in Rescue mode (Soft Peach - feels warmer)
+--color-surface         #FFFFFF         Card surface (Crisp paper)
+--color-surface-subtle  #F2EFE9         Subtle card bg (footer, secondary cards)
+--color-border          #E8E4DB         Subtle physical dividers (rarely used for hard borders)
+--color-border-strong   #D1CCC2         Focused state, active tactile edge
 ```
 
-### 2.3 Accent palette
-
-```
-Token                   Value           Usage
-──────────────────────────────────────────────────────────────
---color-accent          #3B4FD8         Primary CTA background, selected chip fill
---color-accent-hover    #2E40C4         CTA hover/press state
---color-accent-soft     #EEF1FB         Selected chip background (light)
---color-accent-border   #B4BFEF         Selected chip border
-```
-
-**Why indigo (#3B4FD8)?**
-Indigo reads as focused, intelligent, and calm — not playful (orange), not corporate (blue), not success/failure coded (green/red). It's the right accent for a product that is about depth of study, not performance metrics.
-
-### 2.4 State colors
+### 2.2 Text palette (Ink Colors)
 
 ```
 Token                   Value           Usage
 ──────────────────────────────────────────────────────────────
---color-closed          #2D7A52         Loop-closed counter (muted green — not electric)
---color-closed-soft     #EBF6F0         Loop-closed card background
---color-skip            #8A8880         Skip acknowledged (neutral grey — no judgment)
+--color-text-primary    #2A2825         Headings, greeting, primary body (Deep Charcoal/Espresso, never #000)
+--color-text-secondary  #736F66         Supporting copy, scale labels, secondary info (Warm Slate)
+--color-text-tertiary   #A8A398         Timestamps, disabled states
+--color-text-accent     #C05B3A         Accent text (rare)
 ```
 
-**Rules:**
-- Never use red for any student-facing surface. Red signals error/failure. The product has no failures, only decisions.
-- Never use yellow/amber (implies caution, warning). There are no warnings for students.
-- Green (`--color-closed`) is used ONLY for the loop-closed moment. Nowhere else.
-- The accent (indigo) is NEVER used to indicate success or failure — it is purely for action/interaction states.
+### 2.3 Accent palette (Earthy & Grounding)
+
+Corporate Indigo has been replaced with grounding, earthy tones that inspire action without shouting "URGENT".
+
+```
+Token                   Value           Usage
+──────────────────────────────────────────────────────────────
+--color-accent          #D46A43         Primary CTA background, selected chip fill (Soft Terracotta)
+--color-accent-hover    #B85430         CTA hover/press state
+--color-accent-soft     #FBEFEA         Selected chip background (light, warm wash)
+--color-accent-border   #E8A086         Selected chip border
+```
+
+### 2.4 State colors (Reward)
+
+```
+Token                   Value           Usage
+──────────────────────────────────────────────────────────────
+--color-closed          #3A6D4C         Loop-closed counter (Muted Forest Green — relief/reward)
+--color-closed-soft     #EAF1ED         Loop-closed card background
+--color-skip            #908D85         Skip acknowledged (Neutral stone — no judgment)
+```
 
 ---
 
 ## 3. Typography
 
-### 3.1 Typeface
+### 3.1 Dual-Role Typefaces
 
-**Primary:** Inter (if available) or the system default sans-serif stack:
+**Secondary Typeface (ELI's Voice):** A character-rich humanist sans-serif or soft serif (e.g., *Lora, Recoleta, or a warm geometric like Lineto Circular*). Used EXCLUSIVELY for the Greeting ("The Honest Mirror") and Identity Statements. It must read like a human wrote it.
 
-```css
-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-```
-
-**Rationale:** One typeface only. Multiple typefaces add visual complexity without adding meaning. Inter is clean, readable at small sizes, and has excellent numeric rendering (important for the counter animation).
+**Primary Typeface (Functional Data):** `Inter` or system sans-serif. Used for buttons, labels, lists, and raw data (like the counter).
 
 ### 3.2 Type scale
 
 ```
 Name        Size        Line height     Weight      Usage
 ────────────────────────────────────────────────────────────────────────
-display     28px / 1.75rem    1.15        500       Counter animation (3→2), milestone numbers
-greeting    22px / 1.375rem   1.25        400       Phase 1 greeting text (the hero line)
-body        16px / 1rem       1.55        400       Supporting copy, button labels, card text
-label       14px / 0.875rem   1.45        400       Scale labels, pending item text, footer
-caption     12px / 0.75rem    1.4         400       "X days ago", personalization hints
+display     28px        1.15        500       Counter animation (3→2), milestone numbers (Inter)
+greeting    22-24px     1.25        400       Phase 1 greeting text (Secondary Typeface)
+body        16px        1.55        400       Supporting copy, button labels, card text (Inter)
+label       14px        1.45        400       Scale labels, pending item text, footer (Inter)
+caption     12px        1.4         400       "X days ago", hints (Inter)
 ```
-
-**Weight rules:**
-- 400 (regular): everything except the two exceptions below
-- 500 (medium): display-size numbers, button labels, scale chip labels
-- 600 (semibold): identity statement copy ONLY — this is the single most important piece of text in the product. Nothing else gets 600.
-
-**Rules:**
-- No bold headings. The greeting is large and light (400), not bold. Bold headings feel like a test portal or a notification.
-- No italic. Italics signal emphasis that should be handled by copy, not style.
-- No all-caps except for the `YOUR WEEK` footer label (tasteful, not aggressive).
-
-### 3.3 Greeting text — specific rules
-
-The greeting is the most important text on the screen. It uses the `greeting` size (22px) at weight 400. Specific rules:
-
-- Never center-align. Left-aligned text reads like a person speaking to you. Centered text reads like a poster.
-- Maximum 2 lines. If the copy needs a third line, the copy is too long.
-- No punctuation at the end of single-line greetings. "Welcome back." is correct. "Welcome back!" is not. The period is earned; the exclamation mark is not.
-- Rescue mode greetings can be shorter (even one word: "Hey.") — the brevity is intentional.
 
 ---
 
 ## 4. Spacing System
 
-**Base unit:** 4px. All spacing values are multiples of 4.
+**Base unit:** 4px. The layout uses the **Negative Space Mirror** rule: separating elements using generous whitespace rather than drawing boxes and lines.
 
 ```
 Token       Value       Usage
 ────────────────────────────────────────────────────────────────
---sp-1      4px         Micro gaps (between icon and label)
---sp-2      8px         Tight internal spacing (inside chips)
---sp-3      12px        Between label and input, small gaps
---sp-4      16px        Standard vertical rhythm between elements
---sp-5      20px        Card internal padding (horizontal), section gaps
---sp-6      24px        Section gaps, between greeting and buttons
---sp-8      32px        Large section gaps, between pending list and CTAs
---sp-10     40px        Page top padding
---sp-12     48px        Bottom padding (above footer)
+--sp-1      4px         Micro gaps
+--sp-4      16px        Standard vertical rhythm
+--sp-6      24px        Section gaps
+--sp-10     40px        The 40px Rule: Top padding. The greeting must breathe.
+--sp-12     48px        Bottom padding
 ```
 
-### 4.1 Card padding
-
-```
-Standard card:       20px horizontal, 20px vertical
-Footer collapsed:    16px horizontal, 12px vertical
-Footer expanded:     20px horizontal, 16px vertical
-Chip (scale input):  12px horizontal, 10px vertical
-CTA button:         20px horizontal, 14px vertical
-```
-
-### 4.2 Mode-specific spacing adjustments
-
-| Element | Rescue mode | Neutral mode | Boost mode |
-|---|---|---|---|
-| Top padding (page) | 48px | 40px | 40px |
-| Greeting bottom margin | 32px | 24px | 20px |
-| Between buttons | 12px | 10px | 8px |
-| Button height | 52px | 48px | 44px |
-
-Rescue mode gets more padding everywhere. The extra space creates a calmer, less crowded feel. A student in distress needs a quiet room — more whitespace = less visual pressure.
+Rescue mode receives *even more* padding everywhere to create a quiet, uncrowded room effect.
 
 ---
 
-## 5. Shape and Elevation
+## 5. Shape and Elevation (Soft Skeuomorphism)
+
+We reject hard 1px borders that feel like databases. Instead, we use "Soft Depth" to make the interface feel tactile.
 
 ### 5.1 Border radius
 
+Rounded corners signal safety.
 ```
-Token               Value       Usage
-────────────────────────────────────────────────────────────────
---radius-sm         8px         Small chips, tags
+--radius-sm         8px         Small chips
 --radius-md         12px        Standard cards, scale chips
 --radius-lg         16px        Primary CTA buttons
---radius-full       999px       Pill-shaped elements (rare)
 ```
 
-### 5.2 Shadows (elevation)
-
-Cards use subtle shadows — soft, low-contrast. Never hard shadows.
+### 5.2 Soft Skeuomorphic Shadows
 
 ```
---shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)
---shadow-button:  0 1px 2px rgba(0,0,0,0.08)
---shadow-none:    none (for flat surfaces: footer, chips on bg)
+--shadow-card:    0 4px 12px rgba(42, 40, 37, 0.03), 0 1px 3px rgba(42, 40, 37, 0.02)
+--shadow-inner:   inset 0 2px 4px rgba(42, 40, 37, 0.04) (used for unselected chips/inputs to feel like grooves)
 ```
 
-**Rule:** The page background and the card surface have almost no contrast. Cards lift slightly via shadow, not color difference. This avoids the "form" feel that makes the app feel like a questionnaire.
+Cards lift slightly via soft, warm shadow. The page background and card surface have subtle contrast, mimicking thick cardstock resting on a desk.
 
 ---
 
@@ -210,138 +148,54 @@ Cards use subtle shadows — soft, low-contrast. Never hard shadows.
 ### 6.1 CTA Buttons
 
 ```
-┌──────────────────────────────────┐
-│  Primary CTA (accent fill)       │   height: 48-52px
-│  [ Clear 1 first, then go big ]  │   radius: 16px
-│                                  │   bg: --color-accent
-│                                  │   text: white, 16px, weight 500
-└──────────────────────────────────┘
-
-┌──────────────────────────────────┐
-│  Secondary CTA (outline)         │   height: 44-48px
-│  [ Start something new ]         │   radius: 16px
-│                                  │   bg: transparent
-│                                  │   border: 1.5px --color-border-strong
-│                                  │   text: --color-text-primary, 16px, weight 400
-└──────────────────────────────────┘
-
-Tertiary CTA (text only — Boost mode only):
-  [ Choose your own ]              text: --color-text-secondary, 14px, underline-on-tap
+Primary CTA:   Soft Terracotta fill, white text. Large, rounded, full-width.
+Secondary CTA: Transparent background, strong border. Ink-colored text.
 ```
-
-**Rules:**
-- Primary CTA is always the widest / most visually dominant.
-- Secondary CTA is never the same size or weight as primary.
-- Tertiary is text-only, always smaller than secondary — no border, no fill.
-- All buttons are full-width (not fixed-width) — adapts to content and screen.
 
 ### 6.2 Pending items list
 
-```
-┌──────────────────────────────────────┐
-│  ▸  Integration · 3 days ago         │   height: 44px, tappable
-│  ▸  Thermodynamics · 2 days ago      │   border-bottom: 1px --color-border
-│  ▸  Calculus · 1 day ago             │
-└──────────────────────────────────────┘
-```
-
-- `▸` is a subtle directional indicator (not a bullet, not an arrow icon)
-- Topic name: 14px weight 400 `--color-text-primary`
-- "· X days ago": 14px weight 400 `--color-text-tertiary`
-- Full-width tappable row — no tap affordance icon needed (the row itself is the affordance)
-- No background on individual rows — they sit on the card surface
+- Uses generous line-height and soft dividers.
+- Visual hierarchy prioritizes the text over UI boundaries.
 
 ---
 
 ## 7. Motion
 
-Motion is functional, not decorative. Every animation has a reason.
+Motion is the secret sauce that makes the app feel like a physical, living companion rather than a series of web pages.
 
-### 7.1 The counter animation (most important)
+### 7.1 Phase 1: Accordion Expansion (Vertical Stack)
 
-The `3 → 2` moment is the central dopamine mechanic. It must feel satisfying, not mechanical.
+- **Motion Type:** Additive / Morphic Reveal.
+- When a user interacts (e.g., selecting Energy), the next section *slides out* from the bottom of the previous element, pushing the layout open vertically.
+- **Why:** This "Commitment Ladder" leaves the previous selections (and the Honest Mirror greeting) visible at the top as breadcrumbs. The student stays grounded and cannot escape the reality of their data.
 
-```
-Sequence:
-1. Old number (3) fades out — opacity 1→0, scale 1.0→0.9 — 150ms ease-in
-2. New number (2) fades in  — opacity 0→1, scale 0.9→1.0 — 200ms ease-out
-3. Brief scale pulse on new number: scale 1.0→1.08→1.0 — 120ms, ease-in-out
+### 7.2 Phase 3: Emotional Moments and The Counter Drop
 
-Total: ~470ms. Feels deliberate, not instant.
+- **State Replacement Morph:** Phase 3 transitions clear the previous state completely to make room for the reward.
+- **The Closure Beat:** When the loop is closed, the counter physically "drops" (e.g., the 3 slides out downwards, the 2 drops in from above).
+- **Breaking the No-Illustration Rule:** For this specific reward moment, subtle emotional micro-interactions are encouraged. A soft glow, a satisfying haptic buzz, or a delicate color wash (Forest Green) makes verification feel rewarding, breaking the sterile nature of a tracker.
 
-Color: --color-closed (muted green) for 800ms after the number settles,
-       then transitions back to --color-text-primary over 400ms.
-```
-
-### 7.2 Phase transitions
-
-```
-Phase 1 → Phase 2 (student taps CTA):
-  Content fades out: opacity 1→0, 150ms ease-in
-  Content fades in: opacity 0→1, translateY 8px→0, 200ms ease-out
-  Total: ~350ms
-
-Phase 3 → Phase 1 (student taps Done / Clear one more):
-  Same as above. The route does NOT change — only the SDUI payload swaps.
-```
-
-### 7.3 Chip selection (scale input)
-
-```
-Tap:
-  Scale: 1.0 → 0.96 → 1.0, 80ms
-  Background: transitions from --color-surface to --color-accent-soft, 120ms
-  Border: transitions to --color-accent-border, 120ms
-
-Previously selected chip:
-  Background returns to --color-surface, 100ms
-```
-
-### 7.4 Footer expand/collapse
-
-```
-Expand (tap):
-  Height: auto transition (use max-height approach), 200ms ease-out
-  Content: opacity 0→1, 150ms, delayed 100ms after expand starts
-
-Collapse:
-  Height: 200ms ease-in
-  Content: opacity 1→0, 80ms, no delay
-```
-
-### 7.5 Rules on motion
-
-- No looping animations anywhere in Phase 1. Nothing should pulse, bounce, or draw attention to itself continuously.
-- No loading spinners that appear for >200ms — prefer skeleton placeholders.
+### 7.3 Guidelines
+- **Easing:** Use organic curves (e.g., Quart Out) so elements feel like physical objects settling into place.
 - Disable all animations if the user has `prefers-reduced-motion: reduce` set.
 
 ---
 
 ## 8. Iconography
 
-**Rule: No icons in Phase 1 except the `▸` chevron on pending items.**
-
-Icons are visual vocabulary that need to be learned. For a student opening the app quickly between study sessions, decoding icons adds friction. Text labels are unambiguous.
-
-The one exception: the footer expand/collapse indicator uses a `↓` / `↑` arrow character, not an SVG icon. This keeps it typographic, not UI-component-ey.
+**Rule: Bare minimum.**
+Icons are visual vocabulary that need to be learned. A `▸` chevron for lists or `↓` / `↑` for the footer is acceptable. No decorative icons that distract from ELI's conversational voice.
 
 ---
 
-## 9. Mode Summary — Visual Diff
+## 9. Mode Summary — Dynamic Expression
 
 | Element | Rescue | Neutral | Boost |
 |---|---|---|---|
-| Page bg | `--color-bg-rescue` (warmer) | `--color-bg` | `--color-bg` |
+| Page bg | `--color-bg-rescue` (Warmer Peach) | `--color-bg` (Oatmeal/Sand) | `--color-bg` (Slightly crisper) |
 | Top padding | 48px | 40px | 40px |
-| Greeting margin-bottom | 32px | 24px | 20px |
-| Button height | 52px | 48px | 44px |
-| Button count | 1 (max 2) | 2–3 | 2–3 |
-| Pending list | Hidden | Shown | Shown |
-| Footer | Warm label only ("Quiet week.") | Collapsed summary | Collapsed summary |
-| Type weight for greeting | 400 (same) | 400 (same) | 400 (same) |
-| Accent usage | Minimal — 1 button | Normal | Normal |
-
-The key visual shift between modes is **density and warmth**, not color or illustrations. Rescue feels like a quiet room. Boost feels like a workspace. Both feel like the same app.
+| Accent usage | Minimal — 1 button | Standard | Standard |
+| Vibe | Dim, quiet room | Clean, focused desk | Bright, active morning |
 
 ---
 

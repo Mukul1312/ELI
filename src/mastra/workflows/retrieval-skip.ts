@@ -42,11 +42,12 @@ const appendAndComposeStep = createStep({
     const db = eiStore.db;
 
     // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
-    const [aggregates, eventCounts, lastEnergy, topicNameFromDb] = await Promise.all([
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
       Q.getLastAppOpenEnergy(db, studentId),
       topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
+      Q.getOldestPendingTopic(db, studentId, topic),
     ]);
     const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
 
@@ -80,6 +81,7 @@ const appendAndComposeStep = createStep({
       lastEnergy,
       aggregatesForPresentation,
       eventCounts,
+      nextPendingTopic,
     );
 
     const skipScenarios: Record<string, Phase3Scenario> = {

@@ -32,6 +32,12 @@ function LoopClosedCounter({
       setPhase('settled');
       setCounterColor('var(--color-accent)');
     }, 680);
+    // Haptic "Success" double-tap at t=680ms
+    const tHaptic = setTimeout(() => {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([50, 30, 50]);
+      }
+    }, 680);
     // Color → closed at t=880ms
     const t3 = setTimeout(() => setCounterColor('var(--color-closed)'), 880);
     // Color → text-primary at t=1480ms
@@ -41,7 +47,7 @@ function LoopClosedCounter({
       ? setTimeout(() => setPhase('dissolved'), 1280)
       : undefined;
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); if (t5) clearTimeout(t5); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(tHaptic); clearTimeout(t3); clearTimeout(t4); if (t5) clearTimeout(t5); };
   }, [milestone]);
 
   const labelText = firstEver ? 'First loop closed' : 'Pending checks';

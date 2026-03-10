@@ -101,23 +101,27 @@ Student tapped "Got it", "Shaky", or "Need more practice" in the verification as
 | Primary CTA | "Done for today" |
 | Secondary CTA | "Clear one more" _(conditional — see below)_ |
 
-### "Clear one more" visibility rules
+### "Clear one more" visibility rules (Momentum CTA)
+
+This button leverages the high-momentum state immediately following a loop closure. It offers a friction-free re-entry into the next pending task.
 
 | Condition | Shown? |
 |---|---|
-| `energy >= 4` (Good or Sharp) AND `pendingChecks >= 1` after clearing | Yes |
+| `energy >= 4` (Good or Sharp) AND `pendingChecks >= 1` after clearing | Yes (channels ambition and momentum productively) |
 | `energy <= 3` | No |
 | `pendingChecks = 0` after clearing | No |
 | Verification result was "Need more practice" | No — don't encourage more work if the student flagged confusion |
 
-### Seed copy variations
+### Seed copy variations & Dynamic Footer Seed
 
-| `pendingChecks` after clearing | Seed |
-|---|---|
-| 1 | "1 check left this week. Almost done." |
-| 2 | "2 checks left this week — you're ahead." |
-| 3 | "3 checks left. Steady progress." |
-| 4+ | "[N-1] checks remaining. One at a time." |
+The Seed should not just be a static message; it should leverage the momentum of the closure. The footer dynamically updates to show the next oldest item in the queue.
+
+| `pendingChecks` after clearing | Seed Message | Dynamic Footer Update |
+|---|---|---|
+| 1 | "1 check left this week. Almost done." | "Next: [Oldest Pending Topic] waiting since [Day X]" |
+| 2 | "2 checks left this week — you're ahead." | "Next: [Oldest Pending Topic] waiting since [Day X]" |
+| 3 | "3 checks left. Steady progress." | "Next: [Oldest Pending Topic] waiting since [Day X]" |
+| 4+ | "[N-1] checks remaining. One at a time." | "Next: [Oldest Pending Topic] waiting since [Day X]" |
 
 ### Visual / design notes
 

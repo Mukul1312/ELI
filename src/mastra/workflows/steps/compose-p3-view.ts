@@ -21,7 +21,7 @@ export const composeP3ViewStep = createStep({
   inputSchema: ComposeP3ViewInputSchema,
   outputSchema: P3WrappedResponseSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof P3WrappedResponseSchema>> => {
-    const sdui = composeP3View(inputData, inputData.sessionDurationSec);
+    const sdui = composeP3View(inputData, inputData.sessionDurationSec, inputData.dropoutSignalActive ?? false);
 
     return {
       ...inputData,

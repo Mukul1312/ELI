@@ -258,6 +258,7 @@ export interface TopicStateRow {
   delta_decay: number;
   effort_count_7d: number;
   retrieval_count_7d: number;
+  consecutive_deferrals: number;
   updated_at: Date;
 }
 
@@ -326,7 +327,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];
@@ -723,4 +724,46 @@ export async function getLastAppOpenEnergy(
   return {
     energy: (payload.energy as number) ?? 3,
   };
+}
+
+// ============================================================================
+// Dropout Signal + Dynamic Footer Seed queries
+// ============================================================================
+
+/** Get consecutive deferrals for a topic (DropoutSignal detection: >= 3 = active). */
+export async function getConsecutiveDeferrals(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<number> {
+  const row = await db.oneOrNone<{ consecutive_deferrals: number }>(
+    'SELECT consecutive_deferrals FROM ei_topic_state WHERE student_id = $1 AND topic_id = $2',
+    [studentId, topicId],
+  );
+  return row?.consecutive_deferrals ?? 0;
+}
+
+/** Get the oldest pending topic (effort done, no retrieval after) for Dynamic Footer Seed. */
+export async function getOldestPendingTopic(
+  db: DbClient,
+  studentId: string,
+  excludeTopicId?: string,
+): Promise<{ topicName: string; waitingSinceDays: number } | null> {
+  const row = await db.oneOrNone<{ topic_name: string; last_effort_at: Date }>(
+    `SELECT topic_name, last_effort_at FROM ei_topic_state
+     WHERE student_id = $1
+       AND last_effort_at IS NOT NULL
+       AND (last_retrieval_at IS NULL OR last_retrieval_at < last_effort_at)
+       AND topic_name IS NOT NULL
+       AND ($2::text IS NULL OR topic_id != $2)
+     ORDER BY last_effort_at ASC
+     LIMIT 1`,
+    [studentId, excludeTopicId ?? null],
+  );
+  if (!row) return null;
+  const waitingSinceDays = Math.max(
+    1,
+    Math.floor((Date.now() - row.last_effort_at.getTime()) / (24 * 60 * 60 * 1000)),
+  );
+  return { topicName: row.topic_name, waitingSinceDays };
 }

@@ -50,14 +50,37 @@ export const SduiActionSchema = z.object({
 export type SduiAction = z.infer<typeof SduiActionSchema>;
 
 // ────────────────────────────────────────────────────────────────────────────
+// Slot Entry — bare component or grouped component for progressive disclosure
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Grouped component — visibility controlled by client progressive disclosure. */
+export const SduiGroupedComponentSchema = z.object({
+  component: SduiComponentSchema,
+  visibilityGroup: z.string(),
+  initiallyVisible: z.boolean().default(true),
+});
+export type SduiGroupedComponent = z.infer<typeof SduiGroupedComponentSchema>;
+
+/** A slot entry is either a bare component (always visible) or a grouped component. */
+export const SduiSlotEntrySchema = z.union([SduiComponentSchema, SduiGroupedComponentSchema]);
+export type SduiSlotEntry = z.infer<typeof SduiSlotEntrySchema>;
+
+/** Unwrap a slot entry to get the underlying SduiComponent. */
+export function unwrapSlotEntry(entry: SduiSlotEntry): SduiComponent {
+  return 'component' in entry && 'visibilityGroup' in entry
+    ? entry.component
+    : (entry as SduiComponent);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // View Tree (slot-based layout)
 // ────────────────────────────────────────────────────────────────────────────
 
 export const SduiViewTreeSchema = z.object({
-  header: z.array(SduiComponentSchema),
-  body: z.array(SduiComponentSchema),
-  actions: z.array(SduiComponentSchema),
-  footer: z.array(SduiComponentSchema),
+  header: z.array(SduiSlotEntrySchema),
+  body: z.array(SduiSlotEntrySchema),
+  actions: z.array(SduiSlotEntrySchema),
+  footer: z.array(SduiSlotEntrySchema),
 });
 export type SduiViewTree = z.infer<typeof SduiViewTreeSchema>;
 

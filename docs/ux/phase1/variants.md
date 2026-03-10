@@ -636,7 +636,7 @@ No prior `AppOpen` events in `ei_events` for this student. True first session.
 ```
 ┌──────────────────────────────────────────────────┐
 │                                                  │
-│  Welcome.                                        │  ← 22px, greeting size, weight 400
+│  Welcome. Let's set up.                          │  ← 22px, greeting size, weight 400
 │                                                  │
 │  ELI helps you study smarter —                   │  ← 16px, secondary color
 │  not longer.                                     │
@@ -661,7 +661,7 @@ No prior `AppOpen` events in `ei_events` for this student. True first session.
 
 | Element | Copy |
 |---|---|
-| Greeting | "Welcome." |
+| Greeting | "Welcome. Let's set up." |
 | Body line 1 | "ELI helps you study smarter — not longer." |
 | Body line 2 | "You're working on [topicName]." |
 | Primary CTA | "Start [taskType] (15–20 min)" _(e.g., "Start learning (15–20 min)")_ |

@@ -17,7 +17,7 @@ EI Runtime
 
 ## Purpose
 
-At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or suggests the next step so the student's loop keeps moving with the right bar (Rescue vs Boost). It orchestrates the end-to-end study-session journey across gates: check-in → intent → activation → session → verification → done, with progressive disclosure and trust-preserving friction. Key actors: students (primary), coaching flows (via protocol outputs).
+At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or suggests the next step so the student's loop keeps moving with the right bar (Rescue vs Boost). It orchestrates the end-to-end study-session journey across gates: check-in → intent → activation → session → verification → done, with progressive disclosure and trust-preserving friction. The ViewComposer builds state-specific component trees for phases with progressive disclosure (Phase 1: 1A→1B→1C vertical stack, Phase 3: 3A→3B state replacement); client-side morphing handles transitions without additional server round-trips. Key actors: students (primary), coaching flows (via protocol outputs).
 
 ---
 
@@ -62,6 +62,10 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | TightnessLevel           | **Enum Value Object:** `Loose \| Normal \| Tight` — from SA policy; influences escalation context passed to gate handlers. |
 | TimeCommitment           | **Value Object (student input):** student-declared study duration in minutes. Valid values: 10, 20, 45, 60. Feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint is the fallback for variants that hide time chips (V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING). |
 | ConfirmationStrip        | **Presentation element (StudySessionOrchestration):** replaces the prescriptive scope card on the P1 screen. Displays `topic . taskType . ~timeCommitment` — reflecting the student's own choices, not ELI's prescription. Single "Let's go" CTA below it. |
+| ProgressiveDisclosure    | **Presentation pattern (StudySessionOrchestration):** "One Screen, No Scroll" — ViewComposer builds state-specific component trees; client-side morphing transitions between states. Phase 1: Vertical Stack (1A Anchor → 1B Unlock → 1C Focus). Phase 3: State Replacement (3A Ask → 3B Closure). Domain layer unaffected — morphing is client-driven by user taps. |
+| DropoutSignal            | **Derived signal (Projections → PresentationContext):** true when a topic has 3+ consecutive deferrals/skips (RetrievalScheduled or RetrievalSkipped without intervening VerificationCompleted). Triggers Shrunk Card variant in P3 verification ask — binary "Got it / Not yet" replacing ternary options. Does not affect P3 gate routing (AVOIDANT label handles that). See [05-cross-cutting-concerns.md § Dropout Signal](05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
+| ShrunkCard               | **Presentation element (StudySessionOrchestration):** Intervention-mode verification ask. Fires when DropoutSignal active. Binary: Got it / Not yet. Escape hatches (Remind me tomorrow, Can't right now) demoted to low-visibility text links. "Not yet" fires ScheduleVerify (same domain event as standard deferral). |
+| DynamicFooterSeed        | **Presentation element (StudySessionOrchestration):** Phase 3 close view shows "Next: [Oldest Pending Topic] waiting since [Day X]" when pendingChecks > 0 after loop closure. Data sourced from Projections (oldest open TopicLoop). |
 | VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in Ledger event; read back in P3 via `IStudentEventStreamReader` and passed through `P3GateContext`. |
 | WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; read back in P3 via `P3GateContext.p2WatchOnlyFlag`; enforced in `VerificationDecision.create()`. |
 
@@ -95,6 +99,8 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 | Student              | Command        | IntentSet                                 | topicId, topicName                                                    | —                  | Direct user                     |
 | Student              | Command        | SessionEnd                                | topicId, topicName, effortSummary                                     | —                  | Direct user                     |
 | Student              | Command        | VerifyNow, ScheduleVerify, SkipWithReason | minQuestions, dueInHours, reason                                      | —                  | Direct user                     |
+| EI Projections       | Query response | GetTopicDeferralCount → R/count           | consecutiveDeferrals for a topic (DropoutSignal detection)            | Sync query         | Customer-Supplier               |
+| EI Projections       | Query response | GetOldestPendingTopic → R/TopicSeed       | topicName, waitingSinceDays (DynamicFooterSeed)                       | Sync query         | Customer-Supplier               |
 
 
 ---

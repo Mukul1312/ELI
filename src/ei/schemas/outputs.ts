@@ -100,6 +100,7 @@ export const VerificationDecisionIssuedSchema = z.object({
   reason: z.string().optional(),
   rationale: z.string().optional(),
   sessionDurationSec: z.number().int().nonnegative().optional(),
+  dropoutSignalActive: z.boolean().optional(),
   issuedAt: z.string().datetime(),
 });
 export type VerificationDecisionIssuedOutput = z.infer<typeof VerificationDecisionIssuedSchema>;

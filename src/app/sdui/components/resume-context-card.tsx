@@ -107,6 +107,7 @@ export function SduiResumeContextCard({
         <>
           <div
             style={{
+              fontFamily: 'var(--font-family-greeting)',
               fontSize: 'var(--font-size-greeting)',
               fontWeight: 400,
               color: 'var(--color-text-primary)',

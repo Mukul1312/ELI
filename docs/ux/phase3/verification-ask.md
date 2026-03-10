@@ -42,6 +42,8 @@ Three honest options — Got it / Shaky / Need more practice — mirror real cog
 
 ### 3.1 Single-screen layout (standard)
 
+Used in standard sessions to build comfort.
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
@@ -68,13 +70,45 @@ Three honest options — Got it / Shaky / Need more practice — mirror real cog
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 What each tap fires
+### 3.2 Single-screen layout (Intervention Mode / Shrunk Card)
+
+Fires when the **Dropout Signal** is detected (student has deferred or skipped this topic 3+ consecutive times). The card physically shrinks to reduce cognitive load, and the escape hatch is demoted to force a low-friction binary choice.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  Does it feel solid? Just a tap.                             │  ← 16px, --color-text-primary, direct
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │                                                      │    │
+│  │  Integration                                         │    │  ← topic name, 22px, primary
+│  │                                                      │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌──────────────────────────┐ ┌─────────────────────────┐    │
+│  │          Got it          │ │         Not yet         │    │  ← Binary choices
+│  └──────────────────────────┘ └─────────────────────────┘    │
+│                                                              │
+│                                                              │
+│  Remind me tomorrow   ·   Can't right now                    │  ← 12px, tertiary links, bottom center
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**UX Logic for the Shrunk Card:**
+- **The "Just a Tap" Framing:** Reduces the perceived weight of the task. The prompt to "Do 1 question" is removed to lower friction.
+- **Binary Focus:** Removes the "Need more practice" / "Shaky" middle ground. The student is presented with only `[Got it]` or `[Not yet]`.
+- **"Not yet" as Safe Exit:** "Not yet" is an honest assessment, not a failure. It keeps the loop open without the guilt of skipping. (When tapped, ELI responds: "Noted. Come back when it feels solid" and defers the topic).
+- **Demoted Escape Hatch:** The prominent `[ Remind me tomorrow ]` button is removed. Both deferral and skip options are demoted to low-visibility text links to prevent the pseudo-productivity trap (where deferring is the path of least resistance), without fully trapping the user.
+
+### 3.3 What each tap fires
 
 | Student taps | Event fired | Result value | What happens next |
 |---|---|---|---|
 | "Got it" | `VerificationCompleted(topic, result: confident)` | `confident` | Phase 3 Scenario A (loop closed) |
 | "Shaky" | `VerificationCompleted(topic, result: partial)` | `partial` | Phase 3 Scenario A (loop closed — counts as verified) |
 | "Need more practice" | `VerificationCompleted(topic, result: needs_review)` | `needs_review` | Phase 3 Scenario A (loop closed — topic flagged for quicker recall) |
+| "Not yet" (Shrunk Card) | `VerificationDecisionIssued(ScheduleVerify)` | — | Phase 3 Scenario B (reminder set / soft exit) |
 | "Remind me tomorrow" | `VerificationDecisionIssued(ScheduleVerify)` | — | Phase 3 Scenario B (reminder set) |
 | "Can't right now" → Skip reason | `VerificationDecisionIssued(SkipWithReason, reason: X)` | — | Phase 3 Scenario C / D / E |
 

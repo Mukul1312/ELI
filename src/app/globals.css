@@ -1,36 +1,36 @@
 @import '@neondatabase/auth/ui/css';
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Design Tokens — Phase 1 visual language
-   Source: docs/phase1-design/01-visual-language.md
+   Design Tokens — Tactile Companion visual language
+   Source: docs/ux/foundations/design-language.md
    ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Backgrounds */
-  --color-bg: #F9F8F6;
-  --color-bg-rescue: #FDF7F2;
+  /* Backgrounds (Paper Tones) */
+  --color-bg: #F7F5F0;
+  --color-bg-rescue: #FDF5EC;
   --color-surface: #FFFFFF;
-  --color-surface-subtle: #F3F2EF;
-  --color-border: #E4E3DE;
-  --color-border-strong: #C9C8C2;
+  --color-surface-subtle: #F2EFE9;
+  --color-border: #E8E4DB;
+  --color-border-strong: #D1CCC2;
 
-  /* Text */
-  --color-text-primary: #1A1A18;
-  --color-text-secondary: #68675F;
-  --color-text-tertiary: #A5A49C;
-  --color-text-accent: #3B4FD8;
+  /* Text (Ink Colors) */
+  --color-text-primary: #2A2825;
+  --color-text-secondary: #736F66;
+  --color-text-tertiary: #A8A398;
+  --color-text-accent: #C05B3A;
 
-  /* Accent — indigo (focused, intelligent, calm) */
-  --color-accent: #3B4FD8;
-  --color-accent-hover: #2E40C4;
-  --color-accent-soft: #EEF1FB;
-  --color-accent-border: #B4BFEF;
+  /* Accent — terracotta (earthy, grounding, action without urgency) */
+  --color-accent: #D46A43;
+  --color-accent-hover: #B85430;
+  --color-accent-soft: #FBEFEA;
+  --color-accent-border: #E8A086;
 
   /* State — loop-closed green (used ONLY for the counter drop moment) */
-  --color-closed: #2D7A52;
-  --color-closed-soft: #EBF6F0;
-  /* State — skip (neutral grey, no judgment) */
-  --color-skip: #8A8880;
+  --color-closed: #3A6D4C;
+  --color-closed-soft: #EAF1ED;
+  /* State — skip (neutral stone, no judgment) */
+  --color-skip: #908D85;
 
   /* Spacing — 4px base unit */
   --sp-1: 4px;
@@ -49,12 +49,14 @@
   --radius-lg: 16px;
   --radius-full: 999px;
 
-  /* Shadows — soft, low-contrast; never hard borders */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.08);
+  /* Shadows — soft, warm-toned; never hard borders */
+  --shadow-card: 0 4px 12px rgba(42, 40, 37, 0.03), 0 1px 3px rgba(42, 40, 37, 0.02);
+  --shadow-button: 0 1px 2px rgba(42, 40, 37, 0.06);
+  --shadow-inner: inset 0 2px 4px rgba(42, 40, 37, 0.04);
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-greeting: 'Lora', Georgia, serif;
   --font-size-display: 1.75rem;    /* 28px — counter animation, milestone numbers */
   --font-size-greeting: 1.375rem;  /* 22px — Phase 1 greeting (hero line) */
   --font-size-body: 1rem;          /* 16px — supporting copy, button labels */
@@ -67,23 +69,23 @@
    Total: ~1900ms from first number exit to fully settled.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Old number exits: fades out + shrinks down */
+/* Old number exits: fades out + slides DOWN */
 @keyframes counterExit {
-  from { opacity: 1; transform: scale(1.0); }
-  to   { opacity: 0; transform: scale(0.85); }
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(12px); }
 }
 
-/* New number enters: fades in + grows to rest */
+/* New number enters: fades in + drops IN from above */
 @keyframes counterEnter {
-  from { opacity: 0; transform: scale(0.85); }
-  to   { opacity: 1; transform: scale(1.0); }
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Pulse after settle — "lock click" feel */
+/* Pulse after settle — "lock click" feel (1.08 bounce) */
 @keyframes counterPulse {
-  0%   { transform: scale(1.0); }
-  50%  { transform: scale(1.06); }
-  100% { transform: scale(1.0); }
+  0%   { transform: translateY(0) scale(1.0); }
+  50%  { transform: translateY(0) scale(1.08); }
+  100% { transform: translateY(0) scale(1.0); }
 }
 
 /* Fade-slide-in for nudge card */
@@ -100,9 +102,44 @@
 /* .counter-new: enters at t=340ms, pulses at t=540ms */
 .counter-new {
   animation:
-    counterEnter 200ms ease-out 340ms both,
+    counterEnter 200ms ease-out 340ms forwards,
     counterPulse 140ms ease-in-out 540ms;
   transition: color 200ms ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Progressive Disclosure — Vertical Stack slide-in
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes disclosureReveal {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.disclosure-reveal {
+  animation: disclosureReveal 200ms ease-out both;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Phase 3 State Replacement Morph (verification → done)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes phaseExit {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes phaseEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.phase-exit {
+  animation: phaseExit 150ms ease-in forwards;
+}
+
+.phase-enter {
+  animation: phaseEnter 200ms ease-out both;
 }
 
 /* Disable all transitions/animations for users who prefer reduced motion */

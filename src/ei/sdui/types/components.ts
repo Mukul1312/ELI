@@ -202,7 +202,7 @@ export const SduiVerificationCardSchema = z.object({
   props: z.object({
     topic: z.string(),
     /** Mode drives opening line copy and CTA order (rescue flips primary/secondary). */
-    mode: z.enum(['standard', 'short', 'long', 'rescue']),
+    mode: z.enum(['standard', 'short', 'long', 'rescue', 'shrunk']),
     /** Server-computed opening line by mode. */
     openingLine: z.string(),
     /** "Do 1 question..." prompt (16px). */

@@ -64,6 +64,10 @@ The gate decision methods naturally belong to the `StudySession` entity. A domai
 | VerificationFloor | P1 minQuestions commitment; P3 must honor it — aggregate enforces this |
 | WatchOnlyConstraint | P2-R3 cross-protocol flag; P3 overrides Skip to VerifyNow |
 | RiskOverride | openLoops ≥ maxOpenLoops → closeLoopFirst=true regardless of energy |
+| ProgressiveDisclosure | Presentation pattern: ViewComposer builds per-state component trees; client morphs between states (P1: 1A→1B→1C vertical stack, P3: 3A→3B state replacement) |
+| DropoutSignal | Per-topic boolean: consecutiveDeferrals ≥ 3 (Projections); triggers ShrunkCard variant in P3 ViewComposer |
+| ShrunkCard | P3 verification ask variant: binary Got it / Not yet when DropoutSignal active; escape hatches demoted to text links |
+| DynamicFooterSeed | P3 close view element: "Next: [topic] waiting since [Day X]" from oldest pending TopicLoop |
 
 ---
 
@@ -716,7 +720,7 @@ The **ViewComposer** (`src/ei/sdui/view-composer.ts`) is the "gateway context" r
 | `SduiResponse` | `sdui/types/sdui-contract.ts` | Top-level contract returned by each protocol workflow |
 | `SduiViewTree` | same | Slot-based layout: `header`, `body`, `actions`, `footer` arrays |
 | `SduiComponent` | `sdui/types/components.ts` | Discriminated union of 16 component types (message, scale-input, scope-card, deal-card, etc.) |
-| `PresentationContext` | `sdui/presentation-context.ts` | Derived VO: mode, playId, pendingChecks, silenceDays, isFirstOfDay, etc. |
+| `PresentationContext` | `sdui/presentation-context.ts` | Derived VO: mode, playId, pendingChecks, silenceDays, isFirstOfDay, dropoutSignalActive, nextPendingTopic, etc. |
 | `MicrocopyKey` | `sdui/microcopy/resolver.ts` | `{ gate, slot, mode, playId }` — lookup key for microcopy |
 
 ### Microcopy resolution
@@ -750,6 +754,24 @@ Workflow `outputSchema` is `SduiResponseSchema` (not the raw VO schema). The `do
 | `ctx.isFirstOfDay === true` | Sleep + backlog scales in checkin view |
 | `shouldShowTimeAndTaskInputs(variant) === true` | Time commitment chips (10/20/45/60) + task type chips (Learn/Practice/Revise) in checkin view; hidden for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING |
 | P1 view (all variants) | **ConfirmationStrip** (replaces scope-card): displays `topic . taskType . ~timeboxMin min`; reflects student's own choices, not ELI's prescription. Single "Let's go" CTA (`accept_intent`). `taskType`/`difficultyTier` scale inputs removed from P1 view. |
+| `ctx.dropoutSignalActive === true` | `verification-ask-card` in Shrunk Card mode: binary "Got it / Not yet" chips; "Remind me tomorrow" and "Can't right now" demoted to text links. See [05-cross-cutting-concerns.md § Dropout Signal](../05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
+| `ctx.nextPendingTopic !== null` && scenario in `['verified', 'milestone', 'first_ever']` | `dynamic-footer-seed` in Phase 3 close view: "Next: [topicName] waiting since [Day X]" |
+| Phase 1 view with progressive disclosure | ViewComposer returns state-specific component trees (1A/1B/1C). Client morphs via vertical stack (accordion expansion). Each state's tree includes breadcrumb grounding (prior selections stay visible at top). See §Progressive Disclosure pattern below. |
+
+### Progressive Disclosure pattern
+
+ViewComposer builds **state-specific component trees** for phases with progressive disclosure. The morphing transition (vertical stack expansion, state replacement) is client-side behavior — ViewComposer does not track or control transition animations.
+
+**Phase 1 (Vertical Stack — Accordion Expansion):**
+- **1A (Anchor):** `composeCheckinView()` — greeting + energy selector only
+- **1B (Unlock):** Energy selected → client reveals hero card (oldest pending topic), backlog list, search. ViewComposer pre-builds 1B components in the initial response; client unhides them.
+- **1C (Focus):** Topic selected → client reveals task type + scope picker + Start button; pending list collapses. ViewComposer pre-builds 1C components; client unhides them.
+
+**Phase 3 (State Replacement):**
+- **3A (Ask):** `composePhase3View()` with `scenario = 'ask'` — session summary + "Does it feel solid?" + verification chips
+- **3B (Closure):** Verification answered → client replaces 3A with counter animation + reassurance + Done/Clear one more
+
+**DDD boundary:** All morphing is client-driven. ViewComposer is still a pure function that returns a single `SduiResponse` containing all state components with visibility flags. No additional server round-trip needed for state transitions within a phase.
 
 ### Boundary compliance
 

@@ -199,7 +199,7 @@ After "Let's go" is tapped:
 **What ELI shows (first-ever, no energy data):**
 
 ```
-Welcome.
+Welcome. Let's set up.
 
 ELI helps you study smarter —
 not longer.

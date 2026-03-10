@@ -44,6 +44,10 @@ export interface PresentationContext {
   readonly hadHighPressureInLast14d: boolean;
   /** True if the user has ever opened the app before. */
   readonly hasPriorOpen: boolean;
+  /** True when topic has 3+ consecutive deferrals (DropoutSignal). Triggers Shrunk Card in P3. */
+  readonly dropoutSignalActive: boolean;
+  /** Oldest pending topic for Dynamic Footer Seed in Phase 3 close view. */
+  readonly nextPendingTopic: { topicName: string; waitingSinceDays: number } | null;
 }
 
 function sortedTopicSnapshots(snapshots?: TopicStateSnapshot[]): TopicStateSnapshot[] {
@@ -98,6 +102,8 @@ export function buildP1PresentationContext(
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
     hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
     hasPriorOpen,
+    dropoutSignalActive: false,
+    nextPendingTopic: null,
   };
 }
 
@@ -138,6 +144,8 @@ export function buildCheckinPresentationContext(
     hadSilenceInLast14d: historicalIndicators?.hadSilenceInLast14d ?? false,
     hadHighPressureInLast14d: historicalIndicators?.hadHighPressureInLast14d ?? false,
     hasPriorOpen,
+    dropoutSignalActive: false,
+    nextPendingTopic: null,
   };
 }
 
@@ -175,6 +183,8 @@ export function buildP2PresentationContext(
     hadSilenceInLast14d: false,
     hadHighPressureInLast14d: false,
     hasPriorOpen: true,
+    dropoutSignalActive: false,
+    nextPendingTopic: null,
   };
 }
 
@@ -192,6 +202,7 @@ export function buildP3PresentationContext(
   workflowInput: { energy: number },
   aggregates?: AggregatesForPresentation | null,
   eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
+  nextPendingTopic?: { topicName: string; waitingSinceDays: number } | null,
 ): PresentationContext {
   return {
     studentId: domainOutput.studentId,
@@ -215,5 +226,7 @@ export function buildP3PresentationContext(
     hadSilenceInLast14d: false,
     hadHighPressureInLast14d: false,
     hasPriorOpen: true,
+    dropoutSignalActive: false,
+    nextPendingTopic: nextPendingTopic ?? null,
   };
 }

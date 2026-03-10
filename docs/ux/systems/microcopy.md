@@ -34,7 +34,26 @@ These rules apply to every piece of copy that surfaces through the ViewComposer,
 
 ---
 
-## 2. Copy Patterns per Emotional State
+## 2. The Formation Period (Days 1–3)
+
+During the first three sessions, ELI has no data on the student. It is crucial to strike the right balance. The tone must be **Hospitable, but not Presumptuous**.
+
+Think of a high-end hotel concierge or a very good tutor meeting a student for the first time. They don't act like your best friend (presumptuous), but they also don't act like a robot (neutral). They are warm, attentive, and focused entirely on the present moment.
+
+### Guidelines for Sessions 1–3
+
+- **DO: Use present-tense hospitality.** Greet the student warmly based on the immediate context of their arrival.
+  - *Say:* "Good to see you. Let's set up." or "Back again. What's next?"
+- **DO: Validate the physical act of showing up.** Without assuming their work ethic, you can validate the choice they just made to open the app.
+  - *Say:* "You showed up. That's step one."
+- **DO NOT: Use Robotic Neutrality.** Pure data readouts feel like a command-line interface and fail to establish an emotional connection.
+  - *Never say:* "Session 2." or "Two sessions so far."
+- **DO NOT: Use Fake Familiarity.** Presumptuous praise before ELI has earned the right to give it feels fake and destroys trust with avoidant students.
+  - *Never say:* "Great job coming back!" or "You are a hard worker."
+
+---
+
+## 3. Copy Patterns per Emotional State
 
 Every message the student sees is shaped by their current emotional state. The table below defines the tone, opening patterns, and CTA patterns for each state.
 
@@ -55,7 +74,7 @@ Every message the student sees is shaped by their current emotional state. The t
 
 ---
 
-## 3. The Deal Card Copy Pattern
+## 4. The Deal Card Copy Pattern
 
 The deal card is used when ELI needs to impose a constraint (usually close-loops-first). It ALWAYS frames the constraint as a choice.
 
@@ -82,7 +101,7 @@ The deal card is used when ELI needs to impose a constraint (usually close-loops
 
 ---
 
-## 4. SessionEnd & Phase 3 Copy Patterns
+## 5. SessionEnd & Phase 3 Copy Patterns
 
 When a session ends, the student sees one of the following lines based on their choice. Each line is calibrated to validate the decision without adding pressure.
 
@@ -110,7 +129,7 @@ When the student completes a Practice or Revise session on a topic that is new t
 
 ---
 
-## 5. Forward-Looking Signal Copy (The "Seed")
+## 6. Forward-Looking Signal Copy (The "Seed")
 
 After session close, ELI may plant a forward-looking signal — a small phrase that creates anticipation for the next session without adding pressure.
 
@@ -130,12 +149,14 @@ After session close, ELI may plant a forward-looking signal — a small phrase t
 
 ---
 
-## 6. Banned Phrases (with Better Alternatives)
+## 7. Banned Phrases (with Better Alternatives)
 
 This is the most important section. Every phrase in the "Never say" column has been observed to cause dropout, uninstall, or trust breakdown in similar products.
 
 | Never say | Why it fails | Say instead |
 |---|---|---|
+| "Session 2." / "Two sessions so far." | Robotic neutrality; reads like a database instead of a companion | "Good to see you." / "Back again." |
+| "Great job coming back!" (in early sessions) | Fake familiarity; presumptuous praise before earning the right | "You showed up. That's step one." |
 | "You missed X days" | Shame; quantifies failure; S5 uninstalls | "Welcome back." |
 | "You're falling behind" | Judgment; triggers S5 spiral | (nothing — just lower the bar silently) |
 | "You need to verify more" | Lecture tone; feels like school | "Quick check so this session counts." |
@@ -155,7 +176,7 @@ A single banned phrase can undo weeks of trust-building. The ViewComposer must e
 
 ---
 
-## 7. Identity Statement Library
+## 8. Identity Statement Library
 
 These are the specific statements used in identity moment cards (see [footer-identity.md](./footer-identity.md)) and in the footer expanded view.
 

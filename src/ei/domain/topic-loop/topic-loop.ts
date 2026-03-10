@@ -33,10 +33,25 @@ export class TopicLoop extends AggregateRoot<TopicLoopId> {
   /**
    * Apply an event to this TopicLoop. Enforces monotonicity via max semantics.
    * Unknown or no-op event types are silently ignored.
+   * Counter logic (consecutiveDeferrals) runs before timestamp logic so that
+   * events with null timestamp fields (RetrievalSkipped) still update the counter.
    */
   applyEvent(eventType: string, payload: Record<string, unknown>): void {
     if (!isTopicLoopEventType(eventType)) return;
 
+    // Counter logic — runs even for null-timestamp events (RetrievalSkipped)
+    switch (eventType) {
+      case 'RetrievalScheduled':
+      case 'RetrievalSkipped':
+        this._state = this._state.withIncrementedDeferrals();
+        break;
+      case 'RetrievalVerified':
+      case 'VerificationCompleted':
+        this._state = this._state.withDeferralsReset();
+        break;
+    }
+
+    // Timestamp logic
     const timestampField = EVENT_TIMESTAMP_FIELD[eventType];
     if (timestampField === null) return;
 

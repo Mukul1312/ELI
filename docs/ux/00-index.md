@@ -18,6 +18,7 @@ docs/ux/
 │
 ├── phase1/                              ← Phase 1: The Open (complete spec)
 │   ├── 00-overview.md                   ← Gate logic, variant matrix, scope redesign
+│   ├── progressive-disclosure.md        ← State morphing flow: Check-in, Reveal, Setup
 │   ├── variants.md                      ← All 10 variants with wireframes + exact copy
 │   ├── scales-input.md                  ← Chip interaction for energy/sleep/pressure
 │   └── onboarding.md                    ← First-ever open flow
@@ -30,11 +31,13 @@ docs/ux/
 │
 ├── phase3/                              ← Phase 3: The Close (complete spec)
 │   ├── 00-overview.md                   ← 7 scenarios, counter mechanic, seed rules
+│   ├── progressive-disclosure.md        ← State morphing flow: The Ask, The Reward
 │   ├── verification-ask.md              ← Self-report flow, skip flow, duration variants
 │   ├── counter-animation.md             ← Frame-by-frame animation: DOWN, UP, milestone
 │   └── scenarios.md                     ← All 7 scenarios (A-G) with wireframes + copy
 │
 ├── systems/                             ← Cross-cutting behavioral systems
+│   ├── progressive-disclosure.md        ← Core philosophy: "One Screen, No Scroll"
 │   ├── ux-scales.md                     ← Student-facing scales + state-adaptive UI rules
 │   ├── microcopy.md                     ← Exact words per state, tone grammar, banned phrases
 │   ├── archetypes.md                    ← All 7 archetypes mapped to phases + mechanics
@@ -90,16 +93,19 @@ docs/ux/
 | Order | Doc | What you learn |
 |---|---|---|
 | 5 | [phase1/00-overview.md](phase1/00-overview.md) | The most important screen: gate logic, variant matrix, scope redesign |
+| 5.5 | [phase1/progressive-disclosure.md](phase1/progressive-disclosure.md) | State morphing flow: Check-in, Reveal, Setup |
 | 6 | [phase1/variants.md](phase1/variants.md) | All 10 variants with full wireframes and exact copy |
 | 7 | [phase2/00-overview.md](phase2/00-overview.md) | Session flow, context bar, 2-minute start, edge cases |
 | 8 | [phase2/activation-entry.md](phase2/activation-entry.md) | All P2 plays with wireframes |
 | 9 | [phase3/00-overview.md](phase3/00-overview.md) | 7 scenarios, counter mechanic, seed rules, craving loop beats |
+| 9.5 | [phase3/progressive-disclosure.md](phase3/progressive-disclosure.md) | State morphing flow: The Ask, The Reward |
 | 10 | [phase3/scenarios.md](phase3/scenarios.md) | All 7 close screens with wireframes and exact copy |
 
 ### Systems (cross-cutting)
 
 | Order | Doc | What you learn |
 |---|---|---|
+| 10.5 | [progressive-disclosure.md](systems/progressive-disclosure.md) | Core philosophy: "One Screen, No Scroll" |
 | 11 | [ux-scales.md](systems/ux-scales.md) | Student-facing scales + how they drive UI complexity |
 | 12 | [microcopy.md](systems/microcopy.md) | Exact words per state, tone grammar, banned phrases |
 | 13 | [archetypes.md](systems/archetypes.md) | All 7 archetypes mapped to phases, mechanics, copy |

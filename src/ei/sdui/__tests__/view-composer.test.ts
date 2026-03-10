@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { composeP1View, composeCheckinView, selectPhase1Variant, composeOnboardingWelcomeView, composeOnboardingTopicTaskView, composeOnboardingResponseView } from '../view-composer';
-import { SduiResponseSchema } from '../types/sdui-contract';
+import { composeP1View, composeCheckinView, selectPhase1Variant, composeOnboardingWelcomeView, composeOnboardingTopicTaskView, composeOnboardingResponseView, composeP3View, composePhase3View } from '../view-composer';
+import { SduiResponseSchema, unwrapSlotEntry } from '../types/sdui-contract';
+import type { SduiSlotEntry } from '../types/sdui-contract';
 import { AppOpenMicroPayloadSchema } from '../../application/ei-protocol-router/command-schema';
-import type { NegotiatedIntentIssuedOutput } from '../../schemas/outputs';
+import type { NegotiatedIntentIssuedOutput, VerificationDecisionIssuedOutput } from '../../schemas/outputs';
 import type { PresentationContext } from '../presentation-context';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -49,16 +50,30 @@ function baseCtx(overrides: Partial<PresentationContext> = {}): PresentationCont
     hadSilenceInLast14d: false,
     hadHighPressureInLast14d: false,
     hasPriorOpen: true,
+    dropoutSignalActive: false,
+    nextPendingTopic: null,
     ...overrides,
   };
 }
 
+/** Unwrap SduiSlotEntry and find by component type. */
 function findComponent(components: unknown[], type: string) {
-  return (components as Array<{ type: string }>).find((c) => c.type === type);
+  return (components as SduiSlotEntry[])
+    .map(e => unwrapSlotEntry(e))
+    .find(c => c.type === type);
 }
 
 function findAllComponents(components: unknown[], type: string) {
-  return (components as Array<{ type: string }>).filter((c) => c.type === type);
+  return (components as SduiSlotEntry[])
+    .map(e => unwrapSlotEntry(e))
+    .filter(c => c.type === type);
+}
+
+/** Find a grouped slot entry by its unwrapped component type. */
+function findGroupedEntry(entries: SduiSlotEntry[], type: string) {
+  return entries.find(e =>
+    'component' in e && 'visibilityGroup' in e && (e as any).component.type === type,
+  ) as { component: { type: string; props: any }; visibilityGroup: string; initiallyVisible: boolean } | undefined;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -303,9 +318,9 @@ describe('selectPhase1Variant', () => {
 describe('composeCheckinView variant behavior', () => {
   it('LOW_ENERGY: energy scale appears before resume-context-card', () => {
     const result = composeCheckinView(baseCtx({ energy: 1, sessionsLast7d: 5, silenceDays: 0 }));
-    const body = result.view.body;
-    const energyIdx = body.findIndex((c: any) => c.type === 'scale-input' && c.props?.inputId === 'energy');
-    const cardIdx = body.findIndex((c: any) => c.type === 'resume-context-card');
+    const unwrapped = (result.view.body as SduiSlotEntry[]).map(e => unwrapSlotEntry(e));
+    const energyIdx = unwrapped.findIndex(c => c.type === 'scale-input' && (c.props as any)?.inputId === 'energy');
+    const cardIdx = unwrapped.findIndex(c => c.type === 'resume-context-card');
     expect(energyIdx).toBeGreaterThanOrEqual(0);
     expect(cardIdx).toBeGreaterThanOrEqual(0);
     expect(energyIdx).toBeLessThan(cardIdx);
@@ -313,14 +328,14 @@ describe('composeCheckinView variant behavior', () => {
 
   it('LOW_ENERGY: resume-context-card has showGreetingAfterEnergySelected', () => {
     const result = composeCheckinView(baseCtx({ energy: 1, sessionsLast7d: 5, silenceDays: 0 }));
-    const card = (result.view.body as any[]).find((c: any) => c.type === 'resume-context-card');
+    const card = findComponent(result.view.body, 'resume-context-card') as any;
     expect(card).toBeDefined();
     expect(card.props.showGreetingAfterEnergySelected).toBe(true);
   });
 
   it('HIGH_PRESSURE: resume-context-card has makeItSmallerContent and micro_start action', () => {
     const result = composeCheckinView(baseCtx({ energy: 4, highPressureDetected: true, mode: 'Rescue', sessionsLast7d: 5 }));
-    const card = (result.view.body as any[]).find((c: any) => c.type === 'resume-context-card');
+    const card = findComponent(result.view.body, 'resume-context-card') as any;
     expect(card).toBeDefined();
     expect(card.props.variant).toBe('HIGH_PRESSURE');
     expect(card.props.makeItSmallerContent).toBeDefined();
@@ -330,14 +345,16 @@ describe('composeCheckinView variant behavior', () => {
 
   it('energy scale has showNumber when sessionsLast7d <= 3', () => {
     const result = composeCheckinView(baseCtx({ sessionsLast7d: 2 }));
-    const energyScale = (result.view.body as any[]).find((c: any) => c.type === 'scale-input' && c.props?.inputId === 'energy');
+    const scales = findAllComponents(result.view.body, 'scale-input');
+    const energyScale = scales.find((s: any) => s.props.inputId === 'energy') as any;
     expect(energyScale).toBeDefined();
     expect(energyScale.props.showNumber).toBe(true);
   });
 
   it('energy scale has showNumber false when sessionsLast7d > 3', () => {
     const result = composeCheckinView(baseCtx({ sessionsLast7d: 8 }));
-    const energyScale = (result.view.body as any[]).find((c: any) => c.type === 'scale-input' && c.props?.inputId === 'energy');
+    const scales = findAllComponents(result.view.body, 'scale-input');
+    const energyScale = scales.find((s: any) => s.props.inputId === 'energy') as any;
     expect(energyScale).toBeDefined();
     expect(energyScale.props.showNumber).toBe(false);
   });
@@ -433,5 +450,175 @@ describe('onboarding composers', () => {
     expect(alternatePayload.topic).toBe('Biology');
     expect(alternatePayload.taskType).not.toBe('Learn');
     expect(['Practice', 'Revise']).toContain(alternatePayload.taskType);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// composeP3View — Shrunk Card (Dropout Signal)
+// ────────────────────────────────────────────────────────────────────────────
+
+function baseP3Output(overrides: Partial<VerificationDecisionIssuedOutput> = {}): VerificationDecisionIssuedOutput {
+  return {
+    studentId: 'student-1',
+    mode: 'Neutral',
+    playId: 'P3-N1',
+    topic: 'Thermodynamics',
+    verificationDecision: 'VerifyNow',
+    issuedAt: '2025-06-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('composeP3View — shrunk card mode', () => {
+  it('renders shrunk mode when dropoutSignalActive is true', () => {
+    const result = composeP3View(baseP3Output(), 1200, true);
+    const card = findComponent(result.view.body, 'verification-card') as any;
+    expect(card).toBeDefined();
+    expect(card.props.mode).toBe('shrunk');
+    expect(card.props.openingLine).toBe('Does it feel solid? Just a tap.');
+    expect(card.props.topicPrompt).toBe('');
+  });
+
+  it('renders standard mode when dropoutSignalActive is false', () => {
+    const result = composeP3View(baseP3Output(), 1200, false);
+    const card = findComponent(result.view.body, 'verification-card') as any;
+    expect(card.props.mode).toBe('standard');
+  });
+
+  it('shrunk mode overrides rescue mode', () => {
+    const result = composeP3View(baseP3Output({ mode: 'Rescue' }), 1200, true);
+    const card = findComponent(result.view.body, 'verification-card') as any;
+    expect(card.props.mode).toBe('shrunk');
+  });
+
+  it('defaults dropoutSignalActive to false when omitted', () => {
+    const result = composeP3View(baseP3Output());
+    const card = findComponent(result.view.body, 'verification-card') as any;
+    expect(card.props.mode).toBe('standard');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// composePhase3View — Dynamic Footer Seed
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('composePhase3View — dynamic footer seed', () => {
+  it('shows dynamic seed when loop closes and nextPendingTopic exists', () => {
+    const ctx = baseCtx({
+      pendingChecks: 3,
+      energy: 4,
+      nextPendingTopic: { topicName: 'Calculus', waitingSinceDays: 5 },
+    });
+    const result = composePhase3View('Thermodynamics', 'Neutral', 'verified', ctx);
+    const card = findComponent(result.view.body, 'loop-closed-card') as any;
+    expect(card.props.seed).toBe('Next: Calculus waiting since Day 5');
+  });
+
+  it('falls back to count-based seed when no nextPendingTopic', () => {
+    const ctx = baseCtx({
+      pendingChecks: 2,
+      energy: 4,
+      nextPendingTopic: null,
+    });
+    const result = composePhase3View('Thermodynamics', 'Neutral', 'verified', ctx);
+    const card = findComponent(result.view.body, 'loop-closed-card') as any;
+    // countAfter = 2-1 = 1
+    expect(card.props.seed).toBe('1 check left this week. Almost done.');
+  });
+
+  it('shows dynamic seed for milestone scenario with pending topic', () => {
+    const ctx = baseCtx({
+      pendingChecks: 2,
+      nextPendingTopic: { topicName: 'Physics', waitingSinceDays: 3 },
+    });
+    const result = composePhase3View('Thermodynamics', 'Neutral', 'milestone', ctx);
+    const card = findComponent(result.view.body, 'loop-closed-card') as any;
+    expect(card.props.seed).toBe('Next: Physics waiting since Day 3');
+  });
+
+  it('does not show dynamic seed for reminded scenario', () => {
+    const ctx = baseCtx({
+      pendingChecks: 2,
+      nextPendingTopic: { topicName: 'Calculus', waitingSinceDays: 5 },
+    });
+    const result = composePhase3View('Thermodynamics', 'Neutral', 'reminded', ctx);
+    const card = findComponent(result.view.body, 'loop-closed-card') as any;
+    expect(card.props.seed).toBe('See you tomorrow.');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// composeCheckinView — progressive disclosure groups
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('composeCheckinView disclosure groups', () => {
+  it('tags energy scale as group 1A (initially visible)', () => {
+    const result = composeCheckinView(baseCtx());
+    const energyEntry = findGroupedEntry(result.view.body as SduiSlotEntry[], 'scale-input');
+    expect(energyEntry).toBeDefined();
+    expect(energyEntry!.component.props.inputId).toBe('energy');
+    expect(energyEntry!.visibilityGroup).toBe('1A');
+    expect(energyEntry!.initiallyVisible).toBe(true);
+  });
+
+  it('tags topic-input as group 1B (initially hidden)', () => {
+    const result = composeCheckinView(baseCtx());
+    const topicEntry = findGroupedEntry(result.view.body as SduiSlotEntry[], 'topic-input');
+    expect(topicEntry).toBeDefined();
+    expect(topicEntry!.visibilityGroup).toBe('1B');
+    expect(topicEntry!.initiallyVisible).toBe(false);
+  });
+
+  it('tags Start button action-group as group 1C (initially hidden)', () => {
+    const result = composeCheckinView(baseCtx());
+    const startEntry = findGroupedEntry(result.view.actions as SduiSlotEntry[], 'action-group');
+    expect(startEntry).toBeDefined();
+    expect(startEntry!.visibilityGroup).toBe('1C');
+    expect(startEntry!.initiallyVisible).toBe(false);
+  });
+
+  it('tags sleep scale as group 1B (hidden) when isFirstOfDay', () => {
+    const result = composeCheckinView(baseCtx({ isFirstOfDay: true }));
+    const allEntries = result.view.body as SduiSlotEntry[];
+    const sleepEntries = allEntries.filter(e =>
+      'component' in e && 'visibilityGroup' in e
+      && (e as any).component.type === 'scale-input'
+      && (e as any).component.props.inputId === 'sleepBucket',
+    );
+    expect(sleepEntries.length).toBe(1);
+    expect((sleepEntries[0] as any).visibilityGroup).toBe('1B');
+    expect((sleepEntries[0] as any).initiallyVisible).toBe(false);
+  });
+
+  it('greeting card (resume-context-card) is group 1A', () => {
+    const ctx = baseCtx({ pendingChecks: 1, topicStates: [] });
+    const result = composeCheckinView(ctx);
+    const greetingEntry = findGroupedEntry(result.view.body as SduiSlotEntry[], 'resume-context-card');
+    expect(greetingEntry).toBeDefined();
+    expect(greetingEntry!.visibilityGroup).toBe('1A');
+    expect(greetingEntry!.initiallyVisible).toBe(true);
+  });
+
+  it('non-checkin phases have no grouped entries', () => {
+    const p3 = composeP3View(baseP3Output());
+    const hasGrouped = (p3.view.body as SduiSlotEntry[]).some(
+      e => 'component' in e && 'visibilityGroup' in e,
+    );
+    expect(hasGrouped).toBe(false);
+  });
+
+  it('identity moment variant: identity card in 1A, topic in 1B', () => {
+    const result = composeCheckinView(
+      baseCtx({ verificationRate7d: 0.85, pendingChecks: 1, sessionsLast7d: 5 }),
+      { eligible: true, pattern: 'integrity_consistent', statement: { statement: 'test', detail: 'test' } },
+    );
+    const identityEntry = findGroupedEntry(result.view.body as SduiSlotEntry[], 'identity-moment-card');
+    expect(identityEntry).toBeDefined();
+    expect(identityEntry!.visibilityGroup).toBe('1A');
+
+    const topicEntry = findGroupedEntry(result.view.body as SduiSlotEntry[], 'topic-input');
+    expect(topicEntry).toBeDefined();
+    expect(topicEntry!.visibilityGroup).toBe('1B');
+    expect(topicEntry!.initiallyVisible).toBe(false);
   });
 });
