@@ -423,7 +423,8 @@ export const SduiSessionContextBarSchema = z.object({
   props: z.object({
     topic: z.string(),
     taskType: z.string(),
-    difficultyTier: z.string(),
+    /** Scope label shown as third segment, e.g. "~45 min". Replaces difficultyTier per UX spec. */
+    scopeLabel: z.string(),
     /** ISO timestamp of session start — client computes elapsed minutes, updates every 60s. */
     sessionStartedAt: z.string().optional(),
   }),

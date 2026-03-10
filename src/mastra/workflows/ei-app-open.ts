@@ -267,6 +267,7 @@ const appOpenBranchStep = createStep({
           topicName: topicRef.topicName,
           mode: 'Neutral',
           taskType: fullPayload.taskType,
+          timebox: fullPayload.timebox,
           idempotencyKey,
           correlationId,
         },

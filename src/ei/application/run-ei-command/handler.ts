@@ -68,7 +68,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
       }
 
       case 'SessionStart': {
-        const { topic, topicName, mode, taskType, difficultyTier } = command.payload;
+        const { topic, topicName, mode, taskType, timebox } = command.payload;
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
           if (!phase.hasActivationPlan) {
@@ -83,7 +83,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
             topicName,
             mode,
             taskType,
-            difficultyTier,
+            timebox,
             idempotencyKey,
             correlationId,
           },

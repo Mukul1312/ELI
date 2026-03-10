@@ -20,7 +20,7 @@ export const ComposeP2ViewInputSchema = z.object({
   topic: z.string(),
   topicName: z.string().optional(),
   taskType: z.string().optional(),
-  difficultyTier: z.string().optional(),
+  timebox: z.number().optional(),
   replanCount: z.number().int().min(0).optional(),
 });
 
@@ -29,9 +29,9 @@ export const composeP2ViewStep = createStep({
   inputSchema: ComposeP2ViewInputSchema,
   outputSchema: P2WrappedResponseSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof P2WrappedResponseSchema>> => {
-    const { domainOutput, topic, topicName, taskType, difficultyTier, replanCount = 0 } = inputData;
+    const { domainOutput, topic, topicName, taskType, timebox, replanCount = 0 } = inputData;
 
-    const sdui = composeP2View(domainOutput, topic, replanCount, taskType, difficultyTier, topicName);
+    const sdui = composeP2View(domainOutput, topic, replanCount, taskType, timebox, topicName);
 
     return {
       ...domainOutput,

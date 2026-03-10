@@ -157,11 +157,10 @@ export default function Home() {
     const hasTopic = (typeof topicId === 'string' && topicId.trim() !== '')
       || (typeof topic === 'string' && topic.trim() !== '');
     const energy = formValues['energy'];
-    const sleepBucket = formValues['sleepBucket'];
     const taskType = formValues['taskType'];
+    // sleepBucket is only shown when isFirstOfDay — not required for submission
     return hasTopic
       && typeof energy === 'number' && energy >= 1 && energy <= 5
-      && typeof sleepBucket === 'string' && sleepBucket.length > 0
       && typeof taskType === 'string' && taskType.trim() !== '';
   }, [formValues]);
 
@@ -263,9 +262,19 @@ export default function Home() {
         }
       }
       
-      // Pending topic tap: reveal 1C (Start button) since topic is now selected
+      // Pending topic tap: set topic in formValues and reveal 1C (client-only)
       if (actionId.startsWith('intent_topic_')) {
+        const topicAction = action;
+        const topicPayload = topicAction?.payload?.payload as Record<string, unknown> | undefined;
+        if (topicPayload) {
+          const updates: Record<string, string> = {};
+          if (topicPayload.topicId) updates.topicId = String(topicPayload.topicId);
+          if (topicPayload.topic) updates.topic = String(topicPayload.topic);
+          if (topicPayload.topicName) updates.topicName = String(topicPayload.topicName);
+          setFormValues(prev => ({ ...prev, ...updates }));
+        }
         revealGroup('1C');
+        return;
       }
 
       const resolved = resolvePayload(action.payload, formValues);
@@ -319,6 +328,7 @@ export default function Home() {
   const isInitialLoading = authState === 'initializing' || authState === 'loading';
   const view = currentSduiResponse?.view;
   const isSessionPhase = currentSduiResponse?.phase === 'session';
+  const isActivationPhase = currentSduiResponse?.phase === 'activation';
   const isCheckinPhase = currentSduiResponse?.phase === 'checkin';
   // Checkin: domain.mode; P1/P2: mode at top level
   const pageMode = (currentSduiResponse?.domain as { mode?: 'Rescue' | 'Neutral' | 'Boost' } | null)?.mode
@@ -408,8 +418,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Persisted footer — shown across all phases including active session */}
-      {authState === 'authenticated' && sessionFooter.length > 0 && (
+      {/* Persisted footer — hidden during Phase 2 (activation + session) per spec */}
+      {authState === 'authenticated' && sessionFooter.length > 0 && !isSessionPhase && !isActivationPhase && (
         <SduiSlot components={sessionFooter} {...slotProps} />
       )}
     </div>

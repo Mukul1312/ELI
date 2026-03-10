@@ -18,7 +18,7 @@ const SessionStartInput = z.object({
   topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   taskType: z.string().optional(),
-  difficultyTier: z.string().optional(),
+  timebox: z.number().optional(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
 });
@@ -28,7 +28,7 @@ const appendAndComposeStep = createStep({
   inputSchema: SessionStartInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName, mode = 'Neutral', taskType, difficultyTier, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, mode = 'Neutral', taskType, timebox, idempotencyKey } = inputData;
     const startedAt = new Date().toISOString();
 
     const payload = validateEventPayload('FirstActionStarted', {
@@ -53,7 +53,7 @@ const appendAndComposeStep = createStep({
       mode,
       playId: 'P2-N1',
       taskType,
-      difficultyTier,
+      timebox,
     });
 
     return sdui;

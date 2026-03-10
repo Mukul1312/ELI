@@ -347,7 +347,7 @@ export function composeP2View(
   topic: string,
   _replanCount = 0,
   taskType?: string,
-  difficultyTier?: string,
+  timebox?: number,
   topicName?: string,
 ): SduiResponse {
   const isRetrieval = taskType === 'Retrieval';
@@ -375,12 +375,14 @@ export function composeP2View(
 
   const displayName = getTopicDisplayName(topic, topicName);
 
+  const scopeLabel = timebox ? `~${timebox} min` : '~30 min';
+
   const header: SduiComponent[] = [{
     type: 'session-context-bar',
     props: {
       topic: displayName,
       taskType: taskType ?? 'Practice',
-      difficultyTier: difficultyTier ?? 'Medium',
+      scopeLabel,
     },
   }];
 
@@ -419,7 +421,7 @@ export function composeP2View(
           ...(topicName && { topicName }),
           mode: output.mode,
           ...(taskType && { taskType }),
-          ...(difficultyTier && { difficultyTier }),
+          ...(timebox && { timebox }),
         },
       },
     };
@@ -456,8 +458,8 @@ export interface SessionViewInput {
   playId: string;
   /** Task type selected by student during P1 (e.g. 'Learn', 'Practice', 'Revise'). */
   taskType?: string;
-  /** Difficulty tier selected during P1 (e.g. 'Easy (1)', 'Hard (3)'). */
-  difficultyTier?: string;
+  /** Student's declared time commitment in minutes (e.g. 45). Shown as ~N min in context bar. */
+  timebox?: number;
 }
 
 // Nudge copy per mode (absent for Boost — no nudge in flow state)
@@ -467,23 +469,25 @@ const SESSION_NUDGE: Partial<Record<'Rescue' | 'Neutral' | 'Boost', string>> = {
 };
 
 export function composeSessionView(input: SessionViewInput): SduiResponse {
+  const scopeLabel = input.timebox ? `~${input.timebox} min` : '~30 min';
+
   // Context bar: topic info left, elapsed time right (computed from sessionStartedAt)
   const header: SduiComponent[] = [{
     type: 'session-context-bar',
     props: {
       topic: getTopicDisplayName(input.topic, input.topicName),
       taskType: input.taskType ?? 'Practice',
-      difficultyTier: input.difficultyTier ?? 'Medium',
+      scopeLabel,
       sessionStartedAt: new Date().toISOString(),
     },
   }];
 
-  // Body: intentionally empty middle + "End session" text link
+  // Body: intentionally empty middle + "I'm done" text link
   const body: SduiComponent[] = [{
     type: 'session-timer',
     props: {
       endActionId: 'session_end',
-      endLabel: 'End session',
+      endLabel: "I'm done",
       mode: input.mode,
       nudgeCopy: SESSION_NUDGE[input.mode],
     },
