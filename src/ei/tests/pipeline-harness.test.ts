@@ -38,7 +38,6 @@ import { ProtocolEngine } from '../domain/study-session/protocol-engine';
 import { InMemoryEventStore } from './infrastructure/in-memory-event-store';
 import { InMemoryTopicStateStore } from './infrastructure/in-memory-topic-state-store';
 import { InMemoryStudentAggregatesRepo } from './infrastructure/in-memory-student-aggregates-repo';
-import { InMemoryStudySessionRepo } from './infrastructure/in-memory-study-session-repo';
 import { InMemorySignalsPort } from './infrastructure/in-memory-signals-port';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -56,7 +55,6 @@ interface Pipeline {
   eventStore: InMemoryEventStore;
   topicStore: InMemoryTopicStateStore;
   aggregatesRepo: InMemoryStudentAggregatesRepo;
-  sessionRepo: InMemoryStudySessionRepo;
   aggregatesHandler: RecomputeStudentAggregatesHandler;
   p1Handler: RunP1GateHandler;
   p2Handler: RunP2GateHandler;
@@ -67,7 +65,6 @@ function buildPipeline(): Pipeline {
   const eventStore = new InMemoryEventStore();
   const topicStore = new InMemoryTopicStateStore();
   const aggregatesRepo = new InMemoryStudentAggregatesRepo();
-  const sessionRepo = new InMemoryStudySessionRepo();
   const signalsPort = new InMemorySignalsPort(aggregatesRepo);
   const clock = { now: () => new Date() };
 
@@ -86,7 +83,6 @@ function buildPipeline(): Pipeline {
     assessLoopHealthUseCase,
     eventStore,
     protocolEngine,
-    sessionRepo,
   );
 
   const p2Handler = new RunP2GateHandler(
@@ -95,7 +91,6 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
-    sessionRepo,
   );
 
   const p3Handler = new RunP3GateHandler(
@@ -104,10 +99,9 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
-    sessionRepo,
   );
 
-  return { eventStore, topicStore, aggregatesRepo, sessionRepo, aggregatesHandler, p1Handler, p2Handler, p3Handler };
+  return { eventStore, topicStore, aggregatesRepo, aggregatesHandler, p1Handler, p2Handler, p3Handler };
 }
 
 // ============================================================================
@@ -241,9 +235,9 @@ async function runP1Assertion(
   }
 
   // Structural invariants: scope floors hold for any mode
-  expect(output.scope.timeboxMin, `P1 scope.timeboxMin on day ${day.day}`).toBeGreaterThanOrEqual(10);
-  expect(output.scope.questionCount, `P1 scope.questionCount on day ${day.day}`).toBeGreaterThanOrEqual(1);
-  expect(output.verificationPlan.minQuestions, `P1 verificationPlan.minQuestions on day ${day.day}`).toBeGreaterThanOrEqual(1);
+  expect(output.timebox, `P1 timebox on day ${day.day}`).toBeGreaterThanOrEqual(10);
+  expect(output.questionCount, `P1 questionCount on day ${day.day}`).toBeGreaterThanOrEqual(1);
+  expect(output.verificationFloor?.minQuestions, `P1 verificationFloor.minQuestions on day ${day.day}`).toBeGreaterThanOrEqual(1);
 
   // Only assert partialMatch on Day 1. Late-day partialMatch values (e.g. constraints)
   // depend on aggregate state (openLoops count from real overdue-schedule computation)
@@ -347,14 +341,14 @@ async function processDay(
   }
 
   // ── Phase B: Feed IntentSet/FirstActionStarted/Replan events → Run P2 ───
-  // P2 reads NegotiatedIntentIssued written by P1 from the event store.
+  // P2 reads SessionIntentIssued written by P1 from the event store.
   ingestEvents(p2Events, studentId, day.day, eventStore, topicStore);
   for (const expected of day.expectedOutputs.filter((o) => o.protocol === 2)) {
     await runP2Assertion(day, expected, pipeline, studentId, sessionId);
   }
 
   // ── Phase C: Feed remaining events (SessionEnd, Retrieval*) → Run P3 ────
-  // P3 reads NegotiatedIntentIssued (P1) and ActivationPlanIssued (P2) from
+  // P3 reads SessionIntentIssued (P1) and ActivationPlanIssued (P2) from
   // the event store for cross-protocol constraint propagation.
   ingestEvents(p3Events, studentId, day.day, eventStore, topicStore);
   for (const expected of day.expectedOutputs.filter((o) => o.protocol === 3)) {
@@ -411,8 +405,8 @@ describe('Pipeline invariants', () => {
       sleepBucket: '7-8',
     });
     expect(output.mode).toBe('Boost');
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
-    expect(output.verificationPlan.minQuestions).toBeGreaterThanOrEqual(1);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
+    expect(output.verificationFloor?.minQuestions).toBeGreaterThanOrEqual(1);
   });
 
   it('P1 Rescue path: burnout state gets mode=Rescue', async () => {
@@ -427,8 +421,8 @@ describe('Pipeline invariants', () => {
     });
     expect(output.mode).toBe('Rescue');
     // Rescue still enforces scope floors
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
-    expect(output.verificationPlan.minQuestions).toBeGreaterThanOrEqual(1);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
+    expect(output.verificationFloor?.minQuestions).toBeGreaterThanOrEqual(1);
   });
 
   it('P1 Neutral path: moderate state gets mode=Neutral', async () => {
@@ -441,7 +435,7 @@ describe('Pipeline invariants', () => {
       sleepBucket: '7-8',
     });
     expect(['Neutral', 'Boost', 'Rescue']).toContain(output.mode);
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
   });
 });
 

@@ -135,7 +135,7 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       silenceDays = 0;
     }
 
-    const intentIssued = events.filter((e) => e.eventType === 'NegotiatedIntentIssued').length;
+    const intentIssued = events.filter((e) => e.eventType === 'SessionIntentIssued').length;
     const intentAccepted = events.filter(
       (e) => e.eventType === 'IntentResponse' &&
         ((e.payload as any).decision === 'accepted' || (e.payload as any).decision === 'edited'),

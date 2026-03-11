@@ -5,9 +5,9 @@
  * Per ei-runtime-tactical-spec.md §8 (Ports).
  */
 
-import type { NegotiatedIntentIssuedOutput } from '../../schemas/outputs';
+import type { SessionIntentIssuedOutput } from '../../schemas/outputs';
 import type { RunP1GateCommand } from './command';
 
 export interface IRunP1GateUseCase {
-  execute(command: RunP1GateCommand): Promise<NegotiatedIntentIssuedOutput>;
+  execute(command: RunP1GateCommand): Promise<SessionIntentIssuedOutput>;
 }

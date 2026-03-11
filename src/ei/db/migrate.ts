@@ -151,20 +151,12 @@ const SQL_STATEMENTS = [
    ON ei_radar_alerts (student_id, alert_type)`,
 
   // ================================================================
-  // 5b. ei_study_sessions (concurrency safety, phase derivation)
+  // 5b. ei_study_sessions — REMOVED (ADR-001)
+  // Session state is fully derivable from SessionIntentIssued event in the Ledger.
+  // sessionId (aggregate ID) is carried in SessionIntentIssued.payload per DDD canonical
+  // event structure (CQRS-EVENTS.md). Drop on migration to clean up existing deployments.
   // ================================================================
-  `CREATE TABLE IF NOT EXISTS ei_study_sessions (
-    id                    TEXT PRIMARY KEY,
-    student_id            TEXT NOT NULL,
-    topic_id              TEXT NOT NULL,
-    status                TEXT NOT NULL CHECK (status IN ('negotiating','activating','active','verifying','closed')),
-    negotiated_intent_id  TEXT,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`,
-
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_study_sessions_active_per_topic
-   ON ei_study_sessions (student_id, topic_id) WHERE status IN ('negotiating','activating','active')`,
+  `DROP TABLE IF EXISTS ei_study_sessions CASCADE`,
 
   // ================================================================
   // 5c. ops_backfill_jobs (Ops persistent job orchestration, checkpoints)

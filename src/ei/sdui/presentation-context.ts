@@ -65,11 +65,13 @@ function sortedTopicSnapshots(snapshots?: TopicStateSnapshot[]): TopicStateSnaps
 export function buildP1PresentationContext(
   domainOutput: {
     studentId: string;
-    topic: string;
-    mode: Mode;
-    playId: string;
-    stateScore: number;
-    constraints?: { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string };
+    /** topic or topicId — both accepted */
+    topic?: string;
+    topicId?: string;
+    mode: Mode | null;
+    playId: string | null;
+    stateScore: number | null;
+    constraints?: { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | null;
   },
   workflowInput: {
     energy: number;
@@ -85,10 +87,10 @@ export function buildP1PresentationContext(
   const closeOpenLoopFirst = domainOutput.constraints?.closeOpenLoopFirst ?? false;
   return {
     studentId: domainOutput.studentId,
-    topicId: domainOutput.topic,
-    mode: domainOutput.mode,
-    playId: domainOutput.playId,
-    stateScore: domainOutput.stateScore,
+    topicId: domainOutput.topicId ?? domainOutput.topic ?? '',
+    mode: domainOutput.mode ?? 'Neutral',
+    playId: domainOutput.playId ?? '',
+    stateScore: domainOutput.stateScore ?? 3,
     pendingChecks: aggregates?.pendingChecks ?? (closeOpenLoopFirst ? 3 : 0),
     silenceDays: aggregates?.silenceDays ?? 0,
     isFirstOfDay: true,

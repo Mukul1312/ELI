@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { DifficultyTierEnum, VerificationFormatEnum } from './events';
+import { DifficultyTierEnum, VerificationFormatEnum, SleepBucketEnum, SessionTaskTypeEnum } from './events';
 
 // ============================================================================
 // Mode enum (shared across all protocols)
@@ -15,37 +15,47 @@ export const ModeEnum = z.enum(['Rescue', 'Neutral', 'Boost']);
 export type Mode = z.infer<typeof ModeEnum>;
 
 // ============================================================================
-// Protocol 1 output: NegotiatedIntentIssued
+// Protocol 1 output: SessionIntentIssued (both negotiated and declared paths)
 // ============================================================================
 
-export const NegotiatedIntentIssuedSchema = z.object({
-  negotiatedIntentId: z.string(),
+export const SessionIntentIssuedSchema = z.object({
+  // ── always present ──────────────────────────────────────────────────────────
   studentId: z.string(),
-  mode: ModeEnum,
-  playId: z.string(),
-  topic: z.string(),
+  topicId: z.string(),
+  /** Discriminator: 'negotiated' (ELI-driven) or 'declared' (student-driven). */
+  intentSource: z.enum(['negotiated', 'declared']),
+  timebox: z.number(),                   // scope.timeboxMin for negotiated; student input for declared
+  taskType: SessionTaskTypeEnum,         // 'Learn' | 'Practice' | 'Test'
+  energy: z.number().int().min(1).max(5),
+  sleepBucket: SleepBucketEnum,
+  issuedAt: z.string().datetime(),
+  // Keep topic/topicName for Mastra workflow compat
+  topic: z.string().optional(),
   topicName: z.string().optional(),
-  taskType: z.string().optional(),
-  scope: z.object({
-    timeboxMin: z.number(),
-    questionCount: z.number(),
-    difficultyTier: DifficultyTierEnum,
-  }),
-  verificationPlan: z.object({
+  // ── negotiated-only (null for declared) ─────────────────────────────────────
+  mode: ModeEnum.nullable(),
+  playId: z.string().nullable(),
+  /** P1 floor for P3 cross-protocol enforcement. null = no floor (declared sessions). */
+  verificationFloor: z.object({
     minQuestions: z.number().int(),
     preferVerifyNow: z.boolean(),
-  }),
+  }).nullable(),
   constraints: z.object({
     closeOpenLoopFirst: z.boolean().optional(),
     noNewTopicUntil: z.string().optional(),
-  }).optional(),
-  stateScore: z.number(),
-  intentScore: z.number().optional(),
-  ambitionDelta: z.number().optional(),
-  rationale: z.string().optional(),
-  issuedAt: z.string().datetime(),
+  }).nullable(),
+  stateScore: z.number().nullable(),
+  questionCount: z.number().nullable(),
+  difficultyTier: DifficultyTierEnum.nullable(),
+  /** Was negotiatedIntentId. null for declared sessions. */
+  sessionIntentId: z.string().nullable(),
 });
-export type NegotiatedIntentIssuedOutput = z.infer<typeof NegotiatedIntentIssuedSchema>;
+export type SessionIntentIssuedOutput = z.infer<typeof SessionIntentIssuedSchema>;
+
+/** @deprecated Use SessionIntentIssuedSchema. Kept for any remaining references during migration. */
+export const NegotiatedIntentIssuedSchema = SessionIntentIssuedSchema;
+/** @deprecated Use SessionIntentIssuedOutput. */
+export type NegotiatedIntentIssuedOutput = SessionIntentIssuedOutput;
 
 // ============================================================================
 // Protocol 2 output: ActivationPlanIssued

@@ -35,29 +35,34 @@ export interface StoredEvent {
 // Find cross-protocol constraints in event history
 // ============================================================================
 
-/** Minimal shape we read from NegotiatedIntentIssued payloads */
+/** Minimal shape we read from SessionIntentIssued payloads (flat shape, Approach B). */
 interface P1Payload {
-  verificationPlan?: { minQuestions?: number; preferVerifyNow?: boolean };
+  intentSource?: string;
+  verificationFloor?: { minQuestions?: number; preferVerifyNow?: boolean };
 }
 
 /**
- * Find the most recent NegotiatedIntentIssued event from a list of queried events.
- * Returns the verification floor if found.
+ * Find the most recent SessionIntentIssued event from a list of queried events.
+ * Returns the verification floor only for negotiated sessions (declared sessions have no floor).
  */
 export function findP1VerificationFloorFromEvents(
   events: StoredEvent[]
 ): P1VerificationFloor | null {
-  const negotiatedIntentEvent = events
-    .filter((e) => e.eventType === 'NegotiatedIntentIssued')
+  const sessionIntentEvent = events
+    .filter((e) => e.eventType === 'SessionIntentIssued')
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0];
 
-  if (!negotiatedIntentEvent) return null;
+  if (!sessionIntentEvent) return null;
 
-  const payload = negotiatedIntentEvent.payload as P1Payload;
-  if (payload.verificationPlan) {
+  const payload = sessionIntentEvent.payload as P1Payload;
+
+  // Declared sessions have no ELI-issued floor — do not apply one.
+  if (payload.intentSource !== 'negotiated') return null;
+
+  if (payload.verificationFloor) {
     return {
-      minQuestions: payload.verificationPlan.minQuestions ?? 1,
-      preferVerifyNow: payload.verificationPlan.preferVerifyNow ?? false,
+      minQuestions: payload.verificationFloor.minQuestions ?? 1,
+      preferVerifyNow: payload.verificationFloor.preferVerifyNow ?? false,
     };
   }
 

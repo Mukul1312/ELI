@@ -35,7 +35,7 @@
 | SkipCount7d | Count of `RetrievalSkipped` events in last 7 days |
 | SilenceDays | Days since last meaningful event (`IntentSet`, `SessionEnd`, `RetrievalVerified`, `VerificationCompleted`) |
 | StartLatencyMinMedian7d | Median start latency (minutes from `IntentSet` to `FirstActionStarted`) over last 7 days |
-| IntentAcceptanceRate7d | Ratio of accepted/edited `IntentResponse` events over issued `NegotiatedIntentIssued` in last 7 days |
+| IntentAcceptanceRate7d | Ratio of accepted/edited `IntentResponse` events over issued `SessionIntentIssued` (intentSource='negotiated') in last 7 days |
 | ReplanLoopCount7d | Count of `Replan` events in last 7 days |
 | StateTrend7d | Coarse direction derived from AppOpen energy taps: `improving`, `flat`, `worsening` |
 | LoopLatencyTrend | Coarse trend of loop closure latency: derived |
@@ -100,7 +100,7 @@ StudentAggregates is a projection; it does not handle external commands. The "co
 | SessionEnd | studentId, topic, endedAt |
 | FirstActionStarted | studentId, topic, startedAt |
 | Replan | studentId, topic, replannedAt |
-| NegotiatedIntentIssued | studentId, issuedAt |
+| SessionIntentIssued | studentId, issuedAt, intentSource |
 | IntentResponse | studentId, decision, respondedAt |
 | RetrievalVerified | studentId, topic, verifiedAt |
 | RetrievalScheduled | studentId, topic, dueAt, scheduledAt |

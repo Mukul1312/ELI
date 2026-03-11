@@ -9,7 +9,7 @@
  */
 
 import type {
-  NegotiatedIntentIssuedOutput,
+  SessionIntentIssuedOutput,
   ActivationPlanIssuedOutput,
   VerificationDecisionIssuedOutput,
   Mode,
@@ -94,7 +94,7 @@ function p1Copy(
 // ────────────────────────────────────────────────────────────────────────────
 
 export function composeP1View(
-  output: NegotiatedIntentIssuedOutput,
+  output: SessionIntentIssuedOutput,
   ctx: PresentationContext,
 ): SduiResponse {
   const header: SduiComponent[] = [];
@@ -131,15 +131,19 @@ export function composeP1View(
   body.push({ type: 'spacer', props: { size: 'sm' } });
 
   // Scope card
-  const diffLabel = output.scope.difficultyTier.charAt(0).toUpperCase() + output.scope.difficultyTier.slice(1);
+  const diffTier = output.difficultyTier ?? 'med';
+  const diffLabel = diffTier.charAt(0).toUpperCase() + diffTier.slice(1);
+  const verificationFloor = output.verificationFloor;
   body.push({
     type: 'scope-card',
     props: {
       title: p1Copy('scope_title', ctx),
-      topic: getTopicDisplayName(output.topic, output.topicName),
-      scopeSummary: `${output.scope.timeboxMin} min · ${output.scope.questionCount} questions · ${diffLabel}`,
-      verificationSummary: `Verification: ${output.verificationPlan.minQuestions} question${output.verificationPlan.minQuestions > 1 ? 's' : ''} min${output.verificationPlan.preferVerifyNow ? ' (verify now preferred)' : ''}`,
-      badge: { mode: output.mode, label: output.mode },
+      topic: getTopicDisplayName(output.topic ?? output.topicId, output.topicName),
+      scopeSummary: `${output.timebox} min · ${output.questionCount ?? '–'} questions · ${diffLabel}`,
+      verificationSummary: verificationFloor
+        ? `Verification: ${verificationFloor.minQuestions} question${verificationFloor.minQuestions > 1 ? 's' : ''} min${verificationFloor.preferVerifyNow ? ' (verify now preferred)' : ''}`
+        : 'Verification: at your pace',
+      badge: output.mode ? { mode: output.mode, label: output.mode } : undefined,
     },
   });
 
@@ -230,7 +234,7 @@ export function composeP1View(
         payload: {
           commandType: 'IntentResponse',
           payload: {
-            negotiatedIntentId: output.negotiatedIntentId,
+            negotiatedIntentId: output.sessionIntentId,
             decision: 'accepted',
             respondedAt,
             topic: output.topic,
@@ -247,7 +251,7 @@ export function composeP1View(
         payload: {
           commandType: 'IntentResponse',
           payload: {
-            negotiatedIntentId: output.negotiatedIntentId,
+            negotiatedIntentId: output.sessionIntentId,
             decision: 'edited',
             respondedAt,
             topic: output.topic,
@@ -264,7 +268,7 @@ export function composeP1View(
         payload: {
           commandType: 'IntentResponse',
           payload: {
-            negotiatedIntentId: output.negotiatedIntentId,
+            negotiatedIntentId: output.sessionIntentId,
             decision: 'rejected',
             respondedAt,
           },
@@ -557,10 +561,14 @@ export function composePhase3View(
   // Quoted reflection
   const quote = scenario === 'milestone' ? '"That\'s rare. Keep that."' : undefined;
 
-  // Seed text — next pending topic hint (loop-closing scenarios only)
+  // Seed text — next pending topic hint or count fallback
   let seed: string | undefined;
   if (closesLoop && countAfter >= 1 && ctx.nextPendingTopic) {
-    seed = `${ctx.nextPendingTopic.topicName} waiting\nsince Day ${ctx.nextPendingTopic.waitingSinceDays}.`;
+    seed = `Next: ${ctx.nextPendingTopic.topicName} waiting since Day ${ctx.nextPendingTopic.waitingSinceDays}`;
+  } else if (closesLoop && countAfter >= 1) {
+    seed = `${countAfter} check${countAfter !== 1 ? 's' : ''} left this week. Almost done.`;
+  } else if (!closesLoop) {
+    seed = 'See you tomorrow.';
   }
 
   // "Clear one more" CTA: loop-closing + energy >= 4 + pending remaining

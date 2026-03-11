@@ -2,15 +2,12 @@
  * PhaseDeriver — derives session phase from Ledger events.
  * Used for phase guards: IntentSet requires hasIntent; SessionEnd/SessionStart require hasActiveSession.
  *
- * IMPORTANT — Gate-bypass flow:
- * When the AppOpen payload includes `taskType`, ei-app-open.ts intentionally
- * bypasses P1/P2 gates and goes directly to sessionStartWorkflow. This means
- * NO NegotiatedIntentIssued and NO ActivationPlanIssued events are written.
- * However, sessionStartWorkflow DOES write a FirstActionStarted event.
+ * Two session paths both produce valid active sessions:
+ * 1. Negotiated path: P1 gate → SessionIntentIssued → P2 gate → ActivationPlanIssued → FirstActionStarted
+ * 2. Declared path: RunDeclaredIntentHandler → SessionIntentIssued → sessionStartWorkflow → FirstActionStarted
  *
- * Therefore `hasActiveSession` checks for EITHER ActivationPlanIssued (normal
- * gate flow) OR FirstActionStarted (gate-bypass flow). Both prove the student
- * has an active session for that topic.
+ * Therefore `hasActiveSession` checks for EITHER ActivationPlanIssued (negotiated
+ * path completed P2) OR FirstActionStarted (both paths: session work has started).
  */
 
 import type { IQueryEventsPort } from '../shared/port-query-events';
@@ -23,13 +20,10 @@ export interface DerivedPhase {
    * True when the student has an active session for this topic.
    *
    * Two paths produce this:
-   * 1. Normal gate flow: P2 gate writes ActivationPlanIssued.
-   * 2. Gate-bypass flow: AppOpen with taskType skips P1/P2 and goes straight
-   *    to sessionStartWorkflow, which writes FirstActionStarted (but NOT
-   *    ActivationPlanIssued). See ei-app-open.ts lines 301-321.
+   * 1. Negotiated path: P2 gate writes ActivationPlanIssued.
+   * 2. Declared path: sessionStartWorkflow writes FirstActionStarted (no ActivationPlanIssued).
    *
-   * Both are valid proof of an active session — SessionEnd and SessionStart
-   * commands should be allowed in either case.
+   * Both are valid proof of an active session.
    */
   hasActiveSession: boolean;
   hasVerificationDecision: boolean;
@@ -43,7 +37,7 @@ export class PhaseDeriver {
 
     const [intentEvents, planEvents, decisionEvents, startedEvents] = await Promise.all([
       this.queryEvents.queryEvents(studentId, {
-        eventTypes: ['NegotiatedIntentIssued'],
+        eventTypes: ['SessionIntentIssued'],
         topicId,
         since,
         limit: 1,
@@ -60,8 +54,8 @@ export class PhaseDeriver {
         since,
         limit: 1,
       }),
-      // Gate-bypass evidence: sessionStartWorkflow writes FirstActionStarted
-      // even when P1/P2 are skipped (AppOpen with taskType present).
+      // Declared-path evidence: sessionStartWorkflow writes FirstActionStarted
+      // (no ActivationPlanIssued for declared sessions).
       this.queryEvents.queryEvents(studentId, {
         eventTypes: ['FirstActionStarted'],
         topicId,
@@ -72,8 +66,8 @@ export class PhaseDeriver {
 
     return {
       hasIntent: intentEvents.length > 0,
-      // ActivationPlanIssued = normal gate flow completed P2
-      // FirstActionStarted  = gate-bypass flow started session directly
+      // ActivationPlanIssued = negotiated path completed P2
+      // FirstActionStarted  = declared path started session work
       hasActiveSession: planEvents.length > 0 || startedEvents.length > 0,
       hasVerificationDecision: decisionEvents.length > 0,
     };

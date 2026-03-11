@@ -14,7 +14,7 @@
 
 import { z } from 'zod';
 import {
-  NegotiatedIntentIssuedSchema,
+  SessionIntentIssuedSchema,
   ActivationPlanIssuedSchema,
   VerificationDecisionIssuedSchema,
 } from '../../schemas/outputs';
@@ -104,7 +104,7 @@ export type SduiResponse = z.infer<typeof SduiResponseSchema>;
 // P1 wrapped response (backward compat: domain fields at top level + view)
 // ────────────────────────────────────────────────────────────────────────────
 
-export const P1WrappedResponseSchema = NegotiatedIntentIssuedSchema.merge(
+export const P1WrappedResponseSchema = SessionIntentIssuedSchema.merge(
   z.object({
     schemaVersion: z.literal(1),
     phase: SduiPhaseSchema,

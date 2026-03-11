@@ -16,6 +16,7 @@ import { getTopicStateTool, getAllTopicStatesTool, updateTMSTool } from './tools
 import { getPolicyTool, setPolicyTool } from './tools/policy-store';
 import { upsertRadarAlertTool, getRadarAlertsTool } from './tools/radar-store';
 import { backfillTopicNamesTool } from './tools/backfill-topic-names';
+import { declareIntentTool } from './tools/declare-intent';
 
 // Workflows
 import { protocol1IgnitionWorkflow } from './workflows/protocol1-ignition';
@@ -83,5 +84,6 @@ export const mastra = new Mastra({
     upsertRadarAlertTool,
     getRadarAlertsTool,
     backfillTopicNamesTool,
+    declareIntentTool,
   },
 });

@@ -3,7 +3,7 @@ import { composeP1View, composeCheckinView, selectPhase1Variant, composeOnboardi
 import { SduiResponseSchema, unwrapSlotEntry } from '../types/sdui-contract';
 import type { SduiSlotEntry } from '../types/sdui-contract';
 import { AppOpenMicroPayloadSchema } from '../../application/ei-protocol-router/command-schema';
-import type { NegotiatedIntentIssuedOutput, VerificationDecisionIssuedOutput } from '../../schemas/outputs';
+import type { SessionIntentIssuedOutput, VerificationDecisionIssuedOutput } from '../../schemas/outputs';
 import type { PresentationContext } from '../presentation-context';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -11,18 +11,26 @@ import type { PresentationContext } from '../presentation-context';
 // ────────────────────────────────────────────────────────────────────────────
 
 function baseDomainOutput(
-  overrides: Partial<NegotiatedIntentIssuedOutput> = {},
-): NegotiatedIntentIssuedOutput {
+  overrides: Partial<SessionIntentIssuedOutput> = {},
+): SessionIntentIssuedOutput {
   return {
-    negotiatedIntentId: 'ni-test-123',
     studentId: 'student-1',
+    topicId: 'Thermodynamics',
+    intentSource: 'negotiated',
+    timebox: 25,
+    taskType: 'Practice',
+    energy: 3,
+    sleepBucket: '7-8',
+    issuedAt: '2025-06-01T12:00:00Z',
+    topic: 'Thermodynamics',
     mode: 'Neutral',
     playId: 'P1-N1',
-    topic: 'Thermodynamics',
-    scope: { timeboxMin: 25, questionCount: 5, difficultyTier: 'med' },
-    verificationPlan: { minQuestions: 2, preferVerifyNow: false },
+    verificationFloor: { minQuestions: 2, preferVerifyNow: false },
+    constraints: null,
     stateScore: 50,
-    issuedAt: '2025-06-01T12:00:00Z',
+    questionCount: 5,
+    difficultyTier: 'med',
+    sessionIntentId: 'ni-test-123',
     ...overrides,
   };
 }
@@ -90,11 +98,11 @@ describe('composeP1View', () => {
     expect(result.phase).toBe('intent');
   });
 
-  it('includes header with scope title and mode badge', () => {
+  it('includes scope message in body and mode badge on scope-card', () => {
     const result = composeP1View(baseDomainOutput(), baseCtx());
-    const header = result.view.header;
-    expect(findComponent(header, 'message')).toBeDefined();
-    expect(findComponent(header, 'mode-badge')).toBeDefined();
+    expect(findComponent(result.view.body, 'message')).toBeDefined();
+    const scopeCard = findComponent(result.view.body, 'scope-card') as any;
+    expect(scopeCard?.props.badge).toBeDefined();
   });
 
   it('includes scope card in body', () => {
@@ -240,9 +248,9 @@ describe('composeCheckinView', () => {
     expect(result.phase).toBe('checkin');
   });
 
-  it('always shows topic text-input and energy scale-input', () => {
+  it('always shows topic topic-input and energy scale-input', () => {
     const result = composeCheckinView(baseCtx({ isFirstOfDay: false }));
-    const textInput = findComponent(result.view.body, 'text-input') as any;
+    const textInput = findComponent(result.view.body, 'topic-input') as any;
     expect(textInput).toBeDefined();
     expect(textInput.props.inputId).toBe('topic');
 
@@ -476,8 +484,7 @@ describe('composeP3View — shrunk card mode', () => {
     const card = findComponent(result.view.body, 'verification-card') as any;
     expect(card).toBeDefined();
     expect(card.props.mode).toBe('shrunk');
-    expect(card.props.openingLine).toBe('Does it feel solid? Just a tap.');
-    expect(card.props.topicPrompt).toBe('');
+    expect(card.props.askLine).toBe('Does it feel solid? Just a tap.');
   });
 
   it('renders standard mode when dropoutSignalActive is false', () => {

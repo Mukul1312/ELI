@@ -78,7 +78,7 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 | AppOpen | studentId, energy, openedAt; `timeCommitment` (optional, int: 10\|20\|45\|60 — student-declared minutes); `taskType` (optional, string: Learn\|Practice\|Revise — student-declared); `highPressureDetected` (optional, boolean — system-derived from V3 triggers; absent = false). `timeCommitment` and `taskType` absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent. | UI | P1, Ledger | — |
 | IntentSet | studentId, topic, setAt | UI | P2, Ledger | — |
 | SessionEnd | studentId, topic, endedAt | UI | P3, Ledger | ei_topic_state.last_effort_at |
-| NegotiatedIntentIssued | studentId, mode, topic, scope, verificationPlan, issuedAt; `taskType` (optional, string: Learn\|Practice\|Revise); `scope.timeboxMin` = student's `timeCommitment` when provided, mode-range midpoint fallback when absent | P1 | Ledger, P3 (cross-protocol floor) | — |
+| SessionIntentIssued | `intentSource` ('negotiated'\|'declared'), studentId, topicId, timebox, taskType, energy, sleep, issuedAt; **negotiated-only:** mode, playId, verificationFloor, constraints; **passive:** loopHealthSnapshot. Producer: `issueNegotiatedIntent()` (ELI-driven) or `issueDeclaredIntent()` (student-driven). See [ADR-001](decisions/adr-001-declared-intent-design.md) and [ei-runtime-tactical-spec.md §9](tactical/ei-runtime-tactical-spec.md). | P1 (RunP1GateHandler) or DeclaredEntry (RunDeclaredIntentHandler) | Ledger, P3 (cross-protocol floor when `intentSource='negotiated'`) | — |
 | ActivationPlanIssued | studentId, mode, firstAction, issuedAt | P2 | Ledger, P3 (watch-only flag) | — |
 | VerificationDecisionIssued | studentId, mode, topic, verificationDecision, issuedAt | P3 | Ledger | — |
 | IntentResponse | studentId, negotiatedIntentId, decision, respondedAt | UI | Ledger | — |
@@ -158,7 +158,7 @@ All events that currently carry `topic: z.string()` will carry `topicId` + `topi
 |------------|--------------|----------------|
 | IntentSet | `topic` | `topicId`, `topicName`, `topicRaw?` |
 | SessionEnd | `topic` | `topicId`, `topicName` |
-| NegotiatedIntentIssued | `topic` | `topicId`, `topicName` |
+| SessionIntentIssued | `topic` | `topicId`, `topicName` |
 | VerificationDecisionIssued | `topic` | `topicId`, `topicName` |
 | FirstActionStarted | `topic` | `topicId`, `topicName` |
 | Replan | `topic` | `topicId`, `topicName` |

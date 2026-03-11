@@ -15,11 +15,10 @@ import * as Q from '../../ei/db/queries';
 import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
-import { NegotiatedIntentIssuedSchema } from '../../ei/schemas/outputs';
+import { SessionIntentIssuedSchema } from '../../ei/schemas/outputs';
 import { P1WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { composeP1ViewStep } from './steps/compose-p1-view';
 
@@ -45,21 +44,18 @@ const P1Input = z.object({
 const runP1Gate = createStep({
   id: 'run-p1-gate',
   inputSchema: P1Input,
-  outputSchema: NegotiatedIntentIssuedSchema,
-  execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
+  outputSchema: SessionIntentIssuedSchema,
+  execute: async ({ inputData }): Promise<z.infer<typeof SessionIntentIssuedSchema>> => {
     const { studentId, topic, topicName, energy, sleepBucket, idempotencyKey } = inputData;
     const db = getDb();
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
-    // This deduplicates both the AppOpen event and the NegotiatedIntentIssued event on retry.
+    // This deduplicates both the AppOpen event and the SessionIntentIssued event on retry.
     const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
-    const sessionRepo = new StudySessionRepositoryPg(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
-
-    // Resolve stable session identity via repository (Option A: server owns sessionId).
-    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
+    const sessionId = crypto.randomUUID();
 
     await appendEvent.append({
       studentId,
@@ -80,11 +76,11 @@ const runP1Gate = createStep({
       await displayNameWriter.upsertDisplayName(studentId, topic, topicName);
     }
 
-    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine, sessionRepo);
+    const handler = new RunP1GateHandler(signalsPort, assessLoopHealth, appendEvent, protocolEngine);
     const result = await handler.execute({
       studentId,
       topicId: topic,
-      sessionId: session.sessionId,
+      sessionId,
       energy,
       sleepBucket,
     });
@@ -106,12 +102,11 @@ export const protocol1IgnitionWorkflow = createWorkflow({
     const workflowInput = getInitData() as z.infer<typeof P1Input>;
     const db = getDb();
 
-    const [aggregates, topicStates, eventCounts, lastIdentityShownAt, historicalIndicators] =
+    const [aggregates, topicStates, checkinCtx, historicalIndicators] =
       await Promise.all([
         Q.getAggregates(db, workflowInput.studentId),
         Q.getAllTopicStates(db, workflowInput.studentId),
-        Q.countStudentEventsLast7d(db, workflowInput.studentId),
-        Q.getLastIdentityShownAt(db, workflowInput.studentId),
+        Q.getCheckinEventContext(db, workflowInput.studentId),
         Q.getHistoricalIdentityIndicators(db, workflowInput.studentId),
       ]);
 
@@ -122,9 +117,11 @@ export const protocol1IgnitionWorkflow = createWorkflow({
       },
       aggregates: aggregates ?? null,
       topicStates: topicStates,
-      sessionsLast7d: eventCounts.sessionsLast7d,
-      loopsClosedLast7d: eventCounts.loopsClosedLast7d,
-      lastIdentityShownAt: lastIdentityShownAt,
+      sessionsLast7d: checkinCtx.sessionsLast7d,
+      loopsClosedLast7d: checkinCtx.loopsClosedLast7d,
+      sessionsTotal: checkinCtx.sessionsTotal,
+      hasPriorOpen: checkinCtx.hasPriorOpen,
+      lastIdentityShownAt: checkinCtx.lastIdentityShownAt,
       historicalIndicators,
     };
   })

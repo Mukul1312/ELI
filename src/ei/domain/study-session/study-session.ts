@@ -15,11 +15,14 @@
 import { AggregateRoot } from '../shared/aggregate-root';
 import { SessionAlreadyClosedError, InvalidGateOrderError } from './errors';
 import { NegotiatedIntent } from './value-objects/negotiated-intent';
+import { DeclaredIntent } from './value-objects/declared-intent';
+import type { DeclaredIntentInput } from './value-objects/declared-intent';
 import { ActivationPlan } from './value-objects/activation-plan';
 import { VerificationDecision } from './value-objects/verification-decision';
 import type { PlaySelection } from './value-objects/play-selection';
 import type { P1GateContext, P2GateContext, P3GateContext } from './value-objects/gate-context';
 import type { StudentPolicyInput } from '../loop-health/aggregates-input';
+import type { SleepBucket } from '../../engine/score';
 
 export type SessionStatus = 'negotiating' | 'activating' | 'active' | 'verifying' | 'closed';
 
@@ -27,7 +30,7 @@ export class StudySession extends AggregateRoot<string> {
   private _studentId: string;
   private _topicId: string;
   private _status: SessionStatus;
-  private _negotiatedIntent: NegotiatedIntent | null;
+  private _sessionIntent: NegotiatedIntent | DeclaredIntent | null;
   private _negotiatedIntentId: string | null;
   private _activationPlan: ActivationPlan | null;
   private _verificationDecision: VerificationDecision | null;
@@ -37,7 +40,7 @@ export class StudySession extends AggregateRoot<string> {
     studentId: string,
     topicId: string,
     status: SessionStatus,
-    negotiatedIntent: NegotiatedIntent | null,
+    sessionIntent: NegotiatedIntent | DeclaredIntent | null,
     activationPlan: ActivationPlan | null,
     verificationDecision: VerificationDecision | null,
     negotiatedIntentId?: string | null
@@ -46,7 +49,7 @@ export class StudySession extends AggregateRoot<string> {
     this._studentId = studentId;
     this._topicId = topicId;
     this._status = status;
-    this._negotiatedIntent = negotiatedIntent;
+    this._sessionIntent = sessionIntent;
     this._negotiatedIntentId = negotiatedIntentId ?? null;
     this._activationPlan = activationPlan;
     this._verificationDecision = verificationDecision;
@@ -85,9 +88,12 @@ export class StudySession extends AggregateRoot<string> {
   get studentId(): string { return this._studentId; }
   get topicId(): string { return this._topicId; }
   get status(): SessionStatus { return this._status; }
-  get negotiatedIntent(): NegotiatedIntent | null { return this._negotiatedIntent; }
+  get sessionIntent(): NegotiatedIntent | DeclaredIntent | null { return this._sessionIntent; }
+  get negotiatedIntent(): NegotiatedIntent | null {
+    return this._sessionIntent instanceof NegotiatedIntent ? this._sessionIntent : null;
+  }
   get negotiatedIntentId(): string | null {
-    return this._negotiatedIntent?.negotiatedIntentId ?? this._negotiatedIntentId ?? null;
+    return (this._sessionIntent instanceof NegotiatedIntent ? this._sessionIntent.negotiatedIntentId : undefined) ?? this._negotiatedIntentId ?? null;
   }
   get activationPlan(): ActivationPlan | null { return this._activationPlan; }
   get verificationDecision(): VerificationDecision | null { return this._verificationDecision; }
@@ -120,17 +126,39 @@ export class StudySession extends AggregateRoot<string> {
     policy: StudentPolicyInput,
     stateScore: number,
     negotiatedIntentId: string,
+    sleepBucket: SleepBucket = '7-8',
   ): void {
     this.assertStatus('negotiating');
 
     // NegotiatedIntent.create() enforces all P1 invariants
-    this._negotiatedIntent = NegotiatedIntent.create(play, ctx, policy, stateScore, negotiatedIntentId);
+    this._sessionIntent = NegotiatedIntent.create(play, ctx, policy, stateScore, negotiatedIntentId, sleepBucket);
     this._negotiatedIntentId = negotiatedIntentId;
     this._status = 'activating';
 
+    // Per DDD canonical event structure (CQRS-EVENTS.md): every domain event carries
+    // the aggregate ID (sessionId = this._id) so the aggregate can be reconstituted
+    // from the Ledger alone — replacing ei_study_sessions as the identity store.
     this.addDomainEvent({
-      eventType: 'NegotiatedIntentIssued',
-      payload: this._negotiatedIntent.toEventPayload(this._studentId, this._topicId),
+      eventType: 'SessionIntentIssued',
+      payload: { sessionId: this._id, ...this._sessionIntent.toEventPayload(this._studentId, this._topicId) },
+    });
+  }
+
+  /**
+   * P1 declared path: student declares own intent without ELI negotiation.
+   * Transitions: negotiating → activating
+   * Data integrity invariants only (no ELI business rules).
+   */
+  issueDeclaredIntent(input: DeclaredIntentInput): void {
+    this.assertStatus('negotiating');
+
+    this._sessionIntent = DeclaredIntent.create(input);
+    this._status = 'activating';
+
+    // Per DDD canonical event structure (CQRS-EVENTS.md): aggregate ID in payload.
+    this.addDomainEvent({
+      eventType: 'SessionIntentIssued',
+      payload: { sessionId: this._id, ...this._sessionIntent.toEventPayload(this._studentId, this._topicId) },
     });
   }
 

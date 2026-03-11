@@ -28,8 +28,16 @@ import { checkinViewWorkflow } from './checkin-view';
 import { sessionStartWorkflow } from './session-start';
 import { composeOnboardingResponseView, composeSessionView, composeP1View, composeP3View, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/sdui/view-composer';
 import { buildP1PresentationContext } from '../../ei/sdui/presentation-context';
-import type { NegotiatedIntentIssuedOutput } from '../../ei/schemas/outputs';
+import type { SessionIntentIssuedOutput } from '../../ei/schemas/outputs';
 import type { StateTrend } from '../../ei/domain/student-aggregates/student-aggregates';
+import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
+import { RunDeclaredIntentHandler } from '../../ei/application/run-declared-intent/handler';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
+import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
+import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
+import type { SessionTaskType } from '../../ei/schemas/events';
+import type { SleepBucket } from '../../ei/engine/score';
 import * as Q from '../../ei/db/queries';
 import { createResolveTopicUseCase } from '../../lib/curriculum-catalog';
 import { getTopicDisplayName } from '../../ei/sdui/topic-display-name';
@@ -46,6 +54,14 @@ async function resolveTopicSafe(
   } catch {
     return { topicId: rawText, topicName: getTopicDisplayName(rawText) };
   }
+}
+
+/** Map free-form payload taskType strings to the SessionTaskType enum values. */
+function mapToSessionTaskType(raw: string): SessionTaskType {
+  const normalized = raw.toLowerCase();
+  if (normalized === 'test') return 'Test';
+  if (normalized === 'learn') return 'Learn';
+  return 'Practice';
 }
 
 const AppOpenWorkflowInput = z.object({
@@ -83,7 +99,7 @@ const appOpenBranchStep = createStep({
       // Query all protocol output events + terminal events for phase derivation.
       const recentEvents = await queryEventsAdapter.queryEvents(studentId, {
         eventTypes: [
-          'NegotiatedIntentIssued', 'IntentResponse',
+          'SessionIntentIssued', 'IntentResponse',
           'ActivationPlanIssued', 'FirstActionStarted',
           'SessionEnd', 'VerificationDecisionIssued', 'VerificationCompleted',
           'RetrievalScheduled', 'RetrievalSkipped',
@@ -158,10 +174,13 @@ const appOpenBranchStep = createStep({
       }
 
       // ── Intent phase resume (§10.2: Intent but no plan → activating) ────
-      // Per routing matrix §10.3: AppOpen + Recent NegotiatedIntent → resume flow.
-      // If NegotiatedIntentIssued exists without a subsequent IntentResponse,
+      // Per routing matrix §10.3: AppOpen + Recent SessionIntentIssued (negotiated) → resume flow.
+      // If SessionIntentIssued exists without a subsequent IntentResponse,
       // ActivationPlanIssued, or SessionEnd → student was viewing "Your Plan" screen.
-      const lastIntent = recentEvents.find(e => e.eventType === 'NegotiatedIntentIssued');
+      // Only negotiated sessions show a plan screen; declared sessions go direct to session.
+      const lastIntent = recentEvents.find(
+        e => e.eventType === 'SessionIntentIssued' && e.payload?.intentSource === 'negotiated',
+      );
       if (lastIntent?.topicId) {
         const intentTopicId = lastIntent.topicId;
         const intentProgressed = recentEvents.some(
@@ -181,22 +200,34 @@ const appOpenBranchStep = createStep({
             Q.getTopicName(db, studentId, intentTopicId),
           ]);
 
-          // Resume: reconstruct P1 view from stored NegotiatedIntentIssued event payload.
-          // Event payload uses `topicId`; NegotiatedIntentIssuedOutput uses `topic`.
+          // Resume: reconstruct P1 view from stored SessionIntentIssued event payload (flat shape).
+          // Backward compat: old events have nested scope/verificationPlan; new events have flat fields.
           const p = lastIntent.payload;
           const resolvedTopicName = intentTopicName ?? (p.topicName as string) ?? undefined;
-          const intentOutput: NegotiatedIntentIssuedOutput = {
-            negotiatedIntentId: (p.negotiatedIntentId as string) ?? lastIntent.id,
+          const resumeVerificationFloor = p.verificationFloor
+            ? p.verificationFloor as { minQuestions: number; preferVerifyNow: boolean }
+            : p.verificationPlan
+              ? { minQuestions: (p.verificationPlan as any).minQuestions ?? 1, preferVerifyNow: (p.verificationPlan as any).preferVerifyNow ?? false }
+              : null;
+          const intentOutput: SessionIntentIssuedOutput = {
             studentId,
-            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
-            playId: (p.playId as string) ?? 'P1-N1',
+            topicId: intentTopicId,
+            intentSource: (p.intentSource as 'negotiated' | 'declared') ?? 'negotiated',
+            timebox: (p.timebox as number) ?? (p.scope as any)?.timeboxMin ?? 30,
+            taskType: (p.taskType as SessionTaskType) ?? 'Practice',
+            energy: (p.energy as number) ?? 3,
+            sleepBucket: (p.sleepBucket as SleepBucket) ?? '7-8',
+            issuedAt: lastIntent.occurredAt.toISOString(),
             topic: intentTopicId,
             topicName: resolvedTopicName,
-            scope: p.scope as NegotiatedIntentIssuedOutput['scope'],
-            verificationPlan: p.verificationPlan as NegotiatedIntentIssuedOutput['verificationPlan'],
-            constraints: p.constraints as NegotiatedIntentIssuedOutput['constraints'],
-            stateScore: (p.stateScore as number) ?? 0,
-            issuedAt: lastIntent.occurredAt.toISOString(),
+            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost' | null) ?? 'Neutral',
+            playId: (p.playId as string | null) ?? null,
+            verificationFloor: resumeVerificationFloor,
+            constraints: (p.constraints as { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | null) ?? null,
+            stateScore: (p.stateScore as number | null) ?? null,
+            questionCount: (p.questionCount as number | null) ?? (p.scope as any)?.questionCount ?? null,
+            difficultyTier: (p.difficultyTier as 'easy' | 'med' | 'hard' | 'advanced' | null) ?? (p.scope as any)?.difficultyTier ?? null,
+            sessionIntentId: (p.sessionIntentId as string | null) ?? (p.negotiatedIntentId as string | null) ?? null,
           };
 
           const aggregatesForPresentation = aggregates
@@ -299,10 +330,41 @@ const appOpenBranchStep = createStep({
       ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
       : await resolveTopicSafe(db, fullPayload.topic, studentId);
 
-    // ── Gate bypass: taskType present → skip P1/P2, go straight to session ──
-    // Gates remain intact for future re-enablement. sessionStartWorkflow writes
-    // FirstActionStarted event and returns composeSessionView().
+    // ── Declared-intent path: student declares own intent (no ELI negotiation) ──
+    // RunDeclaredIntentHandler → SessionIntentIssued(declared): negotiating → activating
+    // RunP2GateHandler → ActivationPlanIssued: activating → active (required per aggregate lifecycle)
+    // Student skips P1/P2 gate UI but P2 domain logic always runs (ADR-001, ei-runtime-tactical-spec §6).
     if (fullPayload.taskType) {
+      const sessionId = crypto.randomUUID();
+      const appendEventAdapter = new PostgresAppendEventAdapter(db);
+      const declaredIntentHandler = new RunDeclaredIntentHandler(appendEventAdapter);
+
+      const intentOutput = await declaredIntentHandler.execute({
+        studentId,
+        topicId: topicRef.topicId,
+        sessionId,
+        timebox: fullPayload.timebox ?? 30,
+        taskType: mapToSessionTaskType(fullPayload.taskType),
+        energy: fullPayload.energy ?? 3,
+        sleepBucket: (fullPayload.sleepBucket ?? '7-8') as SleepBucket,
+      });
+
+      // P2 gate: compute real mode via LoopHealth + emit ActivationPlanIssued.
+      const signalsPort = new PostgresGetStudentSignalsAdapter(db);
+      const p2Handler = new RunP2GateHandler(
+        signalsPort,
+        new AssessLoopHealthHandler(signalsPort, { now: () => new Date() }),
+        appendEventAdapter,
+        new PostgresQueryEventsAdapter(db),
+        new ProtocolEngine(),
+      );
+      const p2Output = await p2Handler.execute({
+        studentId,
+        topicId: topicRef.topicId,
+        sessionId,
+        setAt: intentOutput.issuedAt,
+      });
+
       // Persist last task type for pre-selection (formation-period feature)
       await Q.upsertTopicState(db, studentId, topicRef.topicId, { last_task_type: fullPayload.taskType });
       const run = await sessionStartWorkflow.createRun();
@@ -311,7 +373,7 @@ const appOpenBranchStep = createStep({
           studentId,
           topic: topicRef.topicId,
           topicName: topicRef.topicName,
-          mode: 'Neutral',
+          mode: p2Output.mode,
           taskType: fullPayload.taskType,
           timebox: fullPayload.timebox,
           idempotencyKey,

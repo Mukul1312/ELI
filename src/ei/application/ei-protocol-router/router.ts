@@ -42,12 +42,12 @@ export class ProtocolRouter {
   }
 
   /**
-   * AppOpen: P1 if no recent NegotiatedIntent for topic; P2 if intent exists (S2 Day 2-21).
+   * AppOpen: P1 if no recent SessionIntentIssued for topic; P2 if intent exists (S2 Day 2-21).
    */
   private async decideForAppOpen(studentId: string, topicId: string): Promise<1 | 2> {
     const since = new Date(Date.now() - RECENT_DAYS_MS);
     const events = await this.queryEvents.queryEvents(studentId, {
-      eventTypes: ['NegotiatedIntentIssued'],
+      eventTypes: ['SessionIntentIssued'],
       topicId,
       since,
       limit: 1,

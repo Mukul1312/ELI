@@ -108,8 +108,8 @@ sequenceDiagram
     Projections-->>Runtime: R/Signals {startLatency, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
     LoopHealth-->>Runtime: R/LoopHealthSnapshot {p1=lowCapacity, p2=stalledRisk}
-    Runtime-->>Student: C/NegotiatedIntentIssued {scope=smaller, firstAction=2minStart}
-    Runtime->>Ledger: E/NegotiatedIntentIssued {scope, verificationMinimum}
+    Runtime-->>Student: C/SessionIntentIssued {scope=smaller, firstAction=2minStart}
+    Runtime->>Ledger: E/SessionIntentIssued {scope, verificationMinimum}
 
     Student->>Runtime: C/SessionEnd {topicId, topicName, effortSummary}
     alt Verify now
@@ -153,8 +153,8 @@ sequenceDiagram
     Projections-->>Runtime: R/Signals {silenceDays, openLoops, verificationRate7d}
     Runtime->>LoopHealth: Q/AssessLoopHealth {state, signals}
     LoopHealth-->>Runtime: R/LoopHealthSnapshot {p1=lowEnergy, p3=avoidant}
-    Runtime-->>Student: C/NegotiatedIntentIssued {mode=rescue, plan=fiveMinuteWin}
-    Runtime->>Ledger: E/NegotiatedIntentIssued {mode=rescue, intent=tiny}
+    Runtime-->>Student: C/SessionIntentIssued {mode=rescue, plan=fiveMinuteWin}
+    Runtime->>Ledger: E/SessionIntentIssued {mode=rescue, intent=tiny}
 
     Note over Student,Runtime: Re-entry day flow
     Student->>Runtime: C/SessionEnd {topicId, topicName, tinyEffortDone}
@@ -199,8 +199,8 @@ sequenceDiagram
         StrategicAdj->>Ledger: E/StrategicAdjustmentDecision {closeLoopFirst=true, maxOpenLoops=2}
     end
 
-    Runtime-->>Student: C/NegotiatedIntentIssued {closeOnePendingCheckFirst=true, noNewTopicUntilOneClosed}
-    Runtime->>Ledger: E/NegotiatedIntentIssued {riskOverride=true, constraint=closeLoopFirst}
+    Runtime-->>Student: C/SessionIntentIssued {closeOnePendingCheckFirst=true, noNewTopicUntilOneClosed}
+    Runtime->>Ledger: E/SessionIntentIssued {riskOverride=true, constraint=closeLoopFirst}
 
     Student->>Runtime: C/SessionEnd {topicId, topicName, effortDone}
     alt Verify now (preferred)

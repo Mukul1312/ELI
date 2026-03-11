@@ -2,9 +2,13 @@
 
 > Adapter-level and infrastructure-level optimizations identified through ITracerPort span data (Phase 3, Ops & Observability). None of these changes touch domain logic — they live entirely in driven adapters, application orchestration, or infrastructure configuration.
 >
-> **Source:** ITracerPort structured spans from `TracedDbAdapter` and `TracedAuthAdapter`. Browser-measured request timing. Analysis date: 2026-03-11.
+> **Source:** ITracerPort structured spans from `TracedDbAdapter` and `TracedAuthAdapter`. Browser-measured request timing. Analysis date: 2026-03-11. Updated: 2026-03-12.
 >
 > **Principle:** Domain model (events, aggregates, value objects) stays exactly as designed. All fixes are adapter internals, application-layer orchestration, or infrastructure configuration.
+
+> **ADR-001 (2026-03-11):** `ei_study_sessions` table removed. Session state is now fully derived from `SessionIntentIssued` events in the Ledger. `IStudySessionRepository` port removed from all gate handlers. Session identity carried in event payload (`sessionIntentId` field). See §3 Option C and §5.
+>
+> **ADR-002 (2026-03-12):** Declared-intent bypass replaced with proper domain path. `RunDeclaredIntentHandler` emits `SessionIntentIssued(intentSource='declared')`. `RunP2GateHandler` runs silently (no UI shown) and emits `ActivationPlanIssued`. All protocol events now present in Ledger for both negotiated and declared sessions. `PhaseDeriver` updated to accept `FirstActionStarted` as active-session evidence for declared path.
 
 ---
 
@@ -24,6 +28,8 @@ ITracerPort (Ops & Observability, Phase 3) wraps every DB query and auth call wi
 
 ### Trace Evidence Summary
 
+**Baseline (2026-03-11, before optimizations):**
+
 | Request | Browser Wait | Auth (spans) | DB (spans) | Biggest Problem |
 |---------|-------------|-------------|-----------|-----------------|
 | AppOpen (initial checkin) | **6.16s** | 2.63s (43%) | 3.50s (57%) | 11 parallel reads → pool contention |
@@ -31,13 +37,30 @@ ITracerPort (Ops & Observability, Phase 3) wraps every DB query and auth call wi
 | SessionEnd | **7.66s** | 2.01s (26%) | 5.63s (74%) | 4 parallel reads contention + 7 sequential writes |
 | VerificationComplete | **6.05s** | 1.52s (25%) | 4.51s (75%) | 7 parallel reads contention + 5 sequential writes |
 
+**Post ADR-001 + ADR-002 + Session Cache (2026-03-12):**
+
+| Request | Command Duration | Auth | DB Dominant Bottleneck |
+|---------|-----------------|------|------------------------|
+| AppOpen (checkin, cold) | **3713ms** | 0ms (cached) | 5-way parallel → pool contention (1 at 277ms, 4 at 2850–3082ms) |
+| AppOpen (declared intent) | **4712ms** | 0ms (cached) | Sequential: `SessionIntentIssued` INSERT (303ms) → P2 signals contention (3173ms) → 4 sequential writes (1220ms) |
+| SessionEnd | **4360ms** | 0–265ms | 4-way `PhaseDeriver` contention (2308ms) + `getSessionIdFromLastIntent` (304ms) + signals (603ms) + 2 writes (589ms) |
+| VerificationComplete | **3660ms** | 265ms | 6-way parallel → pool contention (5 of 6 wait 3348–3352ms) + 1 write (303ms) |
+| AppOpen (checkin, warm) | **1228ms** | 0ms (cached) | Sequential events query (605ms) + 5-way parallel (617ms max, low contention) |
+
+**Improvements achieved:**
+- `auth:getSession`: 984–1616ms → **0ms** (warm, in-memory session cache)
+- `ei_study_sessions` write chain: **~332ms eliminated** per request (ADR-001)
+- `SessionEnd` total: 7660ms → **4360ms** (~43% reduction)
+- `VerificationComplete` total: 6050ms → **3660ms** (~39% reduction)
+
 ### Latency Budget (Target)
 
-| Phase | Budget | Current |
-|-------|--------|---------|
-| Auth (getSession + ensure + resolve) | ≤500ms | 1500–2600ms |
-| DB reads (parallel queries) | ≤500ms | 280–2850ms |
-| DB writes (event append + session) | ≤500ms | 750–1900ms |
+| Phase | Budget | Baseline (2026-03-11) | Current (2026-03-12) |
+|-------|--------|-----------------------|----------------------|
+| Auth (getSession + ensure + resolve) | ≤500ms | 1500–2600ms | **0–265ms** ✅ warm |
+| DB reads (parallel queries) | ≤500ms | 280–2850ms | 277–3173ms (pool contention persists) |
+| DB writes (event append) | ≤500ms | 750–1900ms | 288–1220ms (CTE helps per-event; chains remain) |
+| Framework overhead (Next.js, JSON) | ≤50ms | ~25ms | ~25ms |
 | Framework overhead (Next.js, JSON) | ≤50ms | ~25ms |
 | **Total** | **≤1550ms** | **2600–7660ms** |
 
@@ -85,7 +108,51 @@ Increase Neon pooler `max` connections from default (likely 10) to 20-30. This a
 | Risk | Higher connection consumption under load |
 | Impact | Reduces tail latency on parallel fans by ~40-60% |
 
-#### Fix B: Consolidate Checkin Queries into 1-2 Read Model Queries (EI Projections)
+#### Fix B1: Merge `getSignals` into 1 CTE Query (Cross-Cutting)
+
+`PostgresGetStudentSignalsAdapter.getSignals()` fires 3 queries in parallel via `Promise.all`:
+
+```ts
+const [aggRow, policyRow, topicRows] = await Promise.all([
+  Q.getAggregates(db, studentId),    // SELECT from ei_student_aggregates
+  Q.getPolicy(db, studentId),        // SELECT from ei_student_policy
+  Q.getAllTopicStates(db, studentId), // SELECT from ei_topic_state
+]);
+```
+
+All three queries share `student_id`. Under pool contention, 2 of 3 wait 2800–3100ms. A single CTE joining all three tables eliminates 2 connections and reduces to ~300ms total.
+
+| Aspect | Detail |
+|--------|--------|
+| Owner | EI Runtime (infrastructure adapter) |
+| Change | Replace `Promise.all` with single `JOIN` or CTE in `getStudentSignals` |
+| Port change | None — `IGetStudentSignalsPort.getSignals()` signature unchanged |
+| Domain impact | None |
+| Impact | 3 queries → 1 = ~2800ms savings when pool is contended |
+
+#### Fix B2: Merge `PhaseDeriver` into 1 Query (EI Runtime)
+
+`PhaseDeriver.derivePhase()` fires 4 queries in parallel:
+
+```ts
+const [intentEvents, planEvents, decisionEvents, startedEvents] = await Promise.all([
+  queryEvents(studentId, { eventTypes: ['SessionIntentIssued'], topicId, ... }),
+  queryEvents(studentId, { eventTypes: ['ActivationPlanIssued'], topicId, ... }),
+  queryEvents(studentId, { eventTypes: ['VerificationDecisionIssued'], topicId, ... }),
+  queryEvents(studentId, { eventTypes: ['FirstActionStarted'], topicId, ... }),
+]);
+```
+
+Under pool contention, 3 of 4 wait ~2300ms. All 4 queries share `student_id`, `topic_id`, and time window. A single `GROUP BY event_type` or `COUNT FILTER` query returns all 4 counts in one round-trip.
+
+| Aspect | Detail |
+|--------|--------|
+| Owner | EI Runtime (application layer) |
+| Change | Single `SELECT event_type, COUNT(*) WHERE event_type = ANY($types) GROUP BY event_type` |
+| Domain impact | None |
+| Impact | 4 queries → 1 = ~2300ms savings when pool is contended; PhaseDeriver on every `IntentSet` + `SessionEnd` |
+
+#### Fix B3: Consolidate Checkin Queries into 1-2 Read Model Queries (EI Projections)
 
 Redesign the checkin read path to use projections as intended:
 
@@ -158,9 +225,9 @@ SessionEnd correlation `db9c5758`:
 | idempotency check (2nd event) | 325ms | `SELECT event_id FROM ei_idempotency_keys WHERE key = $1` |
 | insert event (2nd event) | 307ms | `INSERT INTO ei_events (...) RETURNING *` |
 | insert idempotency key (2nd event) | 281ms | `INSERT INTO ei_idempotency_keys (...) DO NOTHING` |
-| insert study session | 332ms | `INSERT INTO ei_study_sessions (...)` |
+| ~~insert study session~~ | ~~332ms~~ | ~~`INSERT INTO ei_study_sessions (...)`~~ — **eliminated** (ADR-001: table removed) |
 | topic state lookup | 287ms | `SELECT consecutive_deferrals FROM ei_topic_state ...` |
-| **Sequential write total** | **~2298ms** | |
+| **Sequential write total** | **~1966ms** (was ~2298ms) | ~332ms saved by ADR-001 table removal |
 
 ### DDD Analysis
 
@@ -170,7 +237,9 @@ The port interface doesn't change. The domain doesn't know how the adapter imple
 
 ### Approach
 
-#### Option A: CTE Single-Round-Trip Append (Per Event)
+#### ✅ Option A: CTE Single-Round-Trip Append (Per Event) — **IMPLEMENTED**
+
+> **Status:** Implemented. The `insertEvent` CTE now handles idempotency check + event insert + key insert in a single round-trip. All `append()` calls in P1, P2, P3 gate handlers use the CTE path. Impact: ~500ms saved per event append.
 
 Collapse the 3-step flow into a single SQL statement using a Common Table Expression:
 
@@ -220,29 +289,39 @@ WITH ... (same CTE pattern, multi-row INSERT)
 | Risk | Slightly more complex SQL; idempotency per-event within batch |
 | Impact | 6 round-trips → 1 for 2-event workflows = ~1250ms saved |
 
-#### Option C: Consolidate Session Write Chain
+#### ~~Option C: Consolidate Session Write Chain~~ — **SUPERSEDED by ADR-001**
 
-SessionEnd currently does: append event → append event → find session → insert/update session → lookup topic state. The session state updates are sequential because each depends on the previous.
+> **Superseded.** `ei_study_sessions` was removed per ADR-001 (2026-03-11): session state is fully derivable from `SessionIntentIssued` in the event Ledger. The entire session write chain (find session → insert/update session) no longer exists. The ~332ms `INSERT INTO ei_study_sessions` step is eliminated entirely — compared to the ~250ms that a single UPDATE would have saved. No action needed.
 
-These could be consolidated:
+#### Option D: Eliminate `getSessionIdFromLastIntent` Sequential Read — **NEW**
 
-- **Session close:** `UPDATE ei_study_sessions SET status = $1, updated_at = $2 WHERE student_id = $3 AND topic_id = $4 AND status IN (...) RETURNING *` — replaces find + insert pattern with single upsert.
-- **Combined with batch append:** Events + session update in a single transaction CTE.
+`protocol2-activation.ts` (line 63) and `protocol3-verification.ts` (line 67) both execute a sequential read before the handler runs:
+
+```ts
+const sessionId = await Q.getSessionIdFromLastIntent(db, studentId, topic) ?? crypto.randomUUID();
+```
+
+This is ~300ms on every `IntentSet` and `SessionEnd` command. It exists because the sessionId (set at P1) is not carried forward in the command payload.
+
+**Root cause:** The client receives `sessionIntentId` in the `SessionIntentIssuedOutput` from P1, but doesn't send it back with `IntentSet`/`SessionEnd` commands.
+
+**Fix:** Include `sessionId` in the `IntentSet` and `SessionEnd` command payloads (client-side change). The server reads it directly from the command — no Ledger query needed.
 
 | Aspect | Detail |
 |--------|--------|
-| Owner | EI Runtime (session management adapter) |
-| Port change | Session repository adapter internals only |
+| Owner | EI Runtime (command schema) + client |
+| Change | Add optional `sessionId` field to `IntentSet` and `SessionEnd` command payloads; skip `getSessionIdFromLastIntent` if present |
 | Domain impact | None |
-| Impact | 2 round-trips → 1 for session close = ~250ms saved |
+| Risk | Low — fallback to Ledger query if field absent (backwards compatible) |
+| Impact | ~300ms saved per `IntentSet` + `SessionEnd` |
 
 ### Pros and Cons
 
-| | Option A (CTE per event) | Option B (Batch append) | Option C (Session consolidate) |
-|---|---|---|---|
-| **Pros** | No port change; drop-in replacement; ~500ms/event saved | Biggest savings for multi-event workflows; clean port extension | Eliminates session find+update overhead |
-| **Cons** | Still multiple round-trips for multi-event workflows | New port method; callers must be updated | Specific to session workflows only |
-| **Complexity** | Low (single function rewrite) | Medium (port + adapter + caller updates) | Low (adapter internal) |
+| | Option A (CTE per event) | Option B (Batch append) | Option C (Session consolidate) | Option D (SessionId in command) |
+|---|---|---|---|---|
+| **Pros** | No port change; drop-in replacement; ~500ms/event saved | Biggest savings for multi-event workflows; clean port extension | Eliminates session find+update overhead | Eliminates sequential Ledger read; client already has sessionId |
+| **Cons** | Still multiple round-trips for multi-event workflows | New port method; callers must be updated | Specific to session workflows only | Requires client-side change |
+| **Complexity** | Low (single function rewrite) | Medium (port + adapter + caller updates) | Low (adapter internal) | Low |
 
 ### Challenges
 
@@ -257,11 +336,12 @@ These could be consolidated:
 
 ### Phase Plan
 
-| Phase | What | When |
-|-------|------|------|
-| Sprint 1 | Option A: CTE single-round-trip `insertEvent` | Next sprint |
-| Sprint 1 | Option C: Single UPDATE for session close | Same sprint |
-| Sprint 2 | Option B: `appendBatch` port extension (if multi-event workflows remain a bottleneck) | After measuring Option A impact |
+| Phase | What | Status |
+|-------|------|--------|
+| ✅ Done | Option A: CTE single-round-trip `insertEvent` | Implemented |
+| ✅ Done | Option C: Session close consolidation | **Superseded by ADR-001** — `ei_study_sessions` removed entirely |
+| Sprint 2 | Option B: `appendBatch` port extension (if multi-event workflows remain a bottleneck) | Pending — measure after Fix B1/B2 |
+| Sprint 2 | Option D: Pass `sessionId` in command payload | Pending — client + server schema change |
 
 ---
 
@@ -271,27 +351,37 @@ These could be consolidated:
 
 ### Current State
 
-Every request executes three sequential auth phases:
+> **getSession cache implemented (2026-03-11).** Module-scoped `Map<sessionToken, {data, exp}>` with 4-minute TTL in `src/lib/auth/server.ts`. On warm requests, `auth:getSession` is **0ms**. On cache miss, falls back to HTTP (~1000ms). `ensureMapping` + `resolveAuth` were merged into a single `ensureAndResolve` CTE query (~265ms). Auth total warm: **~265ms**. ✅
+
+Auth phases post-optimization:
 
 ```
-Phase 1: getSession()      → HTTP to Neon Auth service    → 900–1400ms
-Phase 2: ensureMapping()   → 1-3 DB queries (check/insert) → 285–2060ms (cold: 2060ms, warm: 285ms)
-Phase 3: resolveAuth()     → 1 DB query (LEFT JOINs)       → 236–308ms
-                                                     Total: 1519–2631ms
+Phase 1: getSession()        → 0ms (cache hit) / ~1000ms (cache miss)
+Phase 2: ensureAndResolve()  → ~265ms (single merged CTE query)
+                                            Total warm: ~265ms ✅
 ```
-
-Phase 2 depends on Phase 1 (`session.user.id`). Phase 3 depends on Phase 1 (`session.user`). But Phase 2 and Phase 3 do NOT depend on each other — they both only need `user.id` from Phase 1.
 
 ### Trace Evidence
 
+**Baseline (before cache, 2026-03-11):**
+
 | Request | getSession | ensureMapping | resolveAuth | Total Auth |
-|---------|-----------|---------------|-------------|-----------|
+|---------|-----------|---------------|-------------|------------|
 | AppOpen (initial, cold) | 259ms | **2060ms** | 308ms | 2631ms |
 | AppOpen (P1, warm) | **1077ms** | 305ms | 236ms | 1620ms |
 | SessionEnd | **1433ms** | 285ms | 294ms | 2014ms |
 | VerificationComplete | **907ms** | 304ms | 306ms | 1519ms |
 
-`ensureMapping` cold spike (2060ms on first request) is the Neon DB cold-start — connection establishment. On subsequent requests it drops to ~300ms. `getSession` is consistently the largest single call (900-1400ms).
+`ensureMapping` cold spike (2060ms on first request) is the Neon DB cold-start. `getSession` consistently the largest single call (900–1400ms).
+
+**Post session cache + ensureAndResolve merge (2026-03-12):**
+
+| Request | getSession | ensureAndResolve | Total Auth |
+|---------|-----------|------------------|------------|
+| AppOpen (warm) | **0ms** | 265ms | **265ms** |
+| SessionEnd (warm) | **0ms** | 237ms | **237ms** |
+| VerificationComplete (warm) | **1ms** | 335ms | **336ms** |
+| Any request (cache miss) | ~1000ms | ~265ms | **~1265ms** |
 
 ### DDD Analysis
 
@@ -390,48 +480,62 @@ Instead of calling Neon Auth's `getSession()` via HTTP, verify the session JWT l
 
 ### Phase Plan
 
-| Phase | What | When |
-|-------|------|------|
-| Sprint 1 | Option A: Merge ensure + resolve into single CTE query | Next sprint |
-| Sprint 1 | Option B: Parallelize merged-ensure-resolve with any remaining sequential step | Same sprint (if Option A leaves sequential steps) |
-| Investigate | Option D: Check if Neon Auth supports local JWT verification / JWKS | Research task |
-| Later | Option C: Cache only if Vercel KV or similar is already in stack | Post-launch |
+| Phase | What | Status |
+|-------|------|--------|
+| ✅ Done | Option E: In-memory session cache for `getSession` | Implemented — `src/lib/auth/server.ts`. Cache miss still ~1000ms. |
+| ✅ Done | Option A: Merge `ensureMapping` + `resolveAuth` into single CTE `ensureAndResolve` | Implemented — ~265ms per request |
+| Investigate | Option D: Local JWT verification (replace HTTP `getSession` on cache miss) | SDK does not mint `session_data` cookie via middleware. Cache miss path is still HTTP ~1000ms. JWKS endpoint not yet confirmed. |
+| Later | Option C: AuthSession cache (Vercel KV) | Post-launch |
 
 ---
 
 ## §5 DDD Ownership Summary
 
-| Bottleneck | Owner | Layer | Domain Impact |
-|-----------|-------|-------|--------------|
-| Pool contention | Cross-cutting infrastructure | Neon config | None |
-| Read model query fan | EI Projections | Projection schema + query consolidation | Projection may gain 1-2 columns |
-| Sequential write chain | EI Event Ledger | Driven adapter internals (`insertEvent`) | None — port unchanged |
-| Session write chain | EI Runtime | Session repository adapter | None |
-| Auth ensure + resolve | CohortAccess | Application layer (use case merge) | None — AuthSession VO unchanged |
-| Auth getSession HTTP | CohortAccess | ACL adapter | None — same output |
+| Bottleneck | Owner | Layer | Status | Domain Impact |
+|-----------|-------|-------|--------|--------------|
+| Pool contention | Cross-cutting infrastructure | Neon config | ⏳ Pending (config change) | None |
+| `getSignals` 3-way fan-out | EI Runtime (adapter) | `PostgresGetStudentSignalsAdapter` | ⏳ Pending | None — port unchanged |
+| `PhaseDeriver` 4-way fan-out | EI Runtime (application) | `PhaseDeriver` class | ⏳ Pending | None |
+| `getSessionIdFromLastIntent` sequential read | EI Runtime (orchestration) | P2 + P3 workflow steps | ⏳ Pending (client schema) | None |
+| Read model query fan (checkin) | EI Projections | Projection schema + query consolidation | ⏳ Pending | Projection may gain 1-2 columns |
+| Sequential write chain | EI Event Ledger | Driven adapter (`insertEvent`) | ✅ Done (CTE, Option A) | None |
+| ~~Session write chain~~ | ~~EI Runtime~~ | ~~Session repository adapter~~ | ✅ **Eliminated** — ADR-001 | — |
+| Auth ensure + resolve | CohortAccess | Application layer | ✅ Done (`ensureAndResolve` CTE) | None |
+| Auth `getSession` HTTP | CohortAccess | ACL adapter | ✅ Done (in-memory cache) | None |
+| Bypass domain concept | EI Runtime (domain) | Declared-intent path | ✅ Done (ADR-002) | `DeclaredIntent` VO added |
 
-**Key DDD insight:** None of these fixes touch domain logic. They're all infrastructure adapter optimizations or application-layer orchestration changes.
+**Key DDD insight:** None of these fixes touch core domain invariants. They are adapter internals, application-layer orchestration, or infrastructure configuration.
 
 ---
 
 ## §6 Combined Phase Plan
 
-### Immediate (Config Only)
+### ✅ Completed
 
-- Increase Neon connection pool max (Fix A from §2)
+| What | Impact |
+|------|--------|
+| In-memory `getSession` cache (§4 Option E) | `auth:getSession`: 984–1616ms → 0ms warm |
+| Merge `ensureMapping` + `resolveAuth` → `ensureAndResolve` (§4 Option A) | Auth DB: 2×250ms → 265ms |
+| CTE single-round-trip `insertEvent` (§3 Option A) | 3 round-trips → 1 per event append |
+| Remove `ei_study_sessions` + `IStudySessionRepository` (ADR-001, §3 Option C) | ~332ms write eliminated per request |
+| Replace bypass with `DeclaredIntent` + silent P2 (ADR-002) | Ledger integrity restored; all protocol events present |
 
-### Sprint 1 (Adapter Optimizations)
+### Immediate (Config, Zero Code)
 
-- CTE single-round-trip `insertEvent` (§3 Option A)
-- Single UPDATE for session close (§3 Option C)
-- Merge ensureMapping + resolveAuth (§4 Option A)
-- Consolidate checkin queries to 2 (§2 Fix B)
+- **§2 Fix A:** Increase Neon connection pool max (dashboard change) — reduces pool contention from 2800–3100ms to near-zero
 
-### Sprint 2 (Measure + Iterate)
+### Sprint 2 (Query Consolidation)
 
-- Measure post-optimization span data
-- `appendBatch` port extension if multi-event workflows remain slow (§3 Option B)
-- Investigate Neon Auth local JWT verification (§4 Option D)
+- **§2 Fix B1:** Merge `getSignals` (3 queries → 1 CTE) — ~2800ms savings per command under contention
+- **§2 Fix B2:** Merge `PhaseDeriver` (4 queries → 1 GROUP BY) — ~2300ms savings on every `IntentSet` + `SessionEnd`
+- **§3 Option D:** Pass `sessionId` in command payload — eliminates `getSessionIdFromLastIntent` (~300ms) on every `IntentSet` + `SessionEnd`
+- **§2 Fix B3:** Consolidate checkin queries to 2 — ~2000ms savings on AppOpen (checkin)
+
+### Sprint 3 (Measure + Iterate)
+
+- Measure post-Sprint-2 span data against target latency budget
+- **§3 Option B:** `appendBatch` port extension if multi-event workflows remain slow
+- **§4 Option D:** Investigate Neon Auth local JWT verification for cache-miss path
 
 ### Later
 
@@ -443,10 +547,11 @@ Instead of calling Neon Auth's `getSession()` via HTTP, verify the session JWT l
 
 ## §7 Open Questions
 
-1. **Neon pool max default:** What is the current Neon pooler `max` setting? Need to check dashboard.
-2. **Neon Auth JWKS:** Does `@neondatabase/auth` support local JWT verification or expose a JWKS endpoint?
+1. **Neon pool max default:** What is the current Neon pooler `max` setting? Need to check dashboard before Fix A.
+2. **Neon Auth JWKS:** Does `@neondatabase/auth` support local JWT verification or expose a JWKS endpoint? Cache miss path is still HTTP ~1000ms.
 3. **Projection column migration path:** Can we add columns to `ei_student_aggregates` without downtime? (Yes — `ALTER TABLE ADD COLUMN` with default is non-blocking in Postgres.)
-4. **Batch append adoption:** Which workflows currently append 2+ events? (SessionEnd, VerificationComplete — both append 2 events via gate use cases.)
+4. **Batch append adoption:** Which workflows currently append 2+ events? (`SessionEnd` appends `SessionEnd` + `VerificationDecisionIssued`; `VerificationComplete` appends 1 event. Check `protocol3-verification.ts`.)
+5. **`sessionId` in client commands:** `SessionIntentIssuedOutput.sessionIntentId` is already returned from P1. Does the client currently send it back with `IntentSet` and `SessionEnd` commands?
 
 ---
 

@@ -12,7 +12,7 @@
 - **Non-goals (outside EI Event Ledger):**
   - Computing derived state (openLoops, verificationRate7d, etc.) — EI Projections
   - Interpreting metrics into labels/snapshots — LoopHealthAssessment
-  - Protocol semantics for events (what a NegotiatedIntentIssued *means*) — EI Runtime / Strategic Adjustment
+  - Protocol semantics for events (what a SessionIntentIssued *means*, which intentSource applies) — EI Runtime / Strategic Adjustment
 
 ---
 
@@ -22,7 +22,7 @@
 | Term | Definition |
 | ---- | ---------- |
 | `DomainEvent` | **Domain Event (stored, not raised here):** immutable record of a significant EI occurrence — type, student context, schema-validated payload, occurred_at. Produced by Runtime or SA; schema-owned by Ledger; stored (not raised) by Ledger. All EventTypeEnum members qualify. |
-| `EventType` | **Enum Value Object:** `AppOpen \| IntentSet \| SessionEnd \| NegotiatedIntentIssued \| ActivationPlanIssued \| IntentResponse \| FirstActionStarted \| Replan \| VerificationDecisionIssued \| RetrievalVerified \| RetrievalScheduled \| RetrievalSkipped \| VerificationCompleted \| StrategicAdjustmentDecision \| ScheduleMissed` — immutable string union, equality by value. |
+| `EventType` | **Enum Value Object:** `AppOpen \| IntentSet \| SessionEnd \| SessionIntentIssued \| ActivationPlanIssued \| IntentResponse \| FirstActionStarted \| Replan \| VerificationDecisionIssued \| RetrievalVerified \| RetrievalScheduled \| RetrievalSkipped \| VerificationCompleted \| StrategicAdjustmentDecision \| ScheduleMissed` — immutable string union, equality by value. (`SessionIntentIssued` replaces the former `NegotiatedIntentIssued`; carries `intentSource: 'negotiated' \| 'declared'` discriminator.) |
 | `EventPayload<T>` | **Structural Value Object (per-type):** Zod-validated JSONB data for one EventType; shape varies per type (`AppOpenPayload`, `IntentSetPayload`, etc.). Immutable by convention, equality by all fields. |
 | `IdempotencyKey` | **Value Object:** non-empty string uniquely identifying one logical append attempt. Recommended format: `{context}:{eventType}:{studentId}:{timestamp}`. Equality by string value. Prevents duplicate events on retry. |
 | `OccurredAt` | **Value type:** ISO 8601 datetime string set by the producer (Runtime/SA) at the time the event occurred. Distinct from `created_at` (storage timestamp). |

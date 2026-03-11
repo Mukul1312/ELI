@@ -48,7 +48,7 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
           if (!phase.hasIntent) {
-            throw new InvalidTransitionError('IntentSet requires a recent NegotiatedIntentIssued for this topic');
+            throw new InvalidTransitionError('IntentSet requires a recent SessionIntentIssued for this topic');
           }
         }
         const run = await protocol2ActivationWorkflow.createRun();

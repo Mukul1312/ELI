@@ -19,6 +19,10 @@ export type DifficultyTier = z.infer<typeof DifficultyTierEnum>;
 export const TaskTypeEnum = z.enum(['practice', 'reading', 'video', 'revision', 'mixed']);
 export type TaskType = z.infer<typeof TaskTypeEnum>;
 
+/** Session-level task type for SessionIntentIssued (both declared and negotiated paths). */
+export const SessionTaskTypeEnum = z.enum(['Learn', 'Practice', 'Test']);
+export type SessionTaskType = z.infer<typeof SessionTaskTypeEnum>;
+
 export const IntentDecisionEnum = z.enum(['accepted', 'edited', 'rejected', 'ignored']);
 export type IntentDecision = z.infer<typeof IntentDecisionEnum>;
 
@@ -188,7 +192,7 @@ export type IdentityMomentShown = z.infer<typeof IdentityMomentShownSchema>;
 
 export const EventTypeEnum = z.enum([
   'AppOpen',
-  'NegotiatedIntentIssued',
+  'SessionIntentIssued',
   'IntentResponse',
   'IntentSet',
   'ActivationPlanIssued',

@@ -10,6 +10,8 @@ import type { Mode } from '../../loop-health/loop-health-snapshot';
 import type { PlaySelection } from './play-selection';
 import type { P1GateContext } from './gate-context';
 import type { StudentPolicyInput } from '../../loop-health/aggregates-input';
+import type { SleepBucket } from '../../../engine/score';
+import type { SessionTaskType } from '../../../schemas/events';
 
 import {
   P1_RESCUE_SCOPE_MIN,
@@ -26,6 +28,12 @@ import {
 
 export type DifficultyTier = 'easy' | 'med' | 'hard' | 'advanced';
 
+/** Map a P1 playId to the session-level task type emitted in SessionIntentIssued. */
+function deriveSessionTaskType(playId: string): SessionTaskType {
+  if (playId.startsWith('P1-B')) return 'Test';
+  return 'Practice';
+}
+
 interface NegotiatedIntentProps {
   playId: string;
   mode: Mode;
@@ -34,6 +42,8 @@ interface NegotiatedIntentProps {
   constraints?: { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string };
   stateScore: number;
   negotiatedIntentId?: string;
+  energy: number;
+  sleepBucket: SleepBucket;
 }
 
 export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
@@ -47,6 +57,7 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
     policy: StudentPolicyInput,
     stateScore: number,
     negotiatedIntentId?: string,
+    sleepBucket: SleepBucket = '7-8',
   ): NegotiatedIntent {
     // Compute scope range based on mode
     let scopeMin: number;
@@ -141,6 +152,8 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
       constraints: Object.keys(constraints).length > 0 ? constraints : undefined,
       stateScore,
       ...(negotiatedIntentId !== undefined && { negotiatedIntentId }),
+      energy: ctx.energy,
+      sleepBucket,
     });
   }
 
@@ -151,25 +164,35 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
   get constraints(): NegotiatedIntentProps['constraints'] { return this.props.constraints; }
   get stateScore(): number { return this.props.stateScore; }
   get negotiatedIntentId(): string | undefined { return this.props.negotiatedIntentId; }
+  get energy(): number { return this.props.energy; }
+  get sleepBucket(): SleepBucket { return this.props.sleepBucket; }
+  get intentSource(): 'negotiated' { return 'negotiated'; }
 
   isRescueMode(): boolean { return this.props.mode === 'Rescue'; }
   requiresVerificationNow(): boolean { return this.props.verificationPlan.preferVerifyNow; }
   closeLoopFirst(): boolean { return this.props.constraints?.closeOpenLoopFirst === true; }
 
   toEventPayload(studentId: string, topicId: string): Record<string, unknown> {
-    const payload: Record<string, unknown> = {
+    return {
       studentId,
       topicId,
-      playId: this.props.playId,
+      intentSource: 'negotiated' as const,
+      timebox: this.props.scope.timeboxMin,
+      taskType: deriveSessionTaskType(this.props.playId),
+      energy: this.props.energy,
+      sleepBucket: this.props.sleepBucket,
+      issuedAt: new Date().toISOString(),
       mode: this.props.mode,
-      scope: this.props.scope,
-      verificationPlan: this.props.verificationPlan,
-      constraints: this.props.constraints,
+      playId: this.props.playId,
+      verificationFloor: {
+        minQuestions: this.props.verificationPlan.minQuestions,
+        preferVerifyNow: this.props.verificationPlan.preferVerifyNow,
+      },
+      constraints: this.props.constraints ?? null,
       stateScore: this.props.stateScore,
+      questionCount: this.props.scope.questionCount,
+      difficultyTier: this.props.scope.difficultyTier,
+      sessionIntentId: this.props.negotiatedIntentId ?? null,
     };
-    if (this.props.negotiatedIntentId !== undefined) {
-      payload.negotiatedIntentId = this.props.negotiatedIntentId;
-    }
-    return payload;
   }
 }

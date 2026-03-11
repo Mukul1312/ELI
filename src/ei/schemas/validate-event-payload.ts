@@ -18,7 +18,7 @@ import {
   IdentityMomentShownSchema,
 } from './events';
 import {
-  NegotiatedIntentIssuedSchema,
+  SessionIntentIssuedSchema,
   ActivationPlanIssuedSchema,
   VerificationDecisionIssuedSchema,
   StrategicAdjustmentDecisionSchema,
@@ -44,7 +44,7 @@ const EVENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   VerificationCompleted: VerificationCompletedSchema.strict(),
   FirstActionStarted: FirstActionStartedSchema.strict(),
   Replan: ReplanSchema.strict(),
-  NegotiatedIntentIssued: NegotiatedIntentIssuedSchema.strict(),
+  SessionIntentIssued: SessionIntentIssuedSchema.strict(),
   ActivationPlanIssued: ActivationPlanIssuedSchema.strict(),
   VerificationDecisionIssued: VerificationDecisionIssuedSchema.strict(),
   StrategicAdjustmentDecision: StrategicAdjustmentDecisionSchema.strict(),

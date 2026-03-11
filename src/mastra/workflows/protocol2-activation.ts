@@ -11,11 +11,11 @@ import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
 import { getDb } from '../../ei/runtime/db';
+import * as Q from '../../ei/db/queries';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
@@ -54,15 +54,16 @@ const runP2Gate = createStep({
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
     const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const queryEvents = new PostgresQueryEventsAdapter(db);
-    const sessionRepo = new StudySessionRepositoryPg(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
 
-    // Resolve stable session identity via repository (Option A: server owns sessionId).
-    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
+    // Derive stable sessionId from last SessionIntentIssued event (Option B, ADR-001):
+    // aggregate ID is carried in the event payload — no secondary store needed.
+    // Fallback uuid: micro path skips P1 so no prior SessionIntentIssued exists — fix in follow-up.
+    const sessionId = await Q.getSessionIdFromLastIntent(db, studentId, topic) ?? crypto.randomUUID();
 
     // Persist display name early via driven port (micro path skips P1,
-    // and NegotiatedIntentIssued is not a TopicLoop event, so sync-on-append
+    // and SessionIntentIssued is not a TopicLoop event, so sync-on-append
     // projector won't extract it). Pending-items-list needs it immediately.
     if (topicName) {
       const displayNameWriter = new PostgresTopicDisplayNameWriter(db);
@@ -81,12 +82,11 @@ const runP2Gate = createStep({
       appendEvent,
       queryEvents,
       protocolEngine,
-      sessionRepo,
     );
     return handler.execute({
       studentId,
       topicId: topic,
-      sessionId: session.sessionId,
+      sessionId,
       setAt,
       taskType,
     });

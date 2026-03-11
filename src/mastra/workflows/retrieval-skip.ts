@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composePhase3View, type Phase3Scenario } from '../../ei/sdui/view-composer';
 import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
@@ -64,14 +63,6 @@ const appendAndComposeStep = createStep({
       payload,
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalSkipped` : undefined,
     });
-
-    // Close the active session for this topic — terminal outcome.
-    const sessionRepo = new StudySessionRepositoryPg(db);
-    const activeSession = await sessionRepo.findActiveByStudentTopic(studentId, topic);
-    if (activeSession) {
-      activeSession.close();
-      await sessionRepo.save(activeSession);
-    }
 
     const aggregatesForPresentation = aggregates
       ? {

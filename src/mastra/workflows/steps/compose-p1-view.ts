@@ -12,7 +12,7 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { NegotiatedIntentIssuedSchema } from '../../../ei/schemas/outputs';
+import { SessionIntentIssuedSchema } from '../../../ei/schemas/outputs';
 import { P1WrappedResponseSchema } from '../../../ei/sdui/types/sdui-contract';
 import { buildP1PresentationContext } from '../../../ei/sdui/presentation-context';
 import { composeP1View } from '../../../ei/sdui/view-composer';
@@ -68,7 +68,7 @@ function mapTopicSnapshots(rows: z.infer<typeof TopicStateSubsetSchema>[]): Topi
 // ============================================================================
 
 export const ComposeP1ViewInputSchema = z.object({
-  domainOutput: NegotiatedIntentIssuedSchema,
+  domainOutput: SessionIntentIssuedSchema,
   workflowInput: z.object({
     energy: z.number(),
   }),
@@ -76,6 +76,8 @@ export const ComposeP1ViewInputSchema = z.object({
   topicStates: z.array(TopicStateSubsetSchema),
   sessionsLast7d: z.number(),
   loopsClosedLast7d: z.number(),
+  sessionsTotal: z.number(),
+  hasPriorOpen: z.boolean(),
   lastIdentityShownAt: z.date().nullable(),
   historicalIndicators: z
     .object({ hadSilenceInLast14d: z.boolean(), hadHighPressureInLast14d: z.boolean() })
@@ -98,6 +100,8 @@ export const composeP1ViewStep = createStep({
       topicStates,
       sessionsLast7d,
       loopsClosedLast7d,
+      sessionsTotal,
+      hasPriorOpen,
       lastIdentityShownAt,
       historicalIndicators,
     } = inputData;
@@ -110,6 +114,8 @@ export const composeP1ViewStep = createStep({
       { sessionsLast7d, loopsClosedLast7d },
       lastIdentityShownAt,
       historicalIndicators,
+      hasPriorOpen,
+      sessionsTotal,
     );
     const sdui = composeP1View(domainOutput, ctx);
 

@@ -17,7 +17,6 @@ import { getDb } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
@@ -59,12 +58,13 @@ const runP3Gate = createStep({
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
     const appendEvent = idempotencyKey ? withIdempotencyKey(baseAdapter, idempotencyKey) : baseAdapter;
     const queryEvents = new PostgresQueryEventsAdapter(db);
-    const sessionRepo = new StudySessionRepositoryPg(db);
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
 
-    // Resolve stable session identity via repository (Option A: server owns sessionId).
-    const session = await sessionRepo.getOrCreateActiveSession(studentId, topic);
+    // Derive stable sessionId from last SessionIntentIssued event (Option B, ADR-001):
+    // aggregate ID is carried in the event payload — no secondary store needed.
+    // Fallback uuid: safety net for sessions started before this migration.
+    const sessionId = await Q.getSessionIdFromLastIntent(db, studentId, topic) ?? crypto.randomUUID();
 
     const handler = new RunP3GateHandler(
       signalsPort,
@@ -72,14 +72,13 @@ const runP3Gate = createStep({
       appendEvent,
       queryEvents,
       protocolEngine,
-      sessionRepo,
     );
     const result = await handler.execute({
       studentId,
       topicId: topic,
       topicName,
       taskType,
-      sessionId: session.sessionId,
+      sessionId,
       endedAt,
     });
 
