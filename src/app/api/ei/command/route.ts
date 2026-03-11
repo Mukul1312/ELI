@@ -19,6 +19,9 @@ import {
 } from '@/ei/application/run-ei-command/errors';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createCorrelationId, logGateCall } from '@/ei/infrastructure/logging';
+import { StructuredSpanLogger } from '@/ops/infrastructure/tracing/structured-span-logger';
+import { createTracedDb } from '@/ops/infrastructure/tracing/traced-db-adapter';
+import { requestContext } from '@/ops/infrastructure/tracing/request-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,55 +69,61 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Execute via orchestrator
+  // 5. Execute via orchestrator — wrapped in traced request context
   const { idempotencyKey, ...command } = parsed.data;
   const correlationId = createCorrelationId();
-  const start = performance.now();
-  try {
-    const queryEvents = new PostgresQueryEventsAdapter(eiStore.db);
-    const handler = new RunEiCommandHandler(queryEvents);
-    const raw = await handler.execute({
-      command,
-      studentId: auth.studentId,
-      idempotencyKey,
-      correlationId,
-    });
-    logGateCall({
-      correlationId,
-      studentId: auth.studentId,
-      commandType: command.commandType,
-      durationMs: Math.round(performance.now() - start),
-    });
-    // Mastra run.start() returns { status, result }; nested workflows nest again. Unwrap until we have the payload.
-    let body: unknown = raw;
-    while (
-      body &&
-      typeof body === 'object' &&
-      'status' in body &&
-      (body as { status: string }).status === 'success' &&
-      'result' in body
-    ) {
-      body = (body as { result: unknown }).result;
+  const tracer = new StructuredSpanLogger();
+  const tracedDb = createTracedDb(eiStore.db, tracer, correlationId);
+
+  return requestContext.run({ tracedDb, correlationId }, async () => {
+    const start = performance.now();
+    try {
+      const queryEvents = new PostgresQueryEventsAdapter(tracedDb);
+      const handler = new RunEiCommandHandler(queryEvents);
+      const raw = await handler.execute({
+        command,
+        studentId: auth.studentId,
+        idempotencyKey,
+        correlationId,
+      });
+
+      logGateCall({
+        correlationId,
+        studentId: auth.studentId,
+        commandType: command.commandType,
+        durationMs: Math.round(performance.now() - start),
+      });
+      // Mastra run.start() returns { status, result }; nested workflows nest again. Unwrap until we have the payload.
+      let body: unknown = raw;
+      while (
+        body &&
+        typeof body === 'object' &&
+        'status' in body &&
+        (body as { status: string }).status === 'success' &&
+        'result' in body
+      ) {
+        body = (body as { result: unknown }).result;
+      }
+      return Response.json(body ?? raw);
+    } catch (err) {
+      logGateCall({
+        correlationId,
+        studentId: auth.studentId,
+        commandType: command.commandType,
+        durationMs: Math.round(performance.now() - start),
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+      if (err instanceof InvalidCommandError)
+        return Response.json({ error: err.message }, { status: 400 });
+      if (err instanceof InvalidTransitionError)
+        return Response.json({ error: err.message }, { status: 422 });
+      if (err instanceof IdempotencyConflictError)
+        return Response.json({ error: err.message }, { status: 409 });
+      console.error('[POST /api/ei/command]', err);
+      return Response.json(
+        { error: err instanceof Error ? err.message : 'Internal error' },
+        { status: 500 },
+      );
     }
-    return Response.json(body ?? raw);
-  } catch (err) {
-    logGateCall({
-      correlationId,
-      studentId: auth.studentId,
-      commandType: command.commandType,
-      durationMs: Math.round(performance.now() - start),
-      error: err instanceof Error ? err.message : 'Unknown error',
-    });
-    if (err instanceof InvalidCommandError)
-      return Response.json({ error: err.message }, { status: 400 });
-    if (err instanceof InvalidTransitionError)
-      return Response.json({ error: err.message }, { status: 422 });
-    if (err instanceof IdempotencyConflictError)
-      return Response.json({ error: err.message }, { status: 409 });
-    console.error('[POST /api/ei/command]', err);
-    return Response.json(
-      { error: err instanceof Error ? err.message : 'Internal error' },
-      { status: 500 },
-    );
-  }
+  });
 }

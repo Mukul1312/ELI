@@ -5,6 +5,6 @@ export class ResolveAuthSessionHandler implements IResolveAuthSessionUseCase {
   constructor(private readonly resolveAuthPort: IResolveAuthSessionPort) {}
 
   async execute(command: ResolveAuthSessionCommand): Promise<AuthSession | null> {
-    return this.resolveAuthPort.resolve(command.sessionContext);
+    return this.resolveAuthPort.resolve(command.sessionUser);
   }
 }

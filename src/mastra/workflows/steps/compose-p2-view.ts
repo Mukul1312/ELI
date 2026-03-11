@@ -10,7 +10,7 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../../ei/runtime/db';
+import { getDb } from '../../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../../ei/infrastructure/persistence/append-event.pg';
 import { validateEventPayload } from '../../../ei/schemas/validate-event-payload';
 import { ActivationPlanIssuedSchema } from '../../../ei/schemas/outputs';
@@ -43,7 +43,7 @@ export const composeP2ViewStep = createStep({
       startedAt: new Date().toISOString(),
     });
 
-    const appendEvent = new PostgresAppendEventAdapter(eiStore.db);
+    const appendEvent = new PostgresAppendEventAdapter(getDb());
     await appendEvent.append({
       studentId,
       eventType: 'FirstActionStarted',

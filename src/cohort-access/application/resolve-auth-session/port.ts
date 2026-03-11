@@ -8,5 +8,5 @@ export interface IResolveAuthSessionUseCase {
 }
 
 export interface IResolveAuthSessionPort {
-  resolve(sessionContext: unknown): Promise<AuthSession | null>;
+  resolve(sessionUser: { id: string } | null): Promise<AuthSession | null>;
 }

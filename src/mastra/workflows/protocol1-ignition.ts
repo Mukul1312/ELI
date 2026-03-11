@@ -10,7 +10,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import * as Q from '../../ei/db/queries';
 import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
@@ -48,7 +48,7 @@ const runP1Gate = createStep({
   outputSchema: NegotiatedIntentIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof NegotiatedIntentIssuedSchema>> => {
     const { studentId, topic, topicName, energy, sleepBucket, idempotencyKey } = inputData;
-    const db = eiStore.db;
+    const db = getDb();
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
     // This deduplicates both the AppOpen event and the NegotiatedIntentIssued event on retry.
@@ -104,7 +104,7 @@ export const protocol1IgnitionWorkflow = createWorkflow({
   .then(runP1Gate)
   .map(async ({ inputData, getInitData }) => {
     const workflowInput = getInitData() as z.infer<typeof P1Input>;
-    const db = eiStore.db;
+    const db = getDb();
 
     const [aggregates, topicStates, eventCounts, lastIdentityShownAt, historicalIndicators] =
       await Promise.all([

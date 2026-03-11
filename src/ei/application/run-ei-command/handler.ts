@@ -59,8 +59,8 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
         const { topic, topicName, taskType, endedAt } = command.payload;
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
-          if (!phase.hasActivationPlan) {
-            throw new InvalidTransitionError('SessionEnd requires a recent ActivationPlanIssued for this topic');
+          if (!phase.hasActiveSession) {
+            throw new InvalidTransitionError('SessionEnd requires an active session (ActivationPlanIssued or FirstActionStarted) for this topic');
           }
         }
         const run = await protocol3VerificationWorkflow.createRun();
@@ -71,8 +71,8 @@ export class RunEiCommandHandler implements IRunEiCommandUseCase {
         const { topic, topicName, mode, taskType, timebox } = command.payload;
         if (deriver) {
           const phase = await deriver.derivePhase(studentId, topic);
-          if (!phase.hasActivationPlan) {
-            throw new InvalidTransitionError('SessionStart requires a recent ActivationPlanIssued for this topic');
+          if (!phase.hasActiveSession) {
+            throw new InvalidTransitionError('SessionStart requires an active session (ActivationPlanIssued or FirstActionStarted) for this topic');
           }
         }
         const run = await sessionStartWorkflow.createRun();

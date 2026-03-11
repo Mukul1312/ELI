@@ -10,7 +10,8 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
+import type { EiDb } from '../../ei/runtime/db';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
 import { ProtocolRouter } from '../../ei/application/ei-protocol-router';
 import {
@@ -35,7 +36,7 @@ import { getTopicDisplayName } from '../../ei/sdui/topic-display-name';
 
 /** Resolve raw topic text via CurriculumCatalog. Never blocks — falls back to raw string on error. */
 async function resolveTopicSafe(
-  db: typeof eiStore.db,
+  db: EiDb,
   rawText: string,
   studentId: string,
 ): Promise<{ topicId: string; topicName: string }> {
@@ -75,7 +76,7 @@ const appOpenBranchStep = createStep({
       // Detect active session via Ledger (per spec §10: phase derivation is Ledger-driven).
       // A session is "active" if FirstActionStarted exists with no subsequent SessionEnd or
       // VerificationDecisionIssued for the same topic within the last 7 days.
-      const db = eiStore.db;
+      const db = getDb();
       const queryEventsAdapter = new PostgresQueryEventsAdapter(db);
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       // Per §10.2: derive session phase from Ledger evidence flags.
@@ -237,7 +238,7 @@ const appOpenBranchStep = createStep({
       const onboardingPayload = payload as { topic: string; topicId?: string; topicName?: string; taskType: string; subject?: string };
       const topicRef = onboardingPayload.topicId
         ? { topicId: onboardingPayload.topicId, topicName: onboardingPayload.topicName ?? onboardingPayload.topic }
-        : await resolveTopicSafe(eiStore.db, onboardingPayload.topic, studentId);
+        : await resolveTopicSafe(getDb(), onboardingPayload.topic, studentId);
       const p1InputData = {
         studentId,
         topic: topicRef.topicId,
@@ -263,7 +264,7 @@ const appOpenBranchStep = createStep({
       };
       const topicRef = microPayload.topicId
         ? { topicId: microPayload.topicId, topicName: microPayload.topicName ?? microPayload.topic }
-        : await resolveTopicSafe(eiStore.db, microPayload.topic, studentId);
+        : await resolveTopicSafe(getDb(), microPayload.topic, studentId);
       const p2InputData = {
         studentId,
         topic: topicRef.topicId,
@@ -293,7 +294,7 @@ const appOpenBranchStep = createStep({
       studentId,
     };
 
-    const db = eiStore.db;
+    const db = getDb();
     const topicRef = fullPayload.topicId
       ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
       : await resolveTopicSafe(db, fullPayload.topic, studentId);

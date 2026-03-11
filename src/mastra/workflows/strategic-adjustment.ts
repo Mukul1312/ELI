@@ -21,7 +21,7 @@ import { PostgresStudentEventStreamReader } from '../../ei/infrastructure/persis
 import { PostgresTopicStateReader } from '../../ei/infrastructure/persistence/topic-state-reader.pg';
 import { ApplyStrategicAdjustmentDecisionHandler } from '../../ei/application/apply-strategic-adjustment-decision/handler';
 import { RecomputeStudentAggregatesHandler } from '../../ei/application/recompute-student-aggregates/handler';
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { getClock } from '../../ei/runtime/clock';
 import * as Q from '../../ei/db/queries';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
@@ -68,7 +68,7 @@ const loadFullEvidence = createStep({
   outputSchema: Loaded,
   execute: async (params): Promise<any> => {
     const { inputData } = params as { inputData: z.infer<typeof SAInput> };
-    const db = eiStore.db;
+    const db = getDb();
     const clock = getClock({});
 
     const signalsAdapter = new PostgresGetStudentSignalsAdapter(db);
@@ -169,7 +169,7 @@ const persistAndEmit = createStep({
   id: 'persist-and-emit', inputSchema: Tightened, outputSchema: FinalOutput,
   execute: async (params): Promise<any> => {
     const { inputData } = params as { inputData: z.infer<typeof Tightened> };
-    const db = eiStore.db;
+    const db = getDb();
     const issuedAt = new Date();
 
     const dials = inputData.saDecision.dials as Record<string, unknown>;

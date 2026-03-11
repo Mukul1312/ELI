@@ -5,7 +5,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
@@ -41,7 +41,7 @@ const appendAndComposeStep = createStep({
       result,
     });
 
-    const db = eiStore.db;
+    const db = getDb();
 
     // Load aggregates + energy before appending event (pre-event snapshot for counter display).
     // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
@@ -54,6 +54,7 @@ const appendAndComposeStep = createStep({
       Q.getTopicState(db, studentId, topic),
       Q.getSessionDurationSec(db, studentId, topic),
     ]);
+
     const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
     const taskType = topicState?.last_task_type ?? undefined;
 
@@ -113,12 +114,12 @@ const appendAndComposeStep = createStep({
 
     const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName, taskType, sessionDurationSec);
 
-    // Sync-on-append: recompute projections in parallel after view is composed.
-    // Keeps aggregates fresh for subsequent sessions; does not affect this response.
-    await Promise.all([
+    // Fire-and-forget: recompute projections for future reads.
+    // Current response uses pre-recompute data; recompute only benefits next AppOpen.
+    Promise.all([
       recomputeTopicLoop(db, studentId, topic),
       recomputeStudentAggregates(db, studentId),
-    ]);
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return sdui;
   },

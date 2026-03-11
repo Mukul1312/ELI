@@ -13,7 +13,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
@@ -53,7 +53,7 @@ const runP3Gate = createStep({
   outputSchema: VerificationDecisionIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof VerificationDecisionIssuedSchema>> => {
     const { studentId, topic, topicName, taskType, endedAt, idempotencyKey } = inputData;
-    const db = eiStore.db;
+    const db = getDb();
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
@@ -83,14 +83,6 @@ const runP3Gate = createStep({
       endedAt,
     });
 
-    // Sync-on-append: update projections after SessionEnd + VerificationDecisionIssued
-    // are written to the Ledger. This ensures pending_checks is accurate when
-    // verification-complete workflow reads pre-event aggregates.
-    await Promise.all([
-      recomputeTopicLoop(db, studentId, topic),
-      recomputeStudentAggregates(db, studentId),
-    ]);
-
     // Learn sessions auto-create a revisit (no 3A ask needed).
     // Append RetrievalScheduled so the loop opens and counter goes UP.
     if (taskType === 'reading') {
@@ -113,15 +105,19 @@ const runP3Gate = createStep({
         payload,
         idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalScheduled` : undefined,
       });
-      // Re-sync projections after the new RetrievalScheduled event
-      await Promise.all([
-        recomputeTopicLoop(db, studentId, topic),
-        recomputeStudentAggregates(db, studentId),
-      ]);
     }
 
-    // Dropout Signal: query consecutive deferrals after projector sync
+    // Dropout Signal: reads pre-recompute ei_topic_state. Acceptable because
+    // SessionEnd/VerificationDecisionIssued don't affect consecutive_deferrals,
+    // and dropout signal only affects presentation, not routing.
     const consecutiveDeferrals = await Q.getConsecutiveDeferrals(db, studentId, topic);
+
+    // Single fire-and-forget at end — one writer per student per step execution.
+    // Covers both Learn (SessionEnd + RetrievalScheduled) and non-Learn (SessionEnd only).
+    Promise.all([
+      recomputeTopicLoop(db, studentId, topic),
+      recomputeStudentAggregates(db, studentId),
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return { ...result, topicName, taskType, dropoutSignalActive: consecutiveDeferrals >= 3 };
   },

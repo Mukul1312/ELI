@@ -32,35 +32,44 @@ export async function insertEvent(
   occurredAt?: Date,
   idempotencyKey?: string,
 ): Promise<StoredEventRow> {
-  if (idempotencyKey) {
-    const existing = await db.oneOrNone<{ event_id: string }>(
-      'SELECT event_id FROM ei_idempotency_keys WHERE key = $1',
-      [idempotencyKey],
+  const ts = occurredAt ?? new Date();
+  const jsonPayload = JSON.stringify(payload);
+
+  // Without idempotency key: single INSERT (1 round-trip)
+  if (!idempotencyKey) {
+    return db.one<StoredEventRow>(
+      `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [studentId, eventType, topicId, jsonPayload, ts],
     );
-    if (existing) {
-      const row = await db.oneOrNone<StoredEventRow>(
-        'SELECT * FROM ei_events WHERE id = $1',
-        [existing.event_id],
-      );
-      if (row) return row;
-    }
   }
 
-  const row = await db.one(
-    `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-    [studentId, eventType, topicId, JSON.stringify(payload), occurredAt ?? new Date()],
+  // With idempotency key: single CTE (1 round-trip instead of 3)
+  // Checks existing key, conditionally inserts event + key, returns result.
+  // Cast $5::jsonb needed: INSERT...SELECT doesn't infer column types like VALUES does.
+  // Cast ex.event_id::uuid needed: ei_idempotency_keys.event_id is TEXT, ei_events.id is UUID.
+  return db.one<StoredEventRow>(
+    `WITH existing AS (
+       SELECT event_id FROM ei_idempotency_keys WHERE key = $1
+     ),
+     inserted AS (
+       INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
+       SELECT $2, $3, $4, $5::jsonb, $6::timestamptz
+       WHERE NOT EXISTS (SELECT 1 FROM existing)
+       RETURNING *
+     ),
+     key_insert AS (
+       INSERT INTO ei_idempotency_keys (key, event_id)
+       SELECT $1, id::text FROM inserted
+       ON CONFLICT (key) DO NOTHING
+     )
+     SELECT * FROM inserted
+     UNION ALL
+     SELECT e.* FROM ei_events e
+     JOIN existing ex ON e.id = ex.event_id::uuid`,
+    [idempotencyKey, studentId, eventType, topicId, jsonPayload, ts],
   );
-
-  if (idempotencyKey) {
-    await db.none(
-      'INSERT INTO ei_idempotency_keys (key, event_id) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
-      [idempotencyKey, row.id],
-    );
-  }
-
-  return row;
 }
 
 export interface EventQueryFilters {
@@ -816,4 +825,66 @@ export async function getOldestPendingTopic(
     Math.floor((Date.now() - row.last_effort_at.getTime()) / (24 * 60 * 60 * 1000)),
   );
   return { topicName: row.topic_name, waitingSinceDays };
+}
+
+// ============================================================================
+// Consolidated checkin event context (replaces 5 separate queries)
+// ============================================================================
+
+/** All event-derived data needed for checkin view in a single round-trip. */
+export interface CheckinEventContext {
+  sessionsLast7d: number;
+  loopsClosedLast7d: number;
+  sessionsTotal: number;
+  hasPriorOpen: boolean;
+  latestEventTs: Date | null;
+  lastIdentityShownAt: Date | null;
+}
+
+export async function getCheckinEventContext(
+  db: DbClient,
+  studentId: string,
+): Promise<CheckinEventContext> {
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const row = await db.one<{
+    sessions_7d: string;
+    loops_closed_7d: string;
+    sessions_total: string;
+    has_prior_open: boolean;
+    latest_event_ts: Date | null;
+    last_identity_shown_at: Date | null;
+  }>(
+    `SELECT
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type = 'SessionEnd' AND occurred_at >= $2) AS sessions_7d,
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type IN ('RetrievalVerified', 'VerificationCompleted') AND occurred_at >= $2) AS loops_closed_7d,
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type = 'SessionEnd') AS sessions_total,
+       (SELECT EXISTS(SELECT 1 FROM ei_events WHERE student_id = $1 AND event_type = 'AppOpen')) AS has_prior_open,
+       (SELECT MAX(occurred_at) FROM ei_events WHERE student_id = $1) AS latest_event_ts,
+       (SELECT occurred_at FROM ei_events WHERE student_id = $1 AND event_type = 'IdentityMomentShown' ORDER BY occurred_at DESC LIMIT 1) AS last_identity_shown_at`,
+    [studentId, since7d],
+  );
+  return {
+    sessionsLast7d: parseInt(row.sessions_7d, 10),
+    loopsClosedLast7d: parseInt(row.loops_closed_7d, 10),
+    sessionsTotal: parseInt(row.sessions_total, 10),
+    hasPriorOpen: row.has_prior_open,
+    latestEventTs: row.latest_event_ts,
+    lastIdentityShownAt: row.last_identity_shown_at,
+  };
+}
+
+// ============================================================================
+// Projection freshness queries
+// ============================================================================
+
+/** Latest event timestamp for a student (used for projection staleness check at AppOpen). */
+export async function getLatestEventTimestamp(
+  db: DbClient,
+  studentId: string,
+): Promise<Date | null> {
+  const row = await db.oneOrNone<{ latest: Date }>(
+    'SELECT MAX(occurred_at) AS latest FROM ei_events WHERE student_id = $1',
+    [studentId],
+  );
+  return row?.latest ?? null;
 }

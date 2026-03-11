@@ -151,14 +151,18 @@ List the outbound dependencies Ops needs:
 | **IRecomputeStudentAggregatesUseCase** | Driven (use case) | Invoke RecomputeStudentAggregates handler. Projections write/repair.                                                                    |
 | **IProjectorEntrypointPort**           | Driven            | Call existing projector/recompute entrypoints (TopicLoop, StudentPolicy). Projections write/repair.                                     |
 | **IStructuredLoggerPort**              | Driven            | Emit structured log entries (correlationId, gate, duration, summaries).                                                                 |
-| **IMetricsEmitterPort**                | Driven            | Optional: emit metrics to observability sink.                                                                                           |
-| **ITracerPort**                        | Driven            | Optional: span/trace propagation.                                                                                                       |
+| **IMetricsEmitterPort**                | Driven            | Optional (Later): emit aggregated metrics (p50/p95 latency, error rates) to observability sink.                                         |
+| **ITracerPort**                        | Driven            | Request-scoped span/trace propagation. Wraps DB and auth calls with timing spans. Carries correlationId. Lightweight structured JSON output; compatible with future OTel migration. Implementations: `TracedDbAdapter` (wraps `eiStore.db`), `TracedAuthAdapter` (wraps `withEiSession`). Port: `[src/ops/application/tracing/port.ts](../../src/ops/application/tracing/port.ts)`. |
 | **IBackfillJobRepository**             | Driven            | Job state store for BackfillJob. Table: `ops_backfill_jobs`. Port: `[port.ts](../../src/ops/application/start-backfill-job/port.ts)`. Adapter: `[backfill-job-repository.pg.ts](../../src/ops/infrastructure/persistence/backfill-job-repository.pg.ts)`. |
 
 
 **Current implementation:** `IGetStudentTimelineUseCase` and driven ports (`IQueryEventsPort`, `IGetStudentAggregatesPort`) exist in `[src/ops/application/get-student-timeline/port.ts](../../src/ops/application/get-student-timeline/port.ts)`. The timeline route invokes `GetStudentTimelineHandler` via `LedgerTimelineAdapter` (`[src/ops/infrastructure/persistence/ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`). Recompute via `RecomputeStudentAggregatesHandler` and Mastra tools (`signal-compute`, `recompute-topic-loop`, `recompute-student-policy`). Persistent backfill jobs: `IStartBackfillJobUseCase`, `IGetBackfillJobStatusUseCase`, `ICancelBackfillJobUseCase`, `BackfillJobRunner`, `IProjectorEntrypointPort`, `IResolveStudentScopePort`, `IGetTopicsForStudentsPort` in `[src/ops/application/](../../src/ops/application/)`; API routes `POST /api/admin/backfill/jobs`, `GET /api/admin/backfill/jobs/[jobId]`, `POST /api/admin/backfill/jobs/[jobId]/cancel`, `POST /api/admin/backfill/run`.
 
-**Tracing (ITracerPort):** Mastra Observability implements span/trace propagation for the Mastra layer (workflows, agents, tool calls). Configured in [src/mastra/index.ts](../../src/mastra/index.ts) via `@mastra/observability`: `DefaultExporter` (persists traces to Postgres for Mastra Studio), `SensitiveDataFilter` (redaction). Traced: workflow runs, workflow steps, agent runs, tool executions (when invoked by an agent). **Known limitation:** Direct tool invocations from Mastra Studio (e.g. "Run tool" for `compute-aggregates`) do not create traces; only agent-invoked tools and workflow steps are traced.
+**Tracing (ITracerPort):** Two layers of tracing:
+
+1. **Mastra-level (existing):** Mastra Observability traces workflow runs, workflow steps, agent runs, tool executions. Configured in [src/mastra/index.ts](../../src/mastra/index.ts) via `@mastra/observability`: `DefaultExporter` (persists traces to Postgres for Mastra Studio), `SensitiveDataFilter` (redaction). **Known limitation:** Direct tool invocations from Mastra Studio do not create traces; only agent-invoked tools and workflow steps are traced.
+
+2. **Infrastructure-level (Phase 3):** `TracedDbAdapter` wraps `eiStore.db` to emit a span for every DB query (label, durationMs, correlationId). `TracedAuthAdapter` wraps `withEiSession` to emit spans for each auth phase (getSession, ensureMapping, resolveAuth). Business code is unaware of tracing — wrapping happens at composition root (`src/app/api/ei/command/route.ts`). Output: structured JSON via `IStructuredLoggerPort` pattern. Adapter locations: `[src/ops/infrastructure/tracing/](../../src/ops/infrastructure/tracing/)`. Compatible with future OpenTelemetry migration.
 
 ---
 
@@ -172,7 +176,8 @@ Ops has no domain aggregates. The following table documents the **runtime integr
 | **Timeline** (events + aggregates)     | `[src/app/api/admin/students/[studentId]/timeline/route.ts](../../src/app/api/admin/students/[studentId]/timeline/route.ts)`     | Platform ops GET; OpsAuth (API key, cron secret, dev bypass) via `[ops-auth.ts](../../src/ops/infrastructure/auth/ops-auth.ts)`; invokes `GetStudentTimelineHandler`; adapter calls `queryEvents`, `getAggregates`. No CohortAccess. Use case: `[src/ops/application/get-student-timeline/](../../src/ops/application/get-student-timeline/)`, adapter: `[ledger-timeline-adapter.ts](../../src/ops/infrastructure/persistence/ledger-timeline-adapter.ts)`. |
 | **CorrelationId + structured logging** | `[src/ei/infrastructure/logging.ts](../../src/ei/infrastructure/logging.ts)`                                                     | `createCorrelationId`, `logGateCall` (GateLogEntry with correlationId, gate, duration, summaries)                  |
 | **Signal compute / recompute**         | `[src/mastra/tools/signal-compute.ts](../../src/mastra/tools/signal-compute.ts)`, `[recompute-topic-loop.ts](../../src/mastra/tools/recompute-topic-loop.ts)`, `[recompute-student-policy.ts](../../src/mastra/tools/recompute-student-policy.ts)` | `computeAggregatesTool`, `checkOverdueSchedulesTool`, `listStudentsTool`; projector backfill: `recomputeTopicLoopTool`, `recomputeStudentPolicyTool` |
-| **Tracing (ITracerPort)**              | `[src/mastra/index.ts](../../src/mastra/index.ts)`                                                                               | Mastra Observability: DefaultExporter, SensitiveDataFilter. Workflow/agent/tool spans for Studio. Aligns with §5 redaction via SensitiveDataFilter. |
+| **Tracing — Mastra layer**             | `[src/mastra/index.ts](../../src/mastra/index.ts)`                                                                               | Mastra Observability: DefaultExporter, SensitiveDataFilter. Workflow/agent/tool spans for Studio. Aligns with §5 redaction via SensitiveDataFilter. |
+| **Tracing — Infrastructure layer**     | `[src/ops/infrastructure/tracing/](../../src/ops/infrastructure/tracing/)`                                                       | `TracedDbAdapter` (DB query spans), `TracedAuthAdapter` (auth phase spans). Wraps `eiStore.db` and `withEiSession` transparently at composition root. Business code unaware. |
 | **Event append + query**               | `[src/mastra/tools/event-store.ts](../../src/mastra/tools/event-store.ts)`                                                       | `appendEventTool`, `queryEventsTool` — Ledger read/write for workflows                                             |
 | **Recompute handler**                  | `[src/ei/application/recompute-student-aggregates/handler.ts](../../src/ei/application/recompute-student-aggregates/handler.ts)` | RecomputeStudentAggregatesHandler — backfill entrypoint                                                            |
 | **Projectors**                         | `[src/ei/infrastructure/projector/](../../src/ei/infrastructure/projector/)`                                                     | `topic-loop-projector.ts`, `student-aggregates-projector.ts`, `student-policy-projector.ts` — backfill entrypoints |
@@ -198,11 +203,16 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 
 - Persistent job orchestration with checkpoints (`ops_backfill_jobs` table, `IBackfillJobRepository`). API: `POST /api/admin/backfill/jobs`, `GET /api/admin/backfill/jobs/[jobId]`, `POST /api/admin/backfill/jobs/[jobId]/cancel`, `POST /api/admin/backfill/run`.
 
+**Phase 3 (current):**
+
+- `ITracerPort`: infrastructure-level request tracing. `TracedDbAdapter` wraps `eiStore.db` with per-query spans; `TracedAuthAdapter` wraps `withEiSession` with per-phase spans. Output: structured JSON logs with correlationId. Business code unaware of tracing (transparent wrapping at composition root). Replaces ad-hoc `performance.now()` timers in workflow/auth code.
+
 **Later:**
 
+- `IMetricsEmitterPort`: aggregated p50/p95 latency, error rates to observability sink
+- OpenTelemetry migration: replace structured JSON spans with OTel SDK
 - Canary / dry-run modes for backfill
 - Alerting / SLOs
-- Mastra Observability (tracing) — optional ITracerPort; workflow/agent visibility in Studio
 
 ---
 
@@ -223,6 +233,9 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 | Dev bypass works            | NODE_ENV=development, no secret or header OK  | Returns timeline (local debugging). See `[timeline-route.test.ts](../../src/ops/tests/integration/timeline-route.test.ts)`. |
 | Backfill API OpsAuth — valid API key | Valid OPS_API_KEY in x-ops-api-key, valid body | 200, jobId + status queued               |
 | Backfill API OpsAuth — invalid key   | Wrong OPS_API_KEY on POST /api/admin/backfill/jobs | 401 Unauthorized                       |
+| TracedDb span output                 | Query via traced adapter                           | Structured log with label, durationMs, correlationId |
+| TracedAuth span output               | Auth via traced adapter                            | Structured log with phase (getSession/ensure/resolve), durationMs, correlationId |
+| Tracing transparent to business code | Workflow uses traced db                            | Workflow code unchanged; same results, spans emitted |
 
 
 **Test layers:**
@@ -257,6 +270,12 @@ Because the strategy is "ship/monitor/iterate", explicitly define:
 ---
 
 ## 11) Open Questions and Deferred Decisions
+
+**Resolved:**
+
+- **ITracerPort scope and tooling (Phase 3):** Lightweight structured spans (not OpenTelemetry) for Launch. Scope: DB queries + auth phases. Cross-boundary tracing and `IMetricsEmitterPort` deferred to Later. Rationale: can't diagnose latency without it; ad-hoc `performance.now()` timers in business code violated the Ops boundary.
+
+**Open:**
 
 - Formal port interface files (e.g. `IQueryEventsPort` in application layer) when hexagonal boundary needs explicit enforcement.
 - SLI/SLO definitions and alerting ownership.

@@ -5,12 +5,14 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composePhase3View } from '../../ei/sdui/view-composer';
 import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
+import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
+import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
 import * as Q from '../../ei/db/queries';
 
 const RetrievalScheduleInput = z.object({
@@ -45,7 +47,7 @@ const appendAndComposeStep = createStep({
       scheduledAt,
     });
 
-    const db = eiStore.db;
+    const db = getDb();
 
     // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
     const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
@@ -94,6 +96,13 @@ const appendAndComposeStep = createStep({
     );
 
     const sdui = composePhase3View(topic, mode, 'reminded', ctx, resolvedTopicName, taskType, sessionDurationSec);
+
+    // Fire-and-forget: keep projections fresh for next AppOpen.
+    Promise.all([
+      recomputeTopicLoop(db, studentId, topic),
+      recomputeStudentAggregates(db, studentId),
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
+
     return sdui;
   },
 });

@@ -7,7 +7,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composeSessionView, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/sdui/view-composer';
@@ -39,7 +39,7 @@ const appendAndComposeStep = createStep({
       startedAt,
     });
 
-    const appendEvent = new PostgresAppendEventAdapter(eiStore.db);
+    const appendEvent = new PostgresAppendEventAdapter(getDb());
     await appendEvent.append({
       studentId,
       eventType: 'FirstActionStarted',

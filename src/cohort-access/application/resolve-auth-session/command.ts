@@ -1,3 +1,3 @@
 export interface ResolveAuthSessionCommand {
-  sessionContext: unknown;
+  sessionUser: { id: string } | null;
 }

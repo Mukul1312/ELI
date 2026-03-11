@@ -178,7 +178,13 @@ StudentAggregates does not emit new domain events. It updates `ei_student_aggreg
 - Exact rolling-window semantics per metric (some may use different windows in future).
 - `loopLatencyTrend` derivation algorithm (currently null in implementation).
 - Snapshot strategy for long-lived student instances.
-- Trigger model: sync-on-append vs. scheduled batch vs. on-demand.
+- ~~Trigger model: sync-on-append vs. scheduled batch vs. on-demand.~~
+  **Decided:** Fire-and-forget after event append + on-demand safety net at AppOpen.
+  Terminal workflows (VerificationComplete, P3 gate, RetrievalSchedule, RetrievalSkip) fire
+  projector recomputes without awaiting — one writer per student per step execution.
+  AppOpen checks `ei_student_aggregates.updated_at` against `MAX(ei_events.occurred_at)`
+  and recomputes if stale. This keeps the hot path fast (~2-3s vs ~8s) while ensuring
+  eventual consistency. Full recompute remains the canonical repair/backfill path.
 
 ---
 

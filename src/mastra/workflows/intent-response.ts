@@ -9,7 +9,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
 import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
@@ -48,7 +48,7 @@ const intentResponseStep = createStep({
       idempotencyKey,
     } = inputData;
 
-    const db = eiStore.db;
+    const db = getDb();
     const baseAdapter = new PostgresAppendEventAdapter(db);
     const appendEvent = idempotencyKey
       ? withIdempotencyKey(baseAdapter, idempotencyKey)

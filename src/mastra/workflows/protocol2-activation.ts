@@ -10,7 +10,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { PostgresTopicDisplayNameWriter } from '../../ei/infrastructure/persistence/topic-display-name-writer.pg';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
@@ -48,7 +48,7 @@ const runP2Gate = createStep({
   outputSchema: ActivationPlanIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof ActivationPlanIssuedSchema>> => {
     const { studentId, topic, topicName, setAt, taskType, idempotencyKey } = inputData;
-    const db = eiStore.db;
+    const db = getDb();
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const baseAdapter = new PostgresAppendEventAdapter(db);
     // Wrap adapter so every append derives a per-event key: "${commandKey}:${eventType}".
