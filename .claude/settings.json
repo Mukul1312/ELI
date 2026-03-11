@@ -1,5 +1,8 @@
 {
   "enabledPlugins": {
     "neon-postgres@neon": true
+  },
+  "permissions": {
+    "defaultMode": "plan"
   }
 }
