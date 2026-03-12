@@ -15,6 +15,8 @@ if (!process.env.DATABASE_URL) {
 const store = new PostgresStore({
   id: 'ei-next-runtime',
   connectionString: process.env.DATABASE_URL,
+  max: 15,                 // up from default 10; handles 2-3 concurrent requests without queuing
+  idleTimeoutMillis: 5000, // evict idle connections before Neon scale-to-zero (5min)
 });
 
 /** Exported for use in migrate scripts, tests, tools, and workflows. */

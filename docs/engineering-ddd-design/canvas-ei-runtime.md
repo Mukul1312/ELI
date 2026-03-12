@@ -72,6 +72,8 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 
 > **Building block note:** `StudySession` is the **Aggregate Root** that enforces gate lifecycle ordering and cross-protocol invariants (P1 verification floor → P3 when `intentSource='negotiated'`; P2 watch-only → P3 override). `NegotiatedIntent` and `DeclaredIntent` are two sibling **P1 output Value Objects** with asymmetric invariants (ELI-imposed vs data-integrity-only); both emit `SessionIntentIssued`. `ActivationPlan`, `VerificationDecision`, and `PlaySelection` are also **class-based Value Objects**. `ProtocolEngine` is a **Domain Service** (stateless, spans 24 plays across 3 protocols). `LoopHealthSnapshot` is a **Published Language Value Object** consumed from LoopHealthAssessment. Tactical spec: [`ei-runtime-tactical-spec.md`](tactical/ei-runtime-tactical-spec.md). Design decision: [ADR-001](decisions/adr-001-declared-intent-design.md).
+>
+> **Persistence strategy ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)):** StudySession uses an event-sourced repository pattern: `findById` folds Ledger events into the aggregate (reconstituting correct VO types via `intentSource` discriminator from ADR-001); `save` is a no-op (events already appended to Ledger). Session lifecycle state is projected into `ei_topic_state` per [ADR-003](decisions/adr-003-projection-schema-evolution.md) for read-side queries (AppOpen routing, PhaseDeriver replacement).
 
 ### Student-facing scales
 

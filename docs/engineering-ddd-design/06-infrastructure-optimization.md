@@ -12,6 +12,57 @@
 
 ---
 
+## §0 Domain Gap Analysis
+
+> Added 2026-03-12. This section documents the **domain design gaps** that produced the latency problems traced in §1–§4. The fixes in §2–§4 are adapter-level and application-layer optimizations. This section explains **why those gaps exist at the DDD level** — so the domain and projection specs can evolve to eliminate root causes permanently.
+>
+> See [ADR-003](decisions/adr-003-projection-schema-evolution.md) for the projection schema changes that address gaps 1, 2, 4, 5, 6, 7, 8.
+>
+> See [ADR-004](decisions/adr-004-session-lifecycle-persistence.md) for the write-side root cause: the `IStudySessionRepository` deferral left `StudySession._status` as orphaned aggregate state — alive during command execution, discarded after, never persisted. Gaps 1, 2, 5, 8 are consequences of this orphaned state.
+
+### The Violated Promise
+
+`canvas-ei-projections.md` §Purpose states:
+
+> *"Serve as the system's memory of aggregates, topic state, and policy so that EI Runtime, LoopHealthAssessment, Strategic Adjustment, and Institute Radar can make decisions **without re-reading the raw event stream**."*
+
+All 8 latency problems are caused by EI Runtime re-reading the raw event stream because the projection schema does not hold the answer.
+
+### The Root Cause: Orphaned Aggregate State
+
+The tactical spec (§10) deferred `IStudySessionRepository` as a design choice: *"session state is derivable from Ledger events."* But derivable ≠ persisted-for-fast-access. The deferral is an architectural gap, not a principled design choice (see [ADR-004](decisions/adr-004-session-lifecycle-persistence.md)).
+
+**Result:** `StudySession._status` and `_sessionIntent` are alive during command execution (e.g., `session.issueActivationPlan()`), then discarded. P2 and P3 handlers call `StudySession.reconstitute(sessionId, ..., null, null, null)` — passing `null` for all Value Objects. The aggregate is a stateless shell at reconstitution.
+
+This is why the system must re-derive phase from 4 event queries (Gap 1), look up `sessionId` from events (Gap 2), and extract cross-protocol constraints from event payloads (Gap 8). [ADR-004](decisions/adr-004-session-lifecycle-persistence.md) documents the canonical write-side fix: an event-sourced repository that folds Ledger events into the aggregate on `findById`. [ADR-003](decisions/adr-003-projection-schema-evolution.md) documents the read-side projection columns.
+
+### The 8 Domain Gaps
+
+| # | Problem | Latency Cost | DDD Gap | Source Document + Evidence |
+|---|---------|-------------|---------|---------------------------|
+| 1 | `PhaseDeriver` 4-way `ei_events` fan | ~2300ms (contended) | `ei_topic_state` has no `session_phase` column. `TopicLoop` projector never consumes `SessionIntentIssued`, `ActivationPlanIssued`, or `FirstActionStarted` — the three events that determine session phase. | `tactical/topic-loop-tactical-spec.md` §Events consumed: those 3 event types absent. `decisions/adr-001-declared-intent-design.md` §Consequences: *"phase-deriver.ts bypass patches: can be removed"* — said without adding a projection column to store the answer. |
+| 2 | `getSessionIdFromLastIntent` sequential read | ~300ms per P2+P3 | `ei_topic_state` has no `current_session_id` column. ADR-001 removed `ei_study_sessions` write-side table and replaced read with a Ledger scan. | `decisions/adr-001-declared-intent-design.md` §Implementation: *"Fallback `?? crypto.randomUUID()` kept for the micro path"* — the fallback signals the gap. Write side correctly removed; compensating read-side column never added. |
+| 3 | `getSignals` 3-table fan-out | ~2800ms (contended) | Port contract (`IGetStudentSignalsPort`) defines a **single call**. Adapter implements it as 3 separate queries. No domain gap — pure infrastructure implementation mismatch. | `canvas-ei-projections.md` §Outbound: `GetStudentSignals` modeled as single message. `05-domain-message-flows-storyboards.md` S2/S5/S7: single arrow in every sequence diagram. `tactical/loop-health-assessment-tactical-spec.md` §6: *"GetStudentSignalsPort: Driven — Fetch aggregates + topic state + policy"* — one port, one call. |
+| 4 | Checkin 11-query `ei_events` fan | ~2500ms (contended) | `ei_student_aggregates` missing 5 columns the presentation layer needs: `sessions_last_7d`, `loops_closed_last_7d`, `has_prior_app_open`, `last_identity_shown_at`, `active_days_7d`. | `tactical/student-aggregates-tactical-spec.md` §3: 12 fields documented; none of the 5 above are present. `canvas-ei-projections.md` Purpose: *"without re-reading the raw event stream"* — violated by all 11 checkin queries. |
+| 5 | AppOpen 9-type event scan | ~600ms (always, even warm) | No `session_phase` in projection → `ei-app-open.ts` must scan 50 events across 9 types before any routing decision. Same root cause as Gap 1. | `canvas-ei-runtime.md` §Ubiquitous Language: lifecycle `negotiating → activating → active → verifying → closed` is a well-defined state machine. State not stored anywhere in projection. |
+| 6 | `getConsecutiveDeferrals` tail query | ~248ms per P3 | `consecutive_deferrals` **is already in `ei_topic_state`**. It is read at the start of the P3 workflow as part of `getTopicState`, but the value is not passed forward to the view step — so `protocol3-verification.ts` queries it again at the end. | `05-cross-cutting-concerns.md` Dropout Signal: *"maintained in `ei_topic_state`"*. Column exists. The gap is orchestration wiring, not projection schema. |
+| 7 | VerificationComplete 7-query fan | ~3350ms (contended) | `getSessionDurationSec` requires reading both `FirstActionStarted` and `SessionEnd` event timestamps. No `last_session_started_at` column in `ei_topic_state` → cannot compute duration from projection alone. | `tactical/topic-loop-tactical-spec.md` §3: `ei_topic_state` has `last_effort_at`, `last_retrieval_at`, `last_scheduled_due_at` — no `last_session_started_at`. `tactical/student-aggregates-tactical-spec.md` §3: no session duration field. |
+| 8 | P3 cross-protocol `queryEvents` sequential | ~260ms per SessionEnd | `verification_floor` and `watch_only_flag` stored in event payloads only (`SessionIntentIssued` and `ActivationPlanIssued`). Not projected into `ei_topic_state`. P3 must read them from Ledger on every `SessionEnd`. | `canvas-ei-runtime.md` §Ubiquitous Language: *"VerificationFloor: P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in `SessionIntentIssued` event; **read back in P3 via `IStudentEventStreamReader`**"* — explicit design choice to store in event. Projection column eliminates the read. |
+
+### Gap Classification
+
+| Gap type | Gaps | Fix layer |
+|----------|------|-----------|
+| **Missing `ei_topic_state` column** | 1, 2, 5, 7, 8 | Projection schema + TopicLoop projector |
+| **Missing `ei_student_aggregates` column** | 4 | Projection schema + StudentAggregates recompute |
+| **Infrastructure: port implemented as N queries** | 3 | Adapter (`PostgresGetStudentSignalsAdapter`) — no schema change needed |
+| **Orchestration wiring** | 6 | Workflow step threading — no schema change needed |
+| **Write-side aggregate state not persisted** | Root cause for 1, 2, 5, 8 | Event-sourced repository ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)) |
+
+> Gap 3 and Gap 6 are the only problems that require **no schema change**. All other gaps require the projection schema to be extended. See [ADR-003](decisions/adr-003-projection-schema-evolution.md).
+
+---
+
 ## §1 Context — Why This Document Exists
 
 ### The Problem

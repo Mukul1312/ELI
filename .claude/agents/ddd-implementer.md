@@ -1,6 +1,6 @@
 ---
 name: ddd-implementer
-description: Use for all implementation tasks in src/ei/ or src/mastra/. Enforces Clean Architecture + DDD + Hexagonal patterns. Knows the full bounded context map, aggregate types, port placement rules, and all hard invariants for this project. Triggers on: implementing new features, modifying domain aggregates, adding use cases, creating infrastructure adapters, Mastra workflow changes, SDUI view composers.
+description: "Use for all implementation tasks in src/ei/ or src/mastra/. Enforces Clean Architecture + DDD + Hexagonal patterns. Knows the full bounded context map, aggregate types, port placement rules, and all hard invariants for this project. Triggers on: implementing new features, modifying domain aggregates, adding use cases, creating infrastructure adapters, Mastra workflow changes, SDUI view composers."
 tools: Read, Edit, Write, Bash, Glob, Grep, TodoWrite
 ---
 

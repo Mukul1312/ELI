@@ -349,6 +349,37 @@ class VerificationDecision {
 }
 ```
 
+### 7g) VO Reconstitute Pattern (ADR-004)
+
+All gate output VOs (NegotiatedIntent, DeclaredIntent, ActivationPlan, VerificationDecision) have two factory methods:
+
+| Factory | Purpose | Validates? | Computes? | Used by |
+|---------|---------|-----------|-----------|---------|
+| `create(play, ctx, policy, ...)` | Create new VO from raw inputs | Yes — all invariants | Yes — derives scope, difficulty, etc. from tunables + mode | Aggregate command methods (`issueX`) |
+| `reconstitute(props)` | Rebuild VO from event payload | No | No — accepts pre-computed values as-is | `StudySession.fold()` ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) |
+
+**Why two factories?**
+
+Events are immutable facts — they record computed values at a specific point in time. When the event-sourced repository folds events to reconstitute the aggregate, it must accept stored values as-is. Using `create()` would re-compute derived values (e.g., `timeboxMin` from current tunables), which may differ from the stored values if tunables changed since the event was written. This violates temporal correctness.
+
+**DDD alignment:** Follows the `OrderId.from(value)` pattern in DDD-TACTICAL.md — a secondary factory for recreating VOs from persisted data.
+
+**Contract for `reconstitute()`:**
+
+```typescript
+// Same pattern for all 4 gate output VOs:
+static reconstitute(props: XProps): X {
+  return new X(props);  // same private constructor as create()
+  // No invariant validation — event was valid at write time
+  // No derived value computation — props are already-computed
+  // Props accepted as-is from event payload
+}
+```
+
+**NegotiatedIntent: payload → props mapping required.** `toEventPayload()` renames and nests fields for the event schema (e.g., `scope.timeboxMin` → `timebox`, `verificationPlan` → `verificationFloor`, `negotiatedIntentId` → `sessionIntentId`). The fold function must reverse this mapping when calling `reconstitute()`. See [ADR-004 mapping table](../decisions/adr-004-session-lifecycle-persistence.md) for the full field-by-field correspondence.
+
+**DeclaredIntent, ActivationPlan, VerificationDecision:** payload shape ≈ props shape. Direct pass-through, no mapping needed.
+
 ---
 
 ## 8) Domain Service: ProtocolEngine
@@ -429,6 +460,8 @@ Event type names from `EventTypeEnum` in `src/ei/schemas/events.ts`. Events are 
 
 ## 10) Repository Interface (Domain Port)
 
+> **Gap acknowledged ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)):** The repository interface and persistence note below document the MVP deferral. ADR-004 identifies this as an architectural gap (not a principled design choice) and proposes an event-sourced repository implementation. The `reconstitute(null)` pattern means the aggregate cannot enforce cross-protocol invariants via `instanceof` checks. See ADR-004 for the canonical CQRS+ES fix.
+
 Per DDD-TACTICAL.md: "One repository per aggregate, domain interface in domain layer."
 
 ```typescript
@@ -445,7 +478,11 @@ export interface IStudySessionRepository {
 - `RunP3GateHandler` reconstructs partial state by querying the last `SessionIntentIssued` event from the Ledger (via `IStudentEventStreamReader`), reads `intentSource` + `verificationFloor`, and passes `p1VerificationFloor` (null for declared, set for negotiated) via `P3GateContext`
 - The `IStudySessionRepository` interface is defined now but implemented as a no-op / Ledger-based adapter
 
+> **Gap ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)):** The `reconstitute(null, null, null)` pattern used by P2/P3 handlers means the aggregate cannot enforce cross-protocol invariants via `instanceof` checks on `_sessionIntent`. The verification floor is threaded via `P3GateContext` instead of loaded from aggregate state. The canonical fix is an event-sourced repository that folds Ledger events into the aggregate on `findById()`. See ADR-004.
+
 ### Session state derivation
+
+> This derivation logic (flags → lifecycle mapping) is the specification for the event-sourced repository's fold function documented in [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md). The fold function replays session events in order, applying the same flag → status transitions described below.
 
 **Goal:** Define how Runtime derives StudySession lifecycle phase from system-of-record facts (Ledger and Projections).
 
@@ -918,7 +955,7 @@ ViewComposer builds **state-specific component trees** for phases with progressi
 ## 17) Open Questions
 
 - **sessionId sourcing:** Should it match the AppOpen event idempotency key (linking events to session) or be independently generated? Deferred — for MVP, sessionId is passed in command from the API layer.
-- **StudySession persistence:** `ei_study_sessions` table deferred post-MVP. Cross-protocol state threaded via P3GateContext.
+- **StudySession persistence:** Canonical approach documented in [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md). Event-sourced repository (write side) + TopicLoop projection columns (read side, [ADR-003](../decisions/adr-003-projection-schema-evolution.md)). Implementation deferred; design is settled.
 - **Replan flow:** `C/Replan` triggers P2 re-run with incremented `replanCount` — handled by `RunP2GateHandler` with `replanCount` in command; session transitions back to `activating` if needed.
 - **ScheduleMissed derivation:** Outside StudySession; handled by TopicLoop cron / projector.
 

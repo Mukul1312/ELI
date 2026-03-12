@@ -35,6 +35,8 @@ import { retrievalSkipWorkflow } from './workflows/retrieval-skip';
 const storage = new PostgresStore({
   id: 'ei-storage',
   connectionString: process.env.DATABASE_URL!,
+  max: 15,
+  idleTimeoutMillis: 5000,
 });
 
 export const mastra = new Mastra({
