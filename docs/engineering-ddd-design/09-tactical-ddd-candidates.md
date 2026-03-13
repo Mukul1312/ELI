@@ -25,9 +25,11 @@
 
 ## Domain services (candidates)
 
-| Domain Service | Responsibility | Dependencies | Code location (current) | Canvas |
+| Domain Service | Responsibility | Dependencies | Code location (current) | Canvas / Spec |
 |----------------|----------------|--------------|-------------------------|--------|
 | LoopHealth | Interpret metrics to labels + LoopHealthSnapshot | GetStudentSignals (Projections) | [src/ei/domain/loop-health/](../../src/ei/domain/loop-health/), [src/ei/application/assess-loop-health/](../../src/ei/application/assess-loop-health/) | [canvas-loop-health-assessment.md](canvas-loop-health-assessment.md), [ds-loop-health.md](domainService/ds-loop-health.md) |
+| FlowStrategy (SSO) | Given student context signals (FlowSelectionContext VO), select a FlowTemplate. Stateless, deterministic, pure. Analogous to ProtocolEngine. | FlowSelectionContext (VO), FlowTemplate (VO) | NEW — planned for `src/ei/study-session-orchestration/domain/services/flow-strategy.ts` | [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md), [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
+| ViewComposer (SSO) | Per-phase pure functions mapping gate outputs + PresentationContext → SduiResponse. Includes microcopy resolution as internal capability. SSO's core domain service. | PresentationContext (VO), gate outputs (Published Language), SduiComponent types | [src/ei/sdui/view-composer.ts](../../src/ei/sdui/view-composer.ts) (implemented) | [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md), [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
 
 ---
 
@@ -50,6 +52,17 @@
 | HighPressureDetected | System-derived boolean: true when V3 triggers fire (`examProximityDays <= 7`, `avoidancePattern`, `recentMockFailure`); replaces retired self-reported Pressure and BacklogPressure scales; defaults to false in Stage 1; see `05-cross-cutting-concerns.md` §V3 Trigger Signals | (to be implemented) |
 | DropoutSignalActive | Per-topic boolean: `consecutiveDeferrals >= 3`. Consumed by PresentationContext for Shrunk Card rendering (binary Got it / Not yet). Not a domain routing signal — P3 gate uses AVOIDANT label for routing. See `05-cross-cutting-concerns.md` §Dropout Signal | (to be implemented) |
 | TopicSeed | Presentation VO: `{ topicName: string, waitingSinceDays: number }` for Dynamic Footer Seed in Phase 3 close view ("Next: [topic] waiting since [Day X]"). Sourced from oldest open TopicLoop in Projections. | (to be implemented) |
+| FlowTemplate (SSO) | Describes which phases are included and whether each shows UI. Immutable. Static factories for known templates (declared-standard, negotiated-standard, onboarding, micro). Self-validates: "if session present, p3 must be present" (pending canvas Q2). | NEW — planned for `src/ei/study-session-orchestration/domain/value-objects/flow-template.ts` |
+| FlowSelectionContext (SSO) | Input VO for FlowStrategy. Subset of projection signals: pendingChecks, silenceDays, sessionsTotal, openLoops, cohortFlags, isOnboarding, isMicro. `create()` factory with validation. | NEW — planned for `src/ei/study-session-orchestration/domain/value-objects/flow-selection-context.ts` |
+| PresentationContext (SSO) | Student-level signals for ViewComposer and IdentityEligibility: mode, pendingChecks, verificationRate7d, sessionsLast7d, etc. **Needs `create()` factory** with validation (mode enum, non-negative counts, rate ∈ [0,1]). Currently built by application builders without domain validation. | [src/ei/sdui/presentation-context.ts](../../src/ei/sdui/presentation-context.ts) (implemented — needs validation upgrade) |
+
+---
+
+## Specifications (candidates)
+
+| Specification | Responsibility | Input | Output | Code location (current) | Canvas / Spec |
+|--------------|----------------|-------|--------|-------------------------|--------|
+| IdentityEligibility (SSO) | Pure eligibility check: verificationRate7d ≥ 0.70 AND pendingChecks ≤ 2 AND sessionsLast7d ≥ 4 AND 7+ days since last shown. Function form (not class — single predicate, no composition needed). | PresentationContext fields + lastShownAt | `{ eligible: boolean, statement?: string }` | [src/ei/sdui/identity/compute-identity-eligibility.ts](../../src/ei/sdui/identity/compute-identity-eligibility.ts) (implemented) | [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
 
 ---
 
@@ -140,3 +153,4 @@ Bounded contexts that have a tactical spec but no aggregate in this doc; they im
 |---------|------|---------|
 | CohortAccess | [tactical/cohort-access-tactical-spec.md](tactical/cohort-access-tactical-spec.md) | Auth resolution (ACL), GetCohortScope, StudentMembership, RBAC |
 | Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Debug timeline, correlation ids, repair/backfill orchestration; consumer + ops-level orchestrator; admin-only, redaction |
+| StudySessionOrchestration | [tactical/study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) | Domain services + VOs BC (no aggregate). FlowStrategy, ViewComposer, IdentityEligibility; FlowTemplate, PresentationContext, FlowSelectionContext; FlowSelected, IdentityMomentShown events. Presentation-side of EI. |

@@ -30,7 +30,7 @@ const appendAndComposeStep = createStep({
   inputSchema: VerificationCompleteInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', result, completedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', result, completedAt, idempotencyKey, correlationId } = inputData;
 
     const payload = validateEventPayload('VerificationCompleted', {
       studentId,
@@ -108,8 +108,8 @@ const appendAndComposeStep = createStep({
     // Fire-and-forget: recompute projections for future reads.
     // Current response uses pre-recompute data; recompute only benefits next AppOpen.
     Promise.all([
-      recomputeTopicLoop(db, studentId, topic),
-      recomputeStudentAggregates(db, studentId),
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
     ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return sdui;

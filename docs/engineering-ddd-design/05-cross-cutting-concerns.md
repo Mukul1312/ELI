@@ -90,6 +90,8 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 | VerificationCompleted | studentId, topic, completedAt, result | UI | Ledger | ei_topic_state.last_retrieval_at |
 | ScheduleMissed | studentId, topic, missedAt | System/Projection | Ledger | — |
 | StrategicAdjustmentDecision | studentId, adjustmentMode, dials, issuedAt; optional: tightnessLevel, nextCycleConstraints | SA, setPolicyTool | Projections | ei_student_policy |
+| FlowSelected | studentId, sessionId, templateId (e.g. 'declared-standard'), selectionContext (snapshot: sessionsTotal, hasTaskType, isOnboarding, isMicro, silenceDays, pendingChecks, cohortFlags), selectedAt | StudySessionOrchestration (SelectFlowHandler) | Ledger (informational — Ops/observability, A/B analysis) | — |
+| IdentityMomentShown | studentId, statement, shownAt | StudySessionOrchestration (compose-checkin-view step) | Ledger (informational — eligibility cooldown: 7+ days since last shown) | — |
 
 > **Topic ID evolution — see detailed subsection below.**
 

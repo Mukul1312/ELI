@@ -2,10 +2,11 @@
 
 > **How to use:** Duplicate this file per bounded context from [03-context-map.md](03-context-map.md). Fill after Context Map and Domain Message Flow. See [../bounded-context.md](../bounded-context.md) for section definitions.
 
-**Subdomain(s):** AdaptiveCoaching, StudySessionOrchestration  
-**Context Map reference:** [03-context-map.md](03-context-map.md)  
+**Subdomain(s):** AdaptiveCoaching
+**Context Map reference:** [03-context-map.md](03-context-map.md)
 **Sources:** [02-subdomains.md](02-subdomains.md), [05-domain-message-flows-storyboards.md](05-domain-message-flows-storyboards.md)
 **See also (cross-cutting):** [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md) — invariants, event catalog, data ownership, ACLs
+**SSO extracted:** StudySessionOrchestration is now its own bounded context — see [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md) and [ADR-005](decisions/adr-005-flow-level-adaptation.md).
 
 ---
 
@@ -17,7 +18,7 @@ EI Runtime
 
 ## Purpose
 
-At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or suggests the next step so the student's loop keeps moving with the right bar (Rescue vs Boost). It orchestrates the end-to-end study-session journey across gates: check-in → intent → activation → session → verification → done, with progressive disclosure and trust-preserving friction. The ViewComposer builds state-specific component trees for phases with progressive disclosure (Phase 1: 1A→1B→1C vertical stack, Phase 3: 3A→3B state replacement); client-side morphing handles transitions without additional server round-trips. Key actors: students (primary), coaching flows (via protocol outputs).
+At each decision gate (P1/P2/P3), EI Runtime decides **what coaching move** to make so the student's loop keeps moving with the right bar (Rescue vs Boost). It operates **"at"** each gate as a point function: receives a command, runs gate logic (ProtocolEngine + aggregate invariants), emits protocol outputs (NegotiatedIntent, ActivationPlan, VerificationDecision). EI Runtime does NOT decide which screens to show or in what order — that responsibility belongs to [StudySessionOrchestration](canvas-study-session-orchestration.md), which operates **"across"** gates. Key actors: gate handlers consume student commands and produce protocol output VOs (Published Language consumed by SSO).
 
 ---
 
@@ -26,7 +27,7 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 | Dimension               | Choice       | Notes                                                                                              |
 | ----------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
-| **Domain**              | core         | AdaptiveCoaching is EI's differentiation; StudySessionOrchestration is supporting but bundled here |
+| **Domain**              | core         | AdaptiveCoaching is EI's differentiation                                                           |
 | **Business model role** | engagement   | Drives student value and retention via adaptive coaching                                           |
 | **Evolution**           | custom built | EI-specific protocol and gate logic; no off-the-shelf equivalent                                   |
 
@@ -35,8 +36,9 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 ## Domain Roles
 
-- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs. Code: `src/ei/domain/study-session/`, `src/ei/application/run-p{1,2,3}-gate/`
-- **Gateway context:** Student-facing orchestration; maps protocol outputs to UI steps and collects taps/inputs. Implemented as the **ViewComposer** (`src/ei/sdui/`) — a pure presenter chained as a Mastra workflow step after each gate handler. Returns `SduiResponse` (slot-based component tree + microcopy + action registry). Zero DB calls; derives `PresentationContext` entirely from domain output fields already resolved by the gate handler.
+- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs. Code: `src/ei/domain/study-session/`, `src/ei/application/run-p{1,2,3}-gate/`, `src/ei/engine/`
+
+> **Removed:** Gateway context (ViewComposer, PresentationContext, microcopy, progressive disclosure) is now owned by [StudySessionOrchestration](canvas-study-session-orchestration.md). EI Runtime exposes gate output VOs as **Published Language** consumed by SSO.
 
 ---
 
@@ -62,11 +64,9 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 | AVOIDANT / CONFIDENT     | **Enum Value Object values (P3Label):** assigned by LoopHealthAssessment; consumed by P3 gate handler via LoopHealthSnapshot.                                                                                                                                                                                                                                                                                                                                                                                           |
 | TightnessLevel           | **Enum Value Object:** `Loose | Normal | Tight` — from SA policy; influences escalation context passed to gate handlers.                                                                                                                                                                                                                                                                                                                                                                                                |
 | TimeCommitment           | **Value Object (student input):** student-declared study duration in minutes. Valid values: 10, 20, 45, 60. Feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint is the fallback for variants that hide time chips (V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING).                                                                                                                                                                                            |
-| ConfirmationStrip        | **Presentation element (StudySessionOrchestration):** replaces the prescriptive scope card on the P1 screen. Displays `topic . taskType . ~timeCommitment` — reflecting the student's own choices, not ELI's prescription. Single "Let's go" CTA below it.                                                                                                                                                                                                                                                              |
-| ProgressiveDisclosure    | **Presentation pattern (StudySessionOrchestration):** "One Screen, No Scroll" — ViewComposer builds state-specific component trees; client-side morphing transitions between states. Phase 1: Vertical Stack (1A Anchor → 1B Unlock → 1C Focus). Phase 3: State Replacement (3A Ask → 3B Closure). Domain layer unaffected — morphing is client-driven by user taps.                                                                                                                                                    |
-| DropoutSignal            | **Derived signal (Projections → PresentationContext):** true when a topic has 3+ consecutive deferrals/skips (RetrievalScheduled or RetrievalSkipped without intervening VerificationCompleted). Triggers Shrunk Card variant in P3 verification ask — binary "Got it / Not yet" replacing ternary options. Does not affect P3 gate routing (AVOIDANT label handles that). See [05-cross-cutting-concerns.md § Dropout Signal](05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
-| ShrunkCard               | **Presentation element (StudySessionOrchestration):** Intervention-mode verification ask. Fires when DropoutSignal active. Binary: Got it / Not yet. Escape hatches (Remind me tomorrow, Can't right now) demoted to low-visibility text links. "Not yet" fires ScheduleVerify (same domain event as standard deferral).                                                                                                                                                                                                |
-| DynamicFooterSeed        | **Presentation element (StudySessionOrchestration):** Phase 3 close view shows "Next: [Oldest Pending Topic] waiting since [Day X]" when pendingChecks > 0 after loop closure. Data sourced from Projections (oldest open TopicLoop).                                                                                                                                                                                                                                                                                   |
+| DropoutSignal            | **Derived signal (Projections):** true when a topic has 3+ consecutive deferrals/skips. Passed to P3 gate handler; does not affect gate routing (AVOIDANT label handles that). SSO consumes it for presentation (ShrunkCard). See [05-cross-cutting-concerns.md § Dropout Signal](05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
+
+> **Moved to SSO:** ConfirmationStrip, ProgressiveDisclosure, ShrunkCard, DynamicFooterSeed — these are presentation elements now owned by [StudySessionOrchestration](canvas-study-session-orchestration.md).
 | VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in `SessionIntentIssued` event; sourced in P3 from reconstituted `StudySession` aggregate via `session.negotiatedIntent.verificationPlan` ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)) — applied only when `intentSource = 'negotiated'`; absent for declared sessions. Also projected into `ei_topic_state.verification_floor` ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). |
 | WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; sourced in P3 from reconstituted aggregate via `session.activationPlan?.constraints?.enforceWatchOnlyVerification` ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)). Also projected into `ei_topic_state.watch_only_flag` ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). Enforced in `VerificationDecision.create()`. |
 
@@ -102,13 +102,10 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 | CohortAccess         | Command        | Auth session / user claims                | studentId, role, cohort scope                                                                                                                              | Sync (per request) | ACL                             |
 | EI Projections       | Query response | GetStudentSignals → R/Signals             | aggregates, topic state, policy (openLoops, verificationRate7d, etc.)                                                                                      | Sync query         | Customer-Supplier               |
 | LoopHealthAssessment | Query response | AssessLoopHealth → R/LoopHealthSnapshot   | labels (p1, p2, p3) + key evidence                                                                                                                         | Sync call          | Published Language              |
-| Student              | Command        | AppOpen                                   | energy, sleep; `timeCommitment` (optional, int: 10|20|45|60); `taskType` (optional, string: Learn|Practice|Revise) — both absent for V1/V3/V9/V10 variants | —                  | Direct user                     |
+| SSO                  | Command        | Gate commands (routed from student)       | AppOpen (with topic), IntentSet, SessionEnd — SSO routes these to the appropriate gate handler                                                              | Sync               | Published Language (consumer)   |
 | CurriculumCatalog    | Query response | ResolveTopic → R/TopicReference           | topicId: UUID, topicName: string                                                                                                                           | Sync query         | Published Language              |
-| Student              | Command        | IntentSet                                 | topicId, topicName                                                                                                                                         | —                  | Direct user                     |
-| Student              | Command        | SessionEnd                                | topicId, topicName, effortSummary                                                                                                                          | —                  | Direct user                     |
-| Student              | Command        | VerifyNow, ScheduleVerify, SkipWithReason | minQuestions, dueInHours, reason                                                                                                                           | —                  | Direct user                     |
-| EI Projections       | Query response | GetTopicDeferralCount → R/count           | consecutiveDeferrals for a topic (DropoutSignal detection)                                                                                                 | Sync query         | Customer-Supplier               |
-| EI Projections       | Query response | GetOldestPendingTopic → R/TopicSeed       | topicName, waitingSinceDays (DynamicFooterSeed)                                                                                                            | Sync query         | Customer-Supplier               |
+
+> **Moved to SSO:** Student commands (AppOpen, IntentSet, SessionEnd, VerifyNow, ScheduleVerify, SkipWithReason) are now received by SSO, which routes them to EI Runtime gate handlers. Projection queries for presentation (GetTopicDeferralCount, GetOldestPendingTopic) are now SSO-owned.
 
 
 ---
@@ -118,10 +115,10 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
 | Message type | Message name                                                                                   | Collaborator    | Key data                                                                                         | Integration style | Relationship      |
 | ------------ | ---------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ | ----------------- | ----------------- |
-| Event        | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse                     | EI Event Ledger | event payload per schema; topic-bearing events carry topicId (UUID) + topicName (string) from CC | Sync append       | Customer-Supplier |
-| Event        | SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                          | EI Event Ledger | intentSource, scope/timebox, mode (null for declared), verificationFloor (null for declared)     | Sync append       | Customer-Supplier |
-| Event        | RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, ScheduleMissed | EI Event Ledger | questions, dueAt, reason                                                                         | Sync append       | Customer-Supplier |
-| Command      | SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                          | Student         | scope/timebox, firstAction, verify options                                                       | —                 | Direct user       |
+| Event        | SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued, ScheduleMissed          | EI Event Ledger | intentSource, scope/timebox, mode, verificationFloor, watchOnlyFlag                              | Sync append       | Customer-Supplier |
+| Gate output  | SessionIntentIssuedOutput, ActivationPlanIssuedOutput, VerificationDecisionIssuedOutput        | SSO             | Protocol output VOs consumed by ViewComposer                                                     | Sync return       | Published Language |
+
+> **Moved to SSO:** UI-produced events (AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse, RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted) are now SSO-owned. See [canvas-study-session-orchestration.md §Outbound](canvas-study-session-orchestration.md).
 
 
 ---
@@ -154,5 +151,5 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
 ## Open Questions
 
-- When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic. **Note:** The ViewComposer (`src/ei/sdui/`) is the first concrete instance of this divergence — it is module-separated but still co-located in EI Runtime. If UX experimentation velocity outpaces gate logic changes, extract to a separate context with an ACL consuming Published Language events from EI Runtime.
+- ~~When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic.~~ **Resolved in [ADR-005](decisions/adr-005-flow-level-adaptation.md).** SSO is now its own bounded context. Canvas: [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md). The trigger was: iteration cadence diverged, event ownership splits cleanly, dependency direction is one-way, and the subdomain definition already anticipated the split.
 
