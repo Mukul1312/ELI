@@ -30,7 +30,7 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalScheduleInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', dueInHours, minQuestions, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', dueInHours, minQuestions, idempotencyKey, correlationId } = inputData;
     const now = new Date();
     const dueAt = new Date(now.getTime() + dueInHours * 60 * 60 * 1000).toISOString();
     const scheduledAt = now.toISOString();
@@ -90,8 +90,8 @@ const appendAndComposeStep = createStep({
 
     // Fire-and-forget: keep projections fresh for next AppOpen.
     Promise.all([
-      recomputeTopicLoop(db, studentId, topic),
-      recomputeStudentAggregates(db, studentId),
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
     ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return sdui;

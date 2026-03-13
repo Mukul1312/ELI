@@ -52,7 +52,7 @@ const runP3Gate = createStep({
   inputSchema: P3Input,
   outputSchema: VerificationDecisionIssuedSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof VerificationDecisionIssuedSchema>> => {
-    const { studentId, topic, topicName, taskType, endedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, taskType, endedAt, idempotencyKey, correlationId } = inputData;
     const db = getDb();
     const signalsPort = new PostgresGetStudentSignalsAdapter(db);
     const baseAdapter = new PostgresAppendEventAdapter(db);
@@ -116,8 +116,8 @@ const runP3Gate = createStep({
     // Single fire-and-forget at end — one writer per student per step execution.
     // Covers both Learn (SessionEnd + RetrievalScheduled) and non-Learn (SessionEnd only).
     Promise.all([
-      recomputeTopicLoop(db, studentId, topic),
-      recomputeStudentAggregates(db, studentId),
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
     ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return { ...result, topicName, taskType, dropoutSignalActive: consecutiveDeferrals >= 3 };

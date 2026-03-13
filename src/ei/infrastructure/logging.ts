@@ -43,3 +43,38 @@ export function logBackfillAudit(entry: BackfillAuditEntry): void {
   };
   console.log(JSON.stringify(safe));
 }
+
+/** Span for projector execution (TopicLoop, StudentAggregates). Per ADR-003 §Observability. */
+export interface ProjectorSpanEntry {
+  correlationId: string;
+  projectorName: string;
+  studentId: string;
+  topicId?: string;
+  eventCount: number;
+  durationMs: number;
+}
+
+export function logProjectorSpan(entry: ProjectorSpanEntry): void {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    type: 'projector_span',
+    ...entry,
+  }));
+}
+
+/** Span for event-sourced aggregate fold (StudySession reconstitution). Per ADR-004 §Observability. */
+export interface FoldSpanEntry {
+  correlationId: string;
+  sessionId: string;
+  eventCount: number;
+  durationMs: number;
+  warning?: string;
+}
+
+export function logFoldSpan(entry: FoldSpanEntry): void {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    type: 'fold_span',
+    ...entry,
+  }));
+}

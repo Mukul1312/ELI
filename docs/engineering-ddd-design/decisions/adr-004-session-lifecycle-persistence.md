@@ -1293,6 +1293,40 @@ When this moves to code, the sequence is:
 
 ---
 
+## Observability
+
+### Fold spans
+
+`PostgresStudySessionRepository.findById()` emits a structured JSON span after each aggregate reconstitution:
+
+```json
+{
+  "type": "fold_span",
+  "correlationId": "abc-123",
+  "sessionId": "session-1",
+  "eventCount": 15,
+  "durationMs": 45,
+  "timestamp": "2026-03-13T10:00:00.000Z"
+}
+```
+
+When `eventCount > 200`, the span includes `"warning": "high_event_count"` — a leading indicator that the fold is growing expensive and a snapshot strategy may be needed (see §Risks and Mitigations).
+
+**Key metrics derivable from logs:**
+- **Fold duration p50/p95**: Group `fold_span`, compute percentiles on `durationMs`
+- **Event count distribution**: Histogram of `eventCount` — monitors growth over time
+- **High-count warnings**: Alert on `warning: 'high_event_count'` frequency — when sustained, evaluate snapshot strategy
+
+### Snapshot strategy trigger
+
+The current implementation has no upper bound on fold event count. The 200-event warning threshold is informational. If p95 `durationMs` exceeds 500ms or `high_event_count` warnings exceed 5% of fold calls, evaluate:
+1. Periodic snapshot (store aggregate state at event N, fold from N+1)
+2. Session-scoped fold (only fold events for the current session, not all sessions for the topic)
+
+**Implementation:** `src/ei/infrastructure/persistence/study-session-repository.pg.ts` (`logFoldSpan`), threshold constant `FOLD_EVENT_COUNT_WARNING_THRESHOLD`.
+
+---
+
 ## References
 
 - [ADR-001: Declared Intent — Two-VO Design](adr-001-declared-intent-design.md)

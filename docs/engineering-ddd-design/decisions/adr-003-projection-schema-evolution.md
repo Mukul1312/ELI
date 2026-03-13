@@ -310,6 +310,45 @@ ALTER TABLE ei_student_aggregates ADD COLUMN IF NOT EXISTS active_days_7d INTEGE
 
 ---
 
+## Observability
+
+### Projector spans
+
+Each projector execution (`recomputeTopicLoop`, `recomputeStudentAggregates`) emits a structured JSON span:
+
+```json
+{
+  "type": "projector_span",
+  "correlationId": "abc-123",
+  "projectorName": "TopicLoop",
+  "studentId": "student-1",
+  "topicId": "topic-1",
+  "eventCount": 42,
+  "durationMs": 150,
+  "timestamp": "2026-03-13T10:00:00.000Z"
+}
+```
+
+**Key metrics derivable from logs:**
+- **Projection duration p50/p95**: Group `projector_span` by `projectorName`, compute percentiles on `durationMs`
+- **Event replay volume**: `eventCount` tracks growth — sustained increase signals backfill may be needed or that event volume is growing
+- **Correlation**: `correlationId` links projector spans to the parent gate call and individual DB query spans (from `TracedDbAdapter`)
+
+### Projection staleness
+
+Staleness is detectable by comparing `ei_topic_state.updated_at` against the student's latest `ei_events.occurred_at`. No runtime staleness check is implemented — the projector runs synchronously after event append in all workflows. If async projection is introduced later, add a staleness SLI:
+
+```sql
+SELECT student_id, topic_id,
+  NOW() - updated_at AS projection_lag
+FROM ei_topic_state
+WHERE updated_at < NOW() - INTERVAL '5 minutes'
+```
+
+**Implementation:** `src/ei/infrastructure/logging.ts` (`logProjectorSpan`), `src/ei/infrastructure/projector/topic-loop-projector.ts`, `src/ei/infrastructure/projector/student-aggregates-projector.ts`.
+
+---
+
 ## References
 
 - [ADR-001: Declared Intent — Two-VO Design](adr-001-declared-intent-design.md) — original decision that removed `ei_study_sessions`

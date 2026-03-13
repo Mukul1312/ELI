@@ -29,7 +29,7 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalSkipInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', reason, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', reason, idempotencyKey, correlationId } = inputData;
     const skippedAt = new Date().toISOString();
 
     const payload = validateEventPayload('RetrievalSkipped', {
@@ -91,8 +91,8 @@ const appendAndComposeStep = createStep({
 
     // Fire-and-forget: keep projections fresh for next AppOpen.
     Promise.all([
-      recomputeTopicLoop(db, studentId, topic),
-      recomputeStudentAggregates(db, studentId),
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
     ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
 
     return sdui;

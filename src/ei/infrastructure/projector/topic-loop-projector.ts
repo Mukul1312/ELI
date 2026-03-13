@@ -4,6 +4,7 @@ import { PostgresTopicLoopRepository } from '../persistence/topic-loop-repositor
 import { PostgresTopicDisplayNameWriter } from '../persistence/topic-display-name-writer.pg';
 import { TopicLoop } from '../../domain/topic-loop/topic-loop';
 import { TopicLoopId } from '../../domain/topic-loop/value-objects';
+import { logProjectorSpan } from '../logging';
 
 /**
  * Rebuild TopicLoop state from scratch by replaying all events.
@@ -13,7 +14,9 @@ export async function recomputeTopicLoop(
   db: EiDb,
   studentId: string,
   topicId: string,
+  correlationId?: string,
 ): Promise<void> {
+  const t0 = performance.now();
   const reader = new PostgresEventStreamReader(db);
   const repo = new PostgresTopicLoopRepository(db);
 
@@ -38,4 +41,13 @@ export async function recomputeTopicLoop(
     const displayNameWriter = new PostgresTopicDisplayNameWriter(db);
     await displayNameWriter.upsertDisplayName(studentId, topicId, topicName);
   }
+
+  logProjectorSpan({
+    correlationId: correlationId ?? 'unknown',
+    projectorName: 'TopicLoop',
+    studentId,
+    topicId,
+    eventCount: events.length,
+    durationMs: Math.round(performance.now() - t0),
+  });
 }

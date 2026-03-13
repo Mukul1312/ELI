@@ -57,7 +57,7 @@ export const composeCheckinViewStep = createStep({
   inputSchema: CheckinViewInputSchema,
   outputSchema: SduiResponseSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof SduiResponseSchema>> => {
-    const { studentId, isFirstOfDay, idempotencyKey } = inputData;
+    const { studentId, isFirstOfDay, idempotencyKey, correlationId } = inputData;
     const db = getDb();
 
     // Consolidated: 4 parallel queries instead of 9 (see 06-infrastructure-optimization.md §2)
@@ -77,7 +77,7 @@ export const composeCheckinViewStep = createStep({
     let aggregates = aggregatesRaw;
     const aggregatesStale = latestEventTs && (!aggregates || aggregates.updated_at < latestEventTs);
     if (aggregatesStale) {
-      await recomputeStudentAggregates(db, studentId);
+      await recomputeStudentAggregates(db, studentId, undefined, correlationId);
       aggregates = await Q.getAggregates(db, studentId);
     }
 
