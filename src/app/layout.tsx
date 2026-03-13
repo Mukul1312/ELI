@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { Inter, Lora } from 'next/font/google';
 import { AuthProvider } from './auth-provider';
 import { UserButton } from '@neondatabase/auth/react/ui';
@@ -8,8 +9,9 @@ const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-fam
 const lora = Lora({ subsets: ['latin'], display: 'swap', variable: '--font-family-greeting', weight: ['400', '500'] });
 
 export const metadata: Metadata = {
-  title: 'AI Study Brother — ELI',
-  description: 'Execution Intelligence coaching prototype',
+  title: 'Eli - Focused Study Companion',
+  description: 'Meet Eli. Not a Coach. Not a Tracker. Just a Companion for your focused study sessions.',
+  manifest: 'https://progressier.app/npJ4ibkRsWFIMDC7IIyX/progressier.json',
 };
 
 export const viewport: Viewport = {
@@ -30,6 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           minHeight: '100vh',
         }}
       >
+        <Script
+          src="https://progressier.app/npJ4ibkRsWFIMDC7IIyX/script.js"
+          strategy="afterInteractive"
+        />
         <AuthProvider>
           <header
             style={{
