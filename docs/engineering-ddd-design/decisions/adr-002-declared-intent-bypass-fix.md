@@ -1,6 +1,6 @@
 # ADR-002: Declared-Intent Bypass Fix — RunDeclaredIntentHandler + Silent P2
 
-**Status:** Accepted
+**Status:** Implemented
 **Date:** 2026-03-12
 **Deciders:** Product + Engineering (AI Study Brother core team)
 

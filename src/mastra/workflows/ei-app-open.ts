@@ -13,9 +13,7 @@ import { z } from 'zod';
 import { getDb } from '../../ei/runtime/db';
 import type { EiDb } from '../../ei/runtime/db';
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
-import { ProtocolRouter } from '../../ei/application/ei-protocol-router';
 import {
-  type EiCommandWithStudent,
   type AppOpenPayload,
   isAppOpenFirstTouch,
   isAppOpenOnboarding,
@@ -35,6 +33,7 @@ import { RunDeclaredIntentHandler } from '../../ei/application/run-declared-inte
 import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
+import { PostgresStudySessionRepository } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import type { SessionTaskType } from '../../ei/schemas/events';
 import type { SleepBucket } from '../../ei/engine/score';
@@ -89,175 +88,136 @@ const appOpenBranchStep = createStep({
     const payload = command.payload;
 
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
-      // Detect active session via Ledger (per spec §10: phase derivation is Ledger-driven).
-      // A session is "active" if FirstActionStarted exists with no subsequent SessionEnd or
-      // VerificationDecisionIssued for the same topic within the last 7 days.
+      // ADR-004 D3: Derive session phase from projection column instead of 50-event scan.
+      // Single indexed read (~50ms) replaces 9-type, 50-event Ledger scan (~600ms).
       const db = getDb();
-      const queryEventsAdapter = new PostgresQueryEventsAdapter(db);
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      // Per §10.2: derive session phase from Ledger evidence flags.
-      // Query all protocol output events + terminal events for phase derivation.
-      const recentEvents = await queryEventsAdapter.queryEvents(studentId, {
-        eventTypes: [
-          'SessionIntentIssued', 'IntentResponse',
-          'ActivationPlanIssued', 'FirstActionStarted',
-          'SessionEnd', 'VerificationDecisionIssued', 'VerificationCompleted',
-          'RetrievalScheduled', 'RetrievalSkipped',
-        ],
-        since,
-        limit: 50,
-      });
+      const activeSession = await Q.getActiveSessionForStudent(db, studentId);
 
-      // Results are DESC by occurred_at — find() gives the most recent.
-      const lastStarted = recentEvents.find(e => e.eventType === 'FirstActionStarted');
-      if (lastStarted?.topicId) {
-        const topicId = lastStarted.topicId;
-        const sessionClosed = recentEvents.some(
-          e =>
-            (e.eventType === 'SessionEnd' || e.eventType === 'VerificationDecisionIssued') &&
-            e.topicId === topicId &&
-            e.occurredAt > lastStarted.occurredAt,
-        );
-        if (!sessionClosed) {
-          const activationEvent = recentEvents.find(
-            e => e.eventType === 'ActivationPlanIssued' && e.topicId === topicId,
-          );
-          const mode = (activationEvent?.payload?.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral';
-          const playId = (activationEvent?.payload?.playId as string) ?? 'P2-N1';
-          const sessionTopicName = await Q.getTopicName(db, studentId, topicId);
-          const sessionStartedAt = (lastStarted.payload?.startedAt as string) ?? lastStarted.occurredAt;
-          const resumeTaskType = (activationEvent?.payload?.taskType as string)
-            ?? (lastStarted.payload?.taskType as string)
-            ?? undefined;
-          const firstActionText = (resumeTaskType ? FIRST_ACTION_BY_TASK[resumeTaskType] : undefined)
-            ?? FIRST_ACTION_DEFAULT;
-          return composeSessionView({ topic: topicId, topicName: sessionTopicName ?? undefined, mode, playId, taskType: resumeTaskType, firstActionText, sessionStartedAt });
+      if (activeSession?.current_session_id) {
+        const { topic_id: topicId, topic_name: topicName, session_phase: sessionPhase, current_session_id: sessionId } = activeSession;
+
+        // ── Active session resume: student is mid-session ──
+        if (sessionPhase === 'active') {
+          const activationEvent = await Q.getEventBySessionId(db, sessionId, 'ActivationPlanIssued');
+          if (activationEvent) {
+            const ap = activationEvent.payload;
+            const mode = (ap.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral';
+            const playId = (ap.playId as string) ?? 'P2-N1';
+            const rawStartedAt = activeSession.last_session_started_at
+              ?? activationEvent.occurred_at;
+            const sessionStartedAt = rawStartedAt instanceof Date
+              ? rawStartedAt.toISOString()
+              : String(rawStartedAt);
+            const resumeTaskType = (ap.taskType as string) ?? undefined;
+            const firstActionText = (resumeTaskType ? FIRST_ACTION_BY_TASK[resumeTaskType] : undefined)
+              ?? FIRST_ACTION_DEFAULT;
+            return composeSessionView({ topic: topicId, topicName: topicName ?? undefined, mode, playId, taskType: resumeTaskType, firstActionText, sessionStartedAt });
+          }
+          // Defensive: projection says active but no ActivationPlanIssued found → fall through to checkin
         }
-      }
 
-      // ── Phase 3 resume: VerificationDecisionIssued without terminal event ──
-      // If the student refreshed during the verification screen, re-compose it.
-      const lastVerificationDecision = recentEvents.find(e => e.eventType === 'VerificationDecisionIssued');
-      if (lastVerificationDecision?.topicId) {
-        const vTopicId = lastVerificationDecision.topicId;
-        const verificationTerminated = recentEvents.some(
-          e =>
-            (e.eventType === 'VerificationCompleted' ||
-              e.eventType === 'RetrievalScheduled' ||
-              e.eventType === 'RetrievalSkipped') &&
-            e.topicId === vTopicId &&
-            e.occurredAt > lastVerificationDecision.occurredAt,
-        );
-        if (!verificationTerminated) {
-          const p = lastVerificationDecision.payload;
-          const vTopicName = await Q.getTopicName(db, studentId, vTopicId);
-          const output = {
-            studentId,
-            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
-            playId: (p.playId as string) ?? 'P2-N1',
-            topic: vTopicId,
-            topicName: vTopicName ?? undefined,
-            verificationDecision: (p.verificationDecision as 'VerifyNow' | 'ScheduleVerify' | 'Skip') ?? 'VerifyNow',
-            verificationSpec: p.verificationSpec as any,
-            deadlineSpec: p.deadlineSpec as any,
-            reason: p.reason as string | undefined,
-            sessionDurationSec: (p.sessionDurationSec as number) ?? undefined,
-            dropoutSignalActive: (p.dropoutSignalActive as boolean) ?? false,
-            issuedAt: lastVerificationDecision.occurredAt.toISOString(),
-          };
-          return composeP3View(
-            output,
-            output.sessionDurationSec,
-            output.dropoutSignalActive,
-          );
-        }
-      }
-
-      // ── Intent phase resume (§10.2: Intent but no plan → activating) ────
-      // Per routing matrix §10.3: AppOpen + Recent SessionIntentIssued (negotiated) → resume flow.
-      // If SessionIntentIssued exists without a subsequent IntentResponse,
-      // ActivationPlanIssued, or SessionEnd → student was viewing "Your Plan" screen.
-      // Only negotiated sessions show a plan screen; declared sessions go direct to session.
-      const lastIntent = recentEvents.find(
-        e => e.eventType === 'SessionIntentIssued' && e.payload?.intentSource === 'negotiated',
-      );
-      if (lastIntent?.topicId) {
-        const intentTopicId = lastIntent.topicId;
-        const intentProgressed = recentEvents.some(
-          e =>
-            (e.eventType === 'IntentResponse' ||
-              e.eventType === 'ActivationPlanIssued' ||
-              e.eventType === 'SessionEnd') &&
-            e.topicId === intentTopicId &&
-            e.occurredAt > lastIntent.occurredAt,
-        );
-        if (!intentProgressed) {
-          // Load aggregates + event counts for PresentationContext (same pattern as protocol1-ignition .map() step).
-          const [aggregates, eventCounts, lastEnergy, intentTopicName] = await Promise.all([
-            Q.getAggregates(db, studentId),
-            Q.countStudentEventsLast7d(db, studentId),
-            Q.getLastAppOpenEnergy(db, studentId),
-            Q.getTopicName(db, studentId, intentTopicId),
-          ]);
-
-          // Resume: reconstruct P1 view from stored SessionIntentIssued event payload (flat shape).
-          // Backward compat: old events have nested scope/verificationPlan; new events have flat fields.
-          const p = lastIntent.payload;
-          const resolvedTopicName = intentTopicName ?? (p.topicName as string) ?? undefined;
-          const resumeVerificationFloor = p.verificationFloor
-            ? p.verificationFloor as { minQuestions: number; preferVerifyNow: boolean }
-            : p.verificationPlan
-              ? { minQuestions: (p.verificationPlan as any).minQuestions ?? 1, preferVerifyNow: (p.verificationPlan as any).preferVerifyNow ?? false }
-              : null;
-          const intentOutput: SessionIntentIssuedOutput = {
-            studentId,
-            topicId: intentTopicId,
-            intentSource: (p.intentSource as 'negotiated' | 'declared') ?? 'negotiated',
-            timebox: (p.timebox as number) ?? (p.scope as any)?.timeboxMin ?? 30,
-            taskType: (p.taskType as SessionTaskType) ?? 'Practice',
-            energy: (p.energy as number) ?? 3,
-            sleepBucket: (p.sleepBucket as SleepBucket) ?? '7-8',
-            issuedAt: lastIntent.occurredAt.toISOString(),
-            topic: intentTopicId,
-            topicName: resolvedTopicName,
-            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost' | null) ?? 'Neutral',
-            playId: (p.playId as string | null) ?? null,
-            verificationFloor: resumeVerificationFloor,
-            constraints: (p.constraints as { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | null) ?? null,
-            stateScore: (p.stateScore as number | null) ?? null,
-            questionCount: (p.questionCount as number | null) ?? (p.scope as any)?.questionCount ?? null,
-            difficultyTier: (p.difficultyTier as 'easy' | 'med' | 'hard' | 'advanced' | null) ?? (p.scope as any)?.difficultyTier ?? null,
-            sessionIntentId: (p.sessionIntentId as string | null) ?? (p.negotiatedIntentId as string | null) ?? null,
-          };
-
-          const aggregatesForPresentation = aggregates
-            ? {
-                pendingChecks: aggregates.pending_checks,
-                silenceDays: aggregates.silence_days,
-                verificationRate7d: aggregates.verification_rate_7d,
-                stateTrend7d: aggregates.state_trend_7d as StateTrend,
-              }
-            : null;
-
-          const ctx = buildP1PresentationContext(
-            {
+        // ── Phase 3 resume: verification decision issued, awaiting student action ──
+        if (sessionPhase === 'verifying') {
+          const vdEvent = await Q.getEventBySessionId(db, sessionId, 'VerificationDecisionIssued');
+          if (vdEvent) {
+            const p = vdEvent.payload;
+            const output = {
               studentId,
-              topic: intentTopicId,
-              mode: intentOutput.mode,
-              playId: intentOutput.playId,
-              stateScore: intentOutput.stateScore,
-              constraints: intentOutput.constraints,
-            },
-            lastEnergy,
-            aggregatesForPresentation,
-            undefined,
-            eventCounts,
-          );
+              mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
+              playId: (p.playId as string) ?? 'P2-N1',
+              topic: topicId,
+              topicName: topicName ?? undefined,
+              verificationDecision: (p.verificationDecision as 'VerifyNow' | 'ScheduleVerify' | 'Skip') ?? 'VerifyNow',
+              verificationSpec: p.verificationSpec as any,
+              deadlineSpec: p.deadlineSpec as any,
+              reason: p.reason as string | undefined,
+              sessionDurationSec: (p.sessionDurationSec as number) ?? undefined,
+              dropoutSignalActive: (p.dropoutSignalActive as boolean) ?? false,
+              issuedAt: vdEvent.occurred_at.toISOString(),
+            };
+            return composeP3View(
+              output,
+              output.sessionDurationSec,
+              output.dropoutSignalActive,
+            );
+          }
+          // Defensive: projection says verifying but no VerificationDecisionIssued → fall through
+        }
 
-          return composeP1View(intentOutput, ctx);
+        // ── Intent phase resume: negotiated intent awaiting student acceptance ──
+        if (sessionPhase === 'activating') {
+          const intentEvent = await Q.getEventBySessionId(db, sessionId, 'SessionIntentIssued');
+          // Only negotiated sessions show a plan screen; declared sessions go direct to session.
+          if (intentEvent && intentEvent.payload?.intentSource === 'negotiated') {
+            const intentTopicId = topicId;
+            // Load aggregates + event counts for PresentationContext.
+            const [aggregates, eventCounts, lastEnergy] = await Promise.all([
+              Q.getAggregates(db, studentId),
+              Q.countStudentEventsLast7d(db, studentId),
+              Q.getLastAppOpenEnergy(db, studentId),
+            ]);
+
+            // Resume: reconstruct P1 view from stored SessionIntentIssued event payload (flat shape).
+            // Backward compat: old events have nested scope/verificationPlan; new events have flat fields.
+            const p = intentEvent.payload;
+            const resolvedTopicName = topicName ?? (p.topicName as string) ?? undefined;
+            const resumeVerificationFloor = p.verificationFloor
+              ? p.verificationFloor as { minQuestions: number; preferVerifyNow: boolean }
+              : p.verificationPlan
+                ? { minQuestions: (p.verificationPlan as any).minQuestions ?? 1, preferVerifyNow: (p.verificationPlan as any).preferVerifyNow ?? false }
+                : null;
+            const intentOutput: SessionIntentIssuedOutput = {
+              studentId,
+              topicId: intentTopicId,
+              intentSource: (p.intentSource as 'negotiated' | 'declared') ?? 'negotiated',
+              timebox: (p.timebox as number) ?? (p.scope as any)?.timeboxMin ?? 30,
+              taskType: (p.taskType as SessionTaskType) ?? 'Practice',
+              energy: (p.energy as number) ?? 3,
+              sleepBucket: (p.sleepBucket as SleepBucket) ?? '7-8',
+              issuedAt: intentEvent.occurred_at.toISOString(),
+              topic: intentTopicId,
+              topicName: resolvedTopicName,
+              mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost' | null) ?? 'Neutral',
+              playId: (p.playId as string | null) ?? null,
+              verificationFloor: resumeVerificationFloor,
+              constraints: (p.constraints as { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | null) ?? null,
+              stateScore: (p.stateScore as number | null) ?? null,
+              questionCount: (p.questionCount as number | null) ?? (p.scope as any)?.questionCount ?? null,
+              difficultyTier: (p.difficultyTier as 'easy' | 'med' | 'hard' | 'advanced' | null) ?? (p.scope as any)?.difficultyTier ?? null,
+              sessionIntentId: (p.sessionIntentId as string | null) ?? (p.negotiatedIntentId as string | null) ?? null,
+            };
+
+            const aggregatesForPresentation = aggregates
+              ? {
+                  pendingChecks: aggregates.pending_checks,
+                  silenceDays: aggregates.silence_days,
+                  verificationRate7d: aggregates.verification_rate_7d,
+                  stateTrend7d: aggregates.state_trend_7d as StateTrend,
+                }
+              : null;
+
+            const ctx = buildP1PresentationContext(
+              {
+                studentId,
+                topic: intentTopicId,
+                mode: intentOutput.mode,
+                playId: intentOutput.playId,
+                stateScore: intentOutput.stateScore,
+                constraints: intentOutput.constraints,
+              },
+              lastEnergy,
+              aggregatesForPresentation,
+              undefined,
+              eventCounts,
+            );
+
+            return composeP1View(intentOutput, ctx);
+          }
+          // Declared intent in activating phase is transient → fall through to checkin
         }
       }
 
+      // No active session → show checkin view
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
       return checkinRun.start({
@@ -319,12 +279,6 @@ const appOpenBranchStep = createStep({
       taskType?: string;
       timebox?: number;
     };
-    const commandWithStudent: EiCommandWithStudent = {
-      commandType: 'AppOpen',
-      payload: fullPayload,
-      studentId,
-    };
-
     const db = getDb();
     const topicRef = fullPayload.topicId
       ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
@@ -357,6 +311,7 @@ const appOpenBranchStep = createStep({
         appendEventAdapter,
         new PostgresQueryEventsAdapter(db),
         new ProtocolEngine(),
+        new PostgresStudySessionRepository(db),
       );
       const p2Output = await p2Handler.execute({
         studentId,
@@ -383,26 +338,12 @@ const appOpenBranchStep = createStep({
       return sessionResult;
     }
 
-    const queryEvents = new PostgresQueryEventsAdapter(db);
-    const router = new ProtocolRouter(queryEvents);
-    const protocol = await router.decideProtocol(commandWithStudent);
+    // ADR-004 D3: Route via projection column instead of ProtocolRouter event scan.
+    const topicState = await Q.getTopicState(db, studentId, topicRef.topicId);
+    const sessionPhase = topicState?.session_phase;
 
-    if (protocol === 1) {
-      const p1InputData = {
-        studentId,
-        topic: topicRef.topicId,
-        topicName: topicRef.topicName,
-        energy: fullPayload.energy,
-        sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
-        openedAt: fullPayload.openedAt,
-        idempotencyKey,
-        correlationId,
-      };
-      const run = await protocol1IgnitionWorkflow.createRun();
-      return run.start({ inputData: p1InputData });
-    }
-
-    if (protocol === 2) {
+    if (sessionPhase === 'activating' || sessionPhase === 'active') {
+      // Intent exists for this topic → resume via P2
       const p2InputData = {
         studentId,
         topic: topicRef.topicId,
@@ -416,7 +357,19 @@ const appOpenBranchStep = createStep({
       return run.start({ inputData: p2InputData });
     }
 
-    throw new Error(`AppOpen should not route to protocol ${protocol}`);
+    // No active session for this topic → fresh P1
+    const p1InputData = {
+      studentId,
+      topic: topicRef.topicId,
+      topicName: topicRef.topicName,
+      energy: fullPayload.energy,
+      sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
+      openedAt: fullPayload.openedAt,
+      idempotencyKey,
+      correlationId,
+    };
+    const run = await protocol1IgnitionWorkflow.createRun();
+    return run.start({ inputData: p1InputData });
   },
 });
 

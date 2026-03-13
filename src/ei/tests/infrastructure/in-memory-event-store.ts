@@ -113,6 +113,20 @@ export class InMemoryEventStore
     return { eventType: e.eventType, topicId: e.topicId, occurredAt: e.occurredAt, payload: e.payload };
   }
 
+  async hasEventOfType(studentId: string, eventType: string): Promise<boolean> {
+    return this.events.some((e) => e.studentId === studentId && e.eventType === eventType);
+  }
+
+  async readLatestEventOfType(studentId: string, eventType: string): Promise<StudentStreamedEvent | null> {
+    const matched = this.events
+      .filter((e) => e.studentId === studentId && e.eventType === eventType)
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+    if (matched.length === 0) return null;
+    const e = matched[0];
+    return { eventType: e.eventType, topicId: e.topicId, occurredAt: e.occurredAt, payload: e.payload };
+  }
+
   // ── Test helpers ────────────────────────────────────────────────────────────
 
   getAll(): StoredEvent[] {

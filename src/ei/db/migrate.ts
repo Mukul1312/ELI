@@ -329,6 +329,76 @@ const SQL_STATEMENTS = [
   `INSERT INTO curriculum_chapters (id, unit_id, name, sort_order)
    VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'Uncategorized', 0)
    ON CONFLICT (unit_id, name) DO NOTHING`,
+
+  // ================================================================
+  // 8. ADR-003: Projection schema evolution — 6 new ei_topic_state columns
+  // ================================================================
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'session_phase') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN session_phase TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'current_session_id') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN current_session_id TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'verification_floor') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN verification_floor INTEGER;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'watch_only_flag') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN watch_only_flag BOOLEAN NOT NULL DEFAULT false;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'intent_source') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN intent_source TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'last_session_started_at') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN last_session_started_at TIMESTAMPTZ;
+    END IF;
+  END $$`,
+
+  // ================================================================
+  // 9. ADR-003: Projection schema evolution — 5 new ei_student_aggregates columns
+  // ================================================================
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'sessions_last_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN sessions_last_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'loops_closed_last_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN loops_closed_last_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'has_prior_app_open') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN has_prior_app_open BOOLEAN NOT NULL DEFAULT false;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'last_identity_shown_at') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN last_identity_shown_at TIMESTAMPTZ;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'active_days_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN active_days_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+
+  // ================================================================
+  // 10. ADR-004: JSONB functional index for event-sourced StudySession fold
+  // ================================================================
+  `CREATE INDEX IF NOT EXISTS idx_ei_events_session_id
+   ON ei_events ((payload->>'sessionId'))
+   WHERE event_type IN ('SessionIntentIssued','ActivationPlanIssued','VerificationDecisionIssued')`,
 ];
 
 export async function runMigration(connectionString: string): Promise<void> {

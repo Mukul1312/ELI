@@ -63,7 +63,7 @@ Compute and persist the student's derived state/metrics from the event ledger fo
 
 | Collaborator    | Message type | Message name                     | Key data                            | Integration style              | Relationship (from context map) |
 | --------------- | ------------ | -------------------------------- | ----------------------------------- | ------------------------------ | ------------------------------- |
-| EI Event Ledger | Event stream | Event stream (batch / sync read) | All EventTypeEnum + payload schemas (incl. StrategicAdjustmentDecision) | Batch / recompute or sync read | Customer-Supplier (Conformist)  |
+| EI Event Ledger | Event stream | Event stream (batch / sync read) | All EventTypeEnum + payload schemas (incl. StrategicAdjustmentDecision). **TopicLoop consumes 4 StudySession protocol events** (SessionIntentIssued, ActivationPlanIssued, FirstActionStarted, VerificationDecisionIssued) for SessionLifecycleState projection ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). | Batch / recompute or sync read | Customer-Supplier (Conformist)  |
 | CurriculumCatalog | Query response | AliasLookup → topic alias resolution | topicId: UUID for a given raw topic string | Sync query | Customer-Supplier |
 
 

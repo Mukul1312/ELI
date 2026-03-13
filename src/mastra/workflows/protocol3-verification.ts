@@ -19,6 +19,7 @@ import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrast
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
+import { PostgresStudySessionRepository } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
 import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
@@ -61,10 +62,10 @@ const runP3Gate = createStep({
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
 
-    // Derive stable sessionId from last SessionIntentIssued event (Option B, ADR-001):
-    // aggregate ID is carried in the event payload — no secondary store needed.
+    // ADR-004 D2: Read sessionId from projection instead of scanning ei_events.
     // Fallback uuid: safety net for sessions started before this migration.
-    const sessionId = await Q.getSessionIdFromLastIntent(db, studentId, topic) ?? crypto.randomUUID();
+    const topicState = await Q.getTopicState(db, studentId, topic);
+    const sessionId = topicState?.current_session_id ?? crypto.randomUUID();
 
     const handler = new RunP3GateHandler(
       signalsPort,
@@ -72,6 +73,7 @@ const runP3Gate = createStep({
       appendEvent,
       queryEvents,
       protocolEngine,
+      new PostgresStudySessionRepository(db),
     );
     const result = await handler.execute({
       studentId,
@@ -106,10 +108,10 @@ const runP3Gate = createStep({
       });
     }
 
-    // Dropout Signal: reads pre-recompute ei_topic_state. Acceptable because
+    // Dropout Signal: reuse topicState loaded above (pre-recompute). Acceptable because
     // SessionEnd/VerificationDecisionIssued don't affect consecutive_deferrals,
     // and dropout signal only affects presentation, not routing.
-    const consecutiveDeferrals = await Q.getConsecutiveDeferrals(db, studentId, topic);
+    const consecutiveDeferrals = topicState?.consecutive_deferrals ?? 0;
 
     // Single fire-and-forget at end — one writer per student per step execution.
     // Covers both Learn (SessionEnd + RetrievalScheduled) and non-Learn (SessionEnd only).

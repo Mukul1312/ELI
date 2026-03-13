@@ -19,6 +19,8 @@ function makeInput(overrides: Partial<RecomputeInput> = {}): RecomputeInput {
     events: [],
     topicStates: [],
     allTimeLatestEvent: null,
+    hasPriorAppOpen: false,
+    lastIdentityShownAt: null,
     ...overrides,
   };
 }

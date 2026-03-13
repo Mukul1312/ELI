@@ -9,6 +9,8 @@
 > **ADR-001 (2026-03-11):** `ei_study_sessions` table removed. Session state is now fully derived from `SessionIntentIssued` events in the Ledger. `IStudySessionRepository` port removed from all gate handlers. Session identity carried in event payload (`sessionIntentId` field). See §3 Option C and §5.
 >
 > **ADR-002 (2026-03-12):** Declared-intent bypass replaced with proper domain path. `RunDeclaredIntentHandler` emits `SessionIntentIssued(intentSource='declared')`. `RunP2GateHandler` runs silently (no UI shown) and emits `ActivationPlanIssued`. All protocol events now present in Ledger for both negotiated and declared sessions. `PhaseDeriver` updated to accept `FirstActionStarted` as active-session evidence for declared path.
+>
+> **ADR-003 + ADR-004 (2026-03-13):** Read-side: 6 SessionLifecycleState columns projected into `ei_topic_state` (`session_phase`, `current_session_id`, `verification_floor`, `watch_only_flag`, `intent_source`, `last_session_started_at`) + 5 presentation-context columns in `ei_student_aggregates`. Write-side: `IStudySessionRepository.findById()` folds Ledger events into reconstituted aggregate; `save()` is no-op. Gaps 1, 2, 4, 5, 6, 7, 8 resolved.
 
 ---
 
@@ -392,7 +394,7 @@ This is ~300ms on every `IntentSet` and `SessionEnd` command. It exists because 
 | ✅ Done | Option A: CTE single-round-trip `insertEvent` | Implemented |
 | ✅ Done | Option C: Session close consolidation | **Superseded by ADR-001** — `ei_study_sessions` removed entirely |
 | Sprint 2 | Option B: `appendBatch` port extension (if multi-event workflows remain a bottleneck) | Pending — measure after Fix B1/B2 |
-| Sprint 2 | Option D: Pass `sessionId` in command payload | Pending — client + server schema change |
+| ✅ Done | Option D: `sessionId` sourced from `ei_topic_state.current_session_id` projection (ADR-003 D2) | Implemented — eliminates Ledger query |
 
 ---
 
@@ -546,9 +548,9 @@ Instead of calling Neon Auth's `getSession()` via HTTP, verify the session JWT l
 |-----------|-------|-------|--------|--------------|
 | Pool contention | Cross-cutting infrastructure | Neon config | ⏳ Pending (config change) | None |
 | `getSignals` 3-way fan-out | EI Runtime (adapter) | `PostgresGetStudentSignalsAdapter` | ⏳ Pending | None — port unchanged |
-| `PhaseDeriver` 4-way fan-out | EI Runtime (application) | `PhaseDeriver` class | ⏳ Pending | None |
-| `getSessionIdFromLastIntent` sequential read | EI Runtime (orchestration) | P2 + P3 workflow steps | ⏳ Pending (client schema) | None |
-| Read model query fan (checkin) | EI Projections | Projection schema + query consolidation | ⏳ Pending | Projection may gain 1-2 columns |
+| `PhaseDeriver` 4-way fan-out | EI Runtime (application) | `PhaseDeriver` class | ✅ Resolved (ADR-003: `session_phase` column) | None |
+| `getSessionIdFromLastIntent` sequential read | EI Runtime (orchestration) | P2 + P3 workflow steps | ✅ Resolved (ADR-003: `current_session_id` column; ADR-004 D2) | None |
+| Read model query fan (checkin) | EI Projections | Projection schema + query consolidation | ✅ Resolved (ADR-003: 5 new `ei_student_aggregates` columns) | Projection gained 5 columns |
 | Sequential write chain | EI Event Ledger | Driven adapter (`insertEvent`) | ✅ Done (CTE, Option A) | None |
 | ~~Session write chain~~ | ~~EI Runtime~~ | ~~Session repository adapter~~ | ✅ **Eliminated** — ADR-001 | — |
 | Auth ensure + resolve | CohortAccess | Application layer | ✅ Done (`ensureAndResolve` CTE) | None |

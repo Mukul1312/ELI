@@ -124,6 +124,14 @@ export class ActivationPlan extends ValueObject<ActivationPlanProps> {
   get replanCap(): number | undefined { return this.props.replanCap; }
   get constraints(): ActivationPlanProps['constraints'] { return this.props.constraints; }
 
+  /**
+   * Secondary factory for reconstituting from event payload (ADR-004).
+   * No validation, no computation — accepts stored values as-is.
+   */
+  static reconstitute(props: ActivationPlanProps): ActivationPlan {
+    return new ActivationPlan(props);
+  }
+
   isWatchOnly(): boolean { return this.props.firstAction.type === 'watch_only'; }
   enforcesWatchOnlyVerification(): boolean {
     return this.props.constraints?.enforceWatchOnlyVerification === true;

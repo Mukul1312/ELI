@@ -33,6 +33,8 @@ import { RecomputeStudentAggregatesHandler } from '../application/recompute-stud
 
 // ── Real domain services ─────────────────────────────────────────────────────
 import { ProtocolEngine } from '../domain/study-session/protocol-engine';
+import type { IStudySessionRepository } from '../domain/study-session/repository';
+import type { StudySession } from '../domain/study-session/study-session';
 
 // ── In-memory ports (test infrastructure) ───────────────────────────────────
 import { InMemoryEventStore } from './infrastructure/in-memory-event-store';
@@ -60,6 +62,12 @@ interface Pipeline {
   p2Handler: RunP2GateHandler;
   p3Handler: RunP3GateHandler;
 }
+
+// Null-returning session repo — handlers fall back to StudySession.reconstitute()
+const nullSessionRepo: IStudySessionRepository = {
+  async findById(): Promise<StudySession | null> { return null; },
+  async save(): Promise<void> {},
+};
 
 function buildPipeline(): Pipeline {
   const eventStore = new InMemoryEventStore();
@@ -91,6 +99,7 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
+    nullSessionRepo,
   );
 
   const p3Handler = new RunP3GateHandler(
@@ -99,6 +108,7 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
+    nullSessionRepo,
   );
 
   return { eventStore, topicStore, aggregatesRepo, aggregatesHandler, p1Handler, p2Handler, p3Handler };

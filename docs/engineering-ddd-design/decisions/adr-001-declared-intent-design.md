@@ -1,6 +1,6 @@
 # ADR-001: Declared Intent — Two-VO Design for SessionIntentIssued
 
-**Status:** Accepted
+**Status:** Implemented
 **Date:** 2026-03-11
 **Deciders:** Product + Engineering (AI Study Brother core team)
 

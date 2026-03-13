@@ -513,9 +513,9 @@ export interface IStudySessionRepository {
 | Plan but no decision | `active` |
 | Decision exists | `verifying` (optionally `closed` when retrieval is resolved, if modeled) |
 
-**Recency rule:** "Recent" = within last 7 days (per S2 Day 2-21 scenario in domain message flows). Used for AppOpen routing: if a recent `SessionIntentIssued` exists for the topic (either source), route to P2 (resume); otherwise route to P1 (fresh session — negotiated or declared based on `declaredEntry` flag). Code reference: `ProtocolRouter.decideForAppOpen` uses `RECENT_DAYS_MS = 7 * 24 * 60 * 60 * 1000`.
+**Recency rule (superseded by [ADR-003](../decisions/adr-003-projection-schema-evolution.md) D3):** AppOpen routing now uses `ei_topic_state.session_phase` column instead of event scanning. If `session_phase` is `'activating'` or `'active'` for the topic, route to P2 (resume); otherwise route to P1 (fresh session). The old `ProtocolRouter.decideForAppOpen` method (which scanned `SessionIntentIssued` events with `RECENT_DAYS_MS`) has been removed.
 
-**SessionId note:** `sessionId` matches the AppOpen event's idempotency key for traceability and linking events to a session. Without an explicit stored session record (deferred), we derive phase from Ledger events only; cross-protocol state (P1 floor, P2 watchOnly) is threaded via gate contexts. See Open Questions (§17) for sessionId sourcing.
+**SessionId note:** `sessionId` is sourced from `ei_topic_state.current_session_id` (projection column, [ADR-003](../decisions/adr-003-projection-schema-evolution.md) D2) for standalone P2/P3 workflows. For the synchronous declared-intent path (P1→P2 in `ei-app-open.ts`), `sessionId` flows through workflow context directly. `IStudySessionRepository.findById(sessionId)` ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) reconstitutes the aggregate from Ledger events via fold. Cross-protocol state (P1 floor, P2 watchOnly) is sourced from the reconstituted aggregate's VOs, not via P3GateContext threading.
 
 ### Routing matrix
 
@@ -541,7 +541,7 @@ Command × derived phase → next protocol or flow. Aligns with [05-cross-cuttin
 | `RetrievalSchedule` | — | RetrievalSchedule workflow (emits RetrievalScheduled event) |
 | `RetrievalSkip` | — | RetrievalSkip workflow (emits RetrievalSkipped event) |
 
-**Invalid transitions:** If the routing logic receives an unexpected command (e.g. IntentSet when derived state is negotiating and no prior P1 completed), the route returns 400 or 500 with an error message. Example: ProtocolRouter throws for unknown commandType; route returns `{ error: "Protocol routing failed" }` (500) or workflow-specific validation errors (400).
+**Invalid transitions:** If the routing logic receives an unexpected command, the route returns 400 or 500. `ProtocolRouter.decideProtocol()` throws for commandTypes other than `IntentSet` and `SessionEnd` (AppOpen routing is handled inline in `ei-app-open.ts` via `session_phase` — [ADR-004 D3](../decisions/adr-004-session-lifecycle-persistence.md)).
 
 **Replan flow:** `Replan` triggers P2 re-run with incremented `replanCount`. Session conceptually transitions back to `activating`. Handled by Replan workflow → RunP2GateHandler. Cross-protocol floor (P1 minQuestions) remains in P3GateContext when P3 runs later.
 
@@ -568,6 +568,7 @@ Per HEXAGONAL.md: Driver ports = "how the world uses your app"; Driven ports = "
 | `IAssessLoopHealthUseCase` | `I{Action}UseCase` | `application/assess-loop-health/port.ts` (reuse) | `AssessLoopHealthHandler` |
 | `IAppendEventPort` | `I{Action}Port` | `application/shared/port-append-event.ts` (new) | `PostgresAppendEventAdapter` (new) |
 | `IStudentEventStreamReader` | `I{Resource}Reader` | `application/shared/port-student-event-stream-reader.ts` (existing) | `PostgresStudentEventStreamReader` |
+| `IStudySessionRepository` | `I{Resource}Repository` | `domain/study-session/repository.ts` | `PostgresStudySessionRepository` (event-sourced fold, [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) |
 
 ---
 

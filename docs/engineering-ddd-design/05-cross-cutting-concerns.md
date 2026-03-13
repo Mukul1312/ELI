@@ -77,12 +77,12 @@ Domain errors for invariants; Application errors for use-case boundary validatio
 |------------|-----------------|----------|-------------|--------------------------|
 | AppOpen | studentId, energy, openedAt; `timeCommitment` (optional, int: 10\|20\|45\|60 — student-declared minutes); `taskType` (optional, string: Learn\|Practice\|Revise — student-declared); `highPressureDetected` (optional, boolean — system-derived from V3 triggers; absent = false). `timeCommitment` and `taskType` absent for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING; system uses mode-based fallback when absent. | UI | P1, Ledger | — |
 | IntentSet | studentId, topic, setAt | UI | P2, Ledger | — |
-| SessionEnd | studentId, topic, endedAt | UI | P3, Ledger | ei_topic_state.last_effort_at |
-| SessionIntentIssued | `intentSource` ('negotiated'\|'declared'), studentId, topicId, timebox, taskType, energy, sleep, issuedAt; **negotiated-only:** mode, playId, verificationFloor, constraints; **passive:** loopHealthSnapshot. Producer: `issueNegotiatedIntent()` (ELI-driven) or `issueDeclaredIntent()` (student-driven). See [ADR-001](decisions/adr-001-declared-intent-design.md) and [ei-runtime-tactical-spec.md §9](tactical/ei-runtime-tactical-spec.md). | P1 (RunP1GateHandler) or DeclaredEntry (RunDeclaredIntentHandler) | Ledger, P3 (cross-protocol floor when `intentSource='negotiated'`) | — |
-| ActivationPlanIssued | studentId, mode, firstAction, issuedAt | P2 | Ledger, P3 (watch-only flag) | — |
-| VerificationDecisionIssued | studentId, mode, topic, verificationDecision, issuedAt | P3 | Ledger | — |
+| SessionEnd | studentId, topic, endedAt | UI | P3, Ledger | ei_topic_state: last_effort_at, session_phase='verifying' ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
+| SessionIntentIssued | `intentSource` ('negotiated'\|'declared'), studentId, topicId, timebox, taskType, energy, sleep, issuedAt; **negotiated-only:** mode, playId, verificationFloor, constraints; **passive:** loopHealthSnapshot. Producer: `issueNegotiatedIntent()` (ELI-driven) or `issueDeclaredIntent()` (student-driven). See [ADR-001](decisions/adr-001-declared-intent-design.md) and [ei-runtime-tactical-spec.md §9](tactical/ei-runtime-tactical-spec.md). | P1 (RunP1GateHandler) or DeclaredEntry (RunDeclaredIntentHandler) | Ledger, P3 (cross-protocol floor when `intentSource='negotiated'`) | ei_topic_state: session_phase='activating', current_session_id, intent_source, verification_floor ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
+| ActivationPlanIssued | studentId, mode, firstAction, issuedAt | P2 | Ledger, P3 (watch-only flag) | ei_topic_state: session_phase='active', watch_only_flag ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
+| VerificationDecisionIssued | studentId, mode, topic, verificationDecision, issuedAt | P3 | Ledger | ei_topic_state: session_phase='closed' ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
 | IntentResponse | studentId, negotiatedIntentId, decision, respondedAt | UI | Ledger | — |
-| FirstActionStarted | studentId, topic, startedAt | UI | Ledger | — |
+| FirstActionStarted | studentId, topic, startedAt | UI | Ledger | ei_topic_state: last_session_started_at ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
 | Replan | studentId, topic, replannedAt | UI | Ledger | — |
 | RetrievalVerified | studentId, topic, verifiedAt | UI | Ledger | ei_topic_state.last_retrieval_at |
 | RetrievalScheduled | studentId, topic, dueAt, scheduledAt | UI | Ledger | ei_topic_state.last_scheduled_due_at |
@@ -192,7 +192,23 @@ See [14-topic-selection-system.md](../student-ux-architecture/14-topic-selection
 
 ### ei_topic_state projection storage
 
-In addition to the timestamp columns listed in the event catalog table (`last_effort_at`, `last_retrieval_at`, `last_scheduled_due_at`), `ei_topic_state` stores derived 7-day counts: **effort_count_7d** (SessionEnd events in the last 7 days per topic) and **retrieval_count_7d** (RetrievalVerified/VerificationCompleted in the last 7 days per topic). These are persisted when the TopicLoop projection is saved (e.g. in the TopicLoop repository adapter) and are used by Strategic Adjustment and other consumers that need 7d counts per topic without querying the event stream at read time.
+`ei_topic_state` stores two categories of derived state, owned by the TopicLoop aggregate's two Value Objects:
+
+**TopicLoopState (accumulated, GREATEST semantics):**
+- `last_effort_at`, `last_retrieval_at`, `last_scheduled_due_at` — monotonic timestamps from event catalog
+- `effort_count_7d`, `retrieval_count_7d` — 7-day rolling counts
+- `consecutive_deferrals` — reset on VerificationCompleted (see §Dropout Signal)
+- `effort_count_total`, `last_task_type`, `topic_name` — lifetime counters
+
+**SessionLifecycleState (per-session, latest-wins semantics — [ADR-003](decisions/adr-003-projection-schema-evolution.md)):**
+- `session_phase` — `'activating'` | `'active'` | `'verifying'` | `'closed'` | NULL
+- `current_session_id` — sessionId of the in-progress session
+- `intent_source` — `'negotiated'` | `'declared'` | NULL
+- `verification_floor` — P1 `NegotiatedIntent.verificationPlan.minQuestions` (INTEGER; null for declared sessions)
+- `watch_only_flag` — P2 `ActivationPlan.constraints.enforceWatchOnlyVerification` (BOOLEAN, default false)
+- `last_session_started_at` — `FirstActionStarted.startedAt` timestamp
+
+SessionLifecycleState resets on each new `SessionIntentIssued` for a topic. TopicLoopState accumulates monotonically across sessions. Both are projected by the TopicLoop projector via `applyEvent()`.
 
 ---
 
@@ -259,7 +275,7 @@ See [domainService/ds-loop-health.md](domainService/ds-loop-health.md), [tactica
 | Table / area          | Context         | Owner responsibility                     |
 | --------------------- | --------------- | ---------------------------------------- |
 | ei_events             | EI Event Ledger | Append-only; query by student_id         |
-| ei_topic_state        | EI Projections  | Derived from events; TopicLoop lifecycle; includes `consecutive_deferrals` (int, reset on VerificationCompleted — see §Dropout Signal) |
+| ei_topic_state        | EI Projections  | Derived from events; TopicLoop lifecycle; includes `consecutive_deferrals` (int, reset on VerificationCompleted — see §Dropout Signal) + SessionLifecycleState (`session_phase`, `current_session_id`, `intent_source`, `verification_floor`, `watch_only_flag`, `last_session_started_at` — per [ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
 | ei_student_aggregates | EI Projections  | Recomputed from events; 7d signals       |
 | ei_student_policy     | EI Projections  | Persisted by Projections from Ledger events; SA owns semantics; read by P1/P2/P3 |
 | ei_radar_alerts       | Institute Radar | Privacy boundary; never raw events       |

@@ -70,15 +70,113 @@ export class StudySession extends AggregateRoot<string> {
     studentId: string,
     topicId: string,
     status: SessionStatus,
-    negotiatedIntent: NegotiatedIntent | null,
+    sessionIntent: NegotiatedIntent | DeclaredIntent | null,
     activationPlan: ActivationPlan | null,
     verificationDecision: VerificationDecision | null,
-    negotiatedIntentId?: string | null
   ): StudySession {
     return new StudySession(
       sessionId, studentId, topicId, status,
-      negotiatedIntent, activationPlan, verificationDecision,
-      negotiatedIntentId ?? null
+      sessionIntent, activationPlan, verificationDecision,
+    );
+  }
+
+  // ─── Fold (Event-Sourced Reconstitution) ──────────────────────────────────
+  // ADR-004: Processes aggregate-emitted events to reconstitute full state.
+  // Only 3 event types: SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued.
+  // SessionEnd and FirstActionStarted are NOT aggregate events.
+
+  static fold(events: ReadonlyArray<{ eventType: string; payload: Record<string, unknown>; occurredAt: Date }>): StudySession {
+    if (events.length === 0) {
+      throw new Error('Cannot fold empty event list — at least one SessionIntentIssued is required');
+    }
+
+    let sessionId: string | null = null;
+    let studentId: string | null = null;
+    let topicId: string | null = null;
+    let status: SessionStatus = 'negotiating';
+    let sessionIntent: NegotiatedIntent | DeclaredIntent | null = null;
+    let activationPlan: ActivationPlan | null = null;
+    let verificationDecision: VerificationDecision | null = null;
+
+    for (const event of events) {
+      const p = event.payload;
+
+      switch (event.eventType) {
+        case 'SessionIntentIssued': {
+          sessionId = p.sessionId as string;
+          studentId = p.studentId as string;
+          topicId = p.topicId as string;
+          status = 'activating';
+
+          if (p.intentSource === 'declared') {
+            sessionIntent = DeclaredIntent.reconstitute({
+              timebox: p.timebox as number,
+              taskType: p.taskType as any,
+              energy: p.energy as number,
+              sleepBucket: p.sleepBucket as any,
+              verificationFloor: p.verificationFloor as any ?? null,
+            });
+          } else {
+            // Negotiated — reverse the toEventPayload() field mapping
+            const vf = p.verificationFloor as { minQuestions: number; preferVerifyNow: boolean };
+            sessionIntent = NegotiatedIntent.reconstitute({
+              playId: p.playId as string,
+              mode: p.mode as any,
+              scope: {
+                timeboxMin: p.timebox as number,
+                questionCount: p.questionCount as number,
+                difficultyTier: p.difficultyTier as any,
+              },
+              verificationPlan: {
+                minQuestions: vf.minQuestions,
+                preferVerifyNow: vf.preferVerifyNow,
+              },
+              constraints: p.constraints as any,
+              stateScore: p.stateScore as number,
+              negotiatedIntentId: p.sessionIntentId as string | undefined,
+              energy: p.energy as number,
+              sleepBucket: p.sleepBucket as any,
+            });
+          }
+          break;
+        }
+
+        case 'ActivationPlanIssued': {
+          status = 'active';
+          activationPlan = ActivationPlan.reconstitute({
+            playId: p.playId as string,
+            mode: p.mode as any,
+            firstAction: p.firstAction as any,
+            replanCap: p.replanCap as number | undefined,
+            constraints: p.constraints as any,
+          });
+          break;
+        }
+
+        case 'VerificationDecisionIssued': {
+          status = 'verifying';
+          verificationDecision = VerificationDecision.reconstitute({
+            playId: p.playId as string,
+            mode: p.mode as any,
+            decision: p.decision as any,
+            verifyNow: p.verifyNow as any,
+            scheduleVerify: p.scheduleVerify as any,
+            skipReason: p.skipReason as string | undefined,
+          });
+          break;
+        }
+
+        // SessionEnd, FirstActionStarted are NOT aggregate events — skip
+      }
+    }
+
+    if (!sessionId || !studentId || !topicId) {
+      throw new Error('Fold requires at least one SessionIntentIssued event');
+    }
+
+    return StudySession.reconstitute(
+      sessionId, studentId, topicId, status,
+      sessionIntent, activationPlan, verificationDecision,
     );
   }
 

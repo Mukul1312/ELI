@@ -1,6 +1,6 @@
 # ADR-003: Projection Schema Evolution — Session Lifecycle State in EI Projections
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-03-12
 **Deciders:** Product + Engineering (AI Study Brother core team)
 

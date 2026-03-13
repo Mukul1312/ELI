@@ -207,6 +207,14 @@ export class VerificationDecision extends ValueObject<VerificationDecisionProps>
     });
   }
 
+  /**
+   * Secondary factory for reconstituting from event payload (ADR-004).
+   * No validation, no computation — accepts stored values as-is.
+   */
+  static reconstitute(props: VerificationDecisionProps): VerificationDecision {
+    return new VerificationDecision(props);
+  }
+
   get playId(): string { return this.props.playId; }
   get mode(): Mode { return this.props.mode; }
   get decision(): VerificationDecisionType { return this.props.decision; }

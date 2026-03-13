@@ -20,7 +20,7 @@
 
 ## 2) Description
 
-- **Responsibility:** Per student: maintain rolled-up metrics (openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d) over rolling 7d windows. Single consistency boundary for student-level signals derived from the event stream.
+- **Responsibility:** Per student: maintain rolled-up metrics (openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d, plus 5 presentation-context fields: sessionsLast7d, loopsClosedLast7d, hasPriorAppOpen, lastIdentityShownAt, activeDays7d) over rolling 7d windows. Single consistency boundary for student-level signals derived from the event stream.
 - **Why these boundaries:** Student is the natural unit for protocol gate decisions (risk overrides ambition, P1/P2/P3 gates). Cross-topic aggregates must be coherent per student; one row per student keeps conflict low.
 - **Trade-offs:** We do NOT include per-topic state here; that lives in TopicLoop. We do NOT include policy; that lives in StudentPolicy. StudentAggregates is the projection-side consistency unit for student-level rolled metrics.
 
@@ -86,7 +86,7 @@ StudentAggregates is a projection; it does not emit new domain events.
 
 | Query                                | Key params | Returns                                                             | Notes                                              |
 | ------------------------------------ | ---------- | ------------------------------------------------------------------- | -------------------------------------------------- |
-| GetStudentSignals (aggregates slice) | studentId  | openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | EI Runtime, LHA, SA, Radar consume via Projections |
+| GetStudentSignals (aggregates slice) | studentId  | openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d, sessionsLast7d, loopsClosedLast7d, hasPriorAppOpen, lastIdentityShownAt, activeDays7d | EI Runtime, LHA, SA, Radar consume via Projections |
 
 
 ---

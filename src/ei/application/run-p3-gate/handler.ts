@@ -15,6 +15,7 @@ import type { IAssessLoopHealthUseCase } from '../assess-loop-health/port';
 import type { IAppendEventPort } from '../shared/port-append-event';
 import type { IQueryEventsPort } from '../shared/port-query-events';
 import type { IProtocolEngine } from '../../domain/study-session/protocol-engine';
+import type { IStudySessionRepository } from '../../domain/study-session/repository';
 import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
 import { StudySession } from '../../domain/study-session/study-session';
 import { P3GateContext } from '../../domain/study-session/value-objects/gate-context';
@@ -22,11 +23,6 @@ import {
   computeTightnessLevel,
   getP3Escalation,
 } from '../../engine/escalation';
-import {
-  findP1VerificationFloorFromEvents,
-  findP2WatchOnlyFlagFromEvents,
-} from './cross-protocol-read';
-import type { StoredEvent } from './cross-protocol-read';
 import type { PlayContext } from '../../engine/plays';
 
 export class RunP3GateHandler implements IRunP3GateUseCase {
@@ -36,6 +32,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
     private readonly appendEvent: IAppendEventPort,
     private readonly queryEvents: IQueryEventsPort,
     private readonly protocolEngine: IProtocolEngine,
+    private readonly sessionRepo: IStudySessionRepository,
   ) {}
 
   async execute(command: RunP3GateCommand): Promise<VerificationDecisionIssuedOutput> {
@@ -56,38 +53,33 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
     };
     const policy = signals?.policy ?? {};
 
-    // ── 2. Load cross-protocol session events ────────────────────────────────
+    // ── 2. Load session events (cross-protocol sourced from aggregate) ──────
     const rawEvents = await this.queryEvents.queryEvents(studentId, {
-      eventTypes: [
-        'FirstActionStarted',
-        'SessionIntentIssued', 'ActivationPlanIssued',
-        'RetrievalVerified', 'RetrievalScheduled', 'VerificationCompleted',
-      ],
+      eventTypes: ['FirstActionStarted', 'RetrievalVerified', 'RetrievalScheduled', 'VerificationCompleted'],
       topicId,
       limit: 20,
     });
 
-    const storedEvents: StoredEvent[] = rawEvents.map(e => ({
-      id: e.id,
-      eventType: e.eventType,
-      topicId: e.topicId ?? undefined,
-      payload: e.payload,
-      occurredAt: e.occurredAt,
-    }));
-
     // ── 3. Compute session duration from FirstActionStarted event ────────────
-    const firstActionEvent = storedEvents.find(e => e.eventType === 'FirstActionStarted');
+    const firstActionEvent = rawEvents.find(e => e.eventType === 'FirstActionStarted');
     const sessionDurationSec = firstActionEvent?.payload?.startedAt
       ? Math.max(0, Math.round(
           (new Date(endedAt).getTime() - new Date(firstActionEvent.payload.startedAt as string).getTime()) / 1000,
         ))
       : undefined;
 
-    // ── 5. Extract cross-protocol constraints ────────────────────────────────
-    const p1VerificationFloor = findP1VerificationFloorFromEvents(storedEvents);
-    const p2WatchOnlyFlag = findP2WatchOnlyFlagFromEvents(storedEvents);
-    const hasRetrieval = storedEvents.some(e => e.eventType === 'RetrievalVerified');
-    const hasSchedule = storedEvents.some(e => e.eventType === 'RetrievalScheduled');
+    // ── 4. Extract cross-protocol constraints from reconstituted aggregate ──
+    // ADR-004: Source from event-sourced fold instead of scanning raw events.
+    const session = await this.sessionRepo.findById(sessionId)
+      ?? StudySession.reconstitute(sessionId, studentId, topicId, 'active', null, null, null);
+
+    const p1VerificationFloor = session.negotiatedIntent
+      ? { minQuestions: session.negotiatedIntent.verificationPlan.minQuestions,
+          preferVerifyNow: session.negotiatedIntent.verificationPlan.preferVerifyNow }
+      : null;
+    const p2WatchOnlyFlag = session.activationPlan?.constraints?.enforceWatchOnlyVerification === true;
+    const hasRetrieval = rawEvents.some(e => e.eventType === 'RetrievalVerified');
+    const hasSchedule = rawEvents.some(e => e.eventType === 'RetrievalScheduled');
 
     // ── 6. Assess loop health (mode) ─────────────────────────────────────────
     const p3LhaContext = { hasRetrieval, hasSchedule };
@@ -136,8 +128,7 @@ export class RunP3GateHandler implements IRunP3GateUseCase {
     });
 
     // ── 8. Drive StudySession aggregate ─────────────────────────────────────
-    // Reconstitute in 'active' state (P1 and P2 have been run)
-    const session = StudySession.reconstitute(sessionId, studentId, topicId, 'active', null, null, null);
+    // Session already reconstituted above (step 4) for cross-protocol extraction.
     session.issueVerificationDecision(play, gateCtx, policy);
 
     // ── 9. Pull domain events + build output ─────────────────────────────────

@@ -168,6 +168,14 @@ export class NegotiatedIntent extends ValueObject<NegotiatedIntentProps> {
   get sleepBucket(): SleepBucket { return this.props.sleepBucket; }
   get intentSource(): 'negotiated' { return 'negotiated'; }
 
+  /**
+   * Secondary factory for reconstituting from event payload (ADR-004).
+   * No validation, no computation — accepts stored values as-is.
+   */
+  static reconstitute(props: NegotiatedIntentProps): NegotiatedIntent {
+    return new NegotiatedIntent(props);
+  }
+
   isRescueMode(): boolean { return this.props.mode === 'Rescue'; }
   requiresVerificationNow(): boolean { return this.props.verificationPlan.preferVerifyNow; }
   closeLoopFirst(): boolean { return this.props.constraints?.closeOpenLoopFirst === true; }

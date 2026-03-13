@@ -58,6 +58,14 @@ export class DeclaredIntent extends ValueObject<DeclaredIntentProps> {
   get mode(): null { return null; }
   get intentSource(): 'declared' { return 'declared'; }
 
+  /**
+   * Secondary factory for reconstituting from event payload (ADR-004).
+   * No validation, no computation — accepts stored values as-is.
+   */
+  static reconstitute(props: DeclaredIntentProps): DeclaredIntent {
+    return new DeclaredIntent(props);
+  }
+
   toEventPayload(studentId: string, topicId: string): Record<string, unknown> {
     return {
       studentId,

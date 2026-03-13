@@ -61,6 +61,11 @@
 | replanLoopCount7d | integer | Replan count in 7d |
 | stateTrend7d | `improving` \| `flat` \| `worsening` | Coarse energy direction from AppOpen events |
 | loopLatencyTrend | string or null | Coarse loop latency direction |
+| sessionsLast7d | integer | Count of SessionEnd events in 7d window |
+| loopsClosedLast7d | integer | Count of RetrievalVerified + VerificationCompleted(result=confident) in 7d |
+| hasPriorAppOpen | boolean | Any AppOpen event exists for this student (all-time) |
+| lastIdentityShownAt | ISO datetime or null | Most recent IdentityMomentShown event (all-time) |
+| activeDays7d | integer | Distinct calendar days with any event in 7d window |
 | updatedAt | ISO datetime | When last recomputed |
 
 - **Lifecycle:** No explicit lifecycle states; state is replaced on each recompute.
@@ -121,7 +126,7 @@ StudentAggregates does not emit new domain events. It updates `ei_student_aggreg
 | Port | Role | Responsibility |
 |------|------|----------------|
 | **StudentAggregatesRepository** | Driven | Load by `studentId`; save/upsert computed metrics |
-| **EventStreamReader** | Driven | Read events from Ledger for a student within a time window |
+| **EventStreamReader** | Driven | Read events from Ledger for a student within a time window; `hasEventOfType(studentId, type)` — all-time boolean existence check; `readLatestEventOfType(studentId, type)` — all-time single event lookup |
 | **TopicStateReader** | Driven | Read all `ei_topic_state` rows for a student (to derive openLoops/pendingChecks) |
 | **Clock** | Driven | Provide consistent "now" for rolling window boundary |
 

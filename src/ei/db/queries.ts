@@ -120,37 +120,6 @@ export async function queryEvents(
 }
 
 // ============================================================================
-// Session identity derivation from Ledger (replaces ei_study_sessions)
-// ============================================================================
-
-/**
- * Derive the sessionId for the most recent open session for (studentId, topicId)
- * from the SessionIntentIssued event payload.
- *
- * Per ADR-001 + DDD canonical event structure (CQRS-EVENTS.md): every domain event
- * carries the aggregate ID. SessionIntentIssued.payload.sessionId is the authoritative
- * session identity — ei_study_sessions has been removed.
- *
- * Returns null if no SessionIntentIssued exists for this (student, topic) pair.
- */
-export async function getSessionIdFromLastIntent(
-  db: DbClient,
-  studentId: string,
-  topicId: string,
-): Promise<string | null> {
-  const row = await db.oneOrNone<{ payload: { sessionId?: string } }>(
-    `SELECT payload FROM ei_events
-     WHERE student_id = $1
-       AND topic_id   = $2
-       AND event_type = 'SessionIntentIssued'
-     ORDER BY occurred_at DESC
-     LIMIT 1`,
-    [studentId, topicId],
-  );
-  return (row?.payload?.sessionId as string) ?? null;
-}
-
-// ============================================================================
 // ei_events (continued)
 // ============================================================================
 
@@ -218,6 +187,13 @@ export interface TopicStateRow {
   consecutive_deferrals: number;
   effort_count_total: number;
   last_task_type: string | null;
+  // ADR-003: Session lifecycle projection columns
+  session_phase: string | null;
+  current_session_id: string | null;
+  verification_floor: number | null;
+  watch_only_flag: boolean;
+  intent_source: string | null;
+  last_session_started_at: Date | null;
   updated_at: Date;
 }
 
@@ -254,6 +230,53 @@ export async function getAllTopicStates(
   );
 }
 
+/**
+ * Find the student's currently active session (any topic) by reading the
+ * `session_phase` projection column. Returns null if no session is in progress.
+ * ADR-004 Step 19: replaces the 50-event scan in ei-app-open.ts.
+ */
+export async function getActiveSessionForStudent(
+  db: DbClient,
+  studentId: string,
+): Promise<{
+  topic_id: string;
+  topic_name: string | null;
+  session_phase: string;
+  current_session_id: string | null;
+  last_session_started_at: Date | null;
+} | null> {
+  return db.oneOrNone(
+    `SELECT topic_id, topic_name, session_phase, current_session_id, last_session_started_at
+     FROM ei_topic_state
+     WHERE student_id = $1
+       AND session_phase IS NOT NULL
+       AND session_phase NOT IN ('closed')
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [studentId],
+  );
+}
+
+/**
+ * Load a single event by sessionId (carried in payload) and event type.
+ * Uses the JSONB functional index `idx_ei_events_session_id` — only efficient
+ * for SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued.
+ */
+export async function getEventBySessionId(
+  db: DbClient,
+  sessionId: string,
+  eventType: string,
+): Promise<StoredEventRow | null> {
+  return db.oneOrNone(
+    `SELECT * FROM ei_events
+     WHERE payload->>'sessionId' = $1
+       AND event_type = $2
+     ORDER BY occurred_at DESC
+     LIMIT 1`,
+    [sessionId, eventType],
+  );
+}
+
 export async function getRecentTopics(
   db: DbClient,
   studentId: string,
@@ -286,7 +309,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals' | 'effort_count_total' | 'last_task_type'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals' | 'effort_count_total' | 'last_task_type' | 'session_phase' | 'current_session_id' | 'verification_floor' | 'watch_only_flag' | 'intent_source' | 'last_session_started_at'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];
@@ -339,6 +362,12 @@ export interface AggregatesRow {
   replan_loop_count_7d: number;
   state_trend_7d: string;
   loop_latency_trend: string | null;
+  // ADR-003: New aggregate columns
+  sessions_last_7d: number;
+  loops_closed_last_7d: number;
+  has_prior_app_open: boolean;
+  last_identity_shown_at: Date | null;
+  active_days_7d: number;
   updated_at: Date;
 }
 
@@ -362,14 +391,18 @@ export async function upsertAggregates(
        student_id, pending_checks, open_loops, verification_rate_7d,
        schedule_misses_7d, avoidant_exits_7d, skip_count_7d, silence_days,
        start_latency_min_median_7d, intent_acceptance_rate_7d, replan_loop_count_7d,
-       state_trend_7d, loop_latency_trend
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       state_trend_7d, loop_latency_trend,
+       sessions_last_7d, loops_closed_last_7d, has_prior_app_open,
+       last_identity_shown_at, active_days_7d
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      ON CONFLICT (student_id) DO UPDATE SET
        pending_checks = $2, open_loops = $3, verification_rate_7d = $4,
        schedule_misses_7d = $5, avoidant_exits_7d = $6, skip_count_7d = $7,
        silence_days = $8, start_latency_min_median_7d = $9,
        intent_acceptance_rate_7d = $10, replan_loop_count_7d = $11,
-       state_trend_7d = $12, loop_latency_trend = $13, updated_at = NOW()
+       state_trend_7d = $12, loop_latency_trend = $13,
+       sessions_last_7d = $14, loops_closed_last_7d = $15, has_prior_app_open = $16,
+       last_identity_shown_at = $17, active_days_7d = $18, updated_at = NOW()
      RETURNING *`,
     [
       studentId, data.pending_checks, data.open_loops, data.verification_rate_7d,
@@ -377,6 +410,8 @@ export async function upsertAggregates(
       data.silence_days, data.start_latency_min_median_7d,
       data.intent_acceptance_rate_7d, data.replan_loop_count_7d,
       data.state_trend_7d, data.loop_latency_trend,
+      data.sessions_last_7d, data.loops_closed_last_7d, data.has_prior_app_open,
+      data.last_identity_shown_at, data.active_days_7d,
     ],
   );
 }
@@ -701,19 +736,6 @@ export async function getLastAppOpenEnergy(
 // ============================================================================
 // Dropout Signal + Dynamic Footer Seed queries
 // ============================================================================
-
-/** Get consecutive deferrals for a topic (DropoutSignal detection: >= 3 = active). */
-export async function getConsecutiveDeferrals(
-  db: DbClient,
-  studentId: string,
-  topicId: string,
-): Promise<number> {
-  const row = await db.oneOrNone<{ consecutive_deferrals: number }>(
-    'SELECT consecutive_deferrals FROM ei_topic_state WHERE student_id = $1 AND topic_id = $2',
-    [studentId, topicId],
-  );
-  return row?.consecutive_deferrals ?? 0;
-}
 
 /** Get session duration in seconds from FirstActionStarted.startedAt to SessionEnd.endedAt. */
 export async function getSessionDurationSec(

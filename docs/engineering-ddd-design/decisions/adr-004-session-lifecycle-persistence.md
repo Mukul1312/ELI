@@ -1,6 +1,6 @@
 # ADR-004: Session Lifecycle Persistence — Event-Sourced Repository + Read Model
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-03-12
 **Deciders:** Product + Engineering (AI Study Brother core team)
 

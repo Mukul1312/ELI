@@ -18,6 +18,7 @@ import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrast
 import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
 import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health/handler';
 import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
+import { PostgresStudySessionRepository } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { ActivationPlanIssuedSchema } from '../../ei/schemas/outputs';
 import { P2WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
@@ -57,10 +58,10 @@ const runP2Gate = createStep({
     const assessLoopHealth = new AssessLoopHealthHandler(signalsPort, { now: () => new Date() });
     const protocolEngine = new ProtocolEngine();
 
-    // Derive stable sessionId from last SessionIntentIssued event (Option B, ADR-001):
-    // aggregate ID is carried in the event payload — no secondary store needed.
-    // Fallback uuid: micro path skips P1 so no prior SessionIntentIssued exists — fix in follow-up.
-    const sessionId = await Q.getSessionIdFromLastIntent(db, studentId, topic) ?? crypto.randomUUID();
+    // ADR-004 D2: Read sessionId from projection instead of scanning ei_events.
+    // Fallback uuid: micro path skips P1 (no prior SessionIntentIssued), pre-migration sessions.
+    const topicState = await Q.getTopicState(db, studentId, topic);
+    const sessionId = topicState?.current_session_id ?? crypto.randomUUID();
 
     // Persist display name early via driven port (micro path skips P1,
     // and SessionIntentIssued is not a TopicLoop event, so sync-on-append
@@ -82,6 +83,7 @@ const runP2Gate = createStep({
       appendEvent,
       queryEvents,
       protocolEngine,
+      new PostgresStudySessionRepository(db),
     );
     return handler.execute({
       studentId,

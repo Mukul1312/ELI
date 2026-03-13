@@ -27,6 +27,9 @@ export interface RecomputeInput {
   events: DomainEventSnapshot[];
   topicStates: TopicStateSnapshot[];
   allTimeLatestEvent: DomainEventSnapshot | null;
+  // ADR-003: Pass-through inputs sourced by handler
+  hasPriorAppOpen: boolean;
+  lastIdentityShownAt: Date | null;
 }
 
 export interface AggregateMetrics {
@@ -42,6 +45,12 @@ export interface AggregateMetrics {
   replanLoopCount7d: number;
   stateTrend7d: StateTrend;
   loopLatencyTrend: string | null;
+  // ADR-003: New aggregate metrics
+  sessionsLast7d: number;
+  loopsClosedLast7d: number;
+  hasPriorAppOpen: boolean;
+  lastIdentityShownAt: Date | null;
+  activeDays7d: number;
 }
 
 export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
@@ -172,6 +181,14 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       else if (firstEnergy - lastEnergy >= 1) stateTrend7d = 'worsening';
     }
 
+    // ADR-003: New aggregate metrics
+    const sessionsLast7d = sessionEnds;
+    const loopsClosedLast7d = events.filter(
+      (e) => e.eventType === 'RetrievalVerified' ||
+        (e.eventType === 'VerificationCompleted' && (e.payload as any).result === 'confident'),
+    ).length;
+    const activeDays7d = new Set(events.map((e) => e.occurredAt.toISOString().slice(0, 10))).size;
+
     return new StudentAggregates(id, {
       pendingChecks,
       openLoops,
@@ -185,6 +202,11 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       replanLoopCount7d,
       stateTrend7d,
       loopLatencyTrend: null,
+      sessionsLast7d,
+      loopsClosedLast7d,
+      hasPriorAppOpen: input.hasPriorAppOpen,
+      lastIdentityShownAt: input.lastIdentityShownAt,
+      activeDays7d,
     });
   }
 }
