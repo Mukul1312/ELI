@@ -9,8 +9,8 @@ const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-fam
 const lora = Lora({ subsets: ['latin'], display: 'swap', variable: '--font-family-greeting', weight: ['400', '500'] });
 
 export const metadata: Metadata = {
-  title: 'AI Study Brother — ELI',
-  description: 'Execution Intelligence coaching prototype',
+  title: 'Eli - Focused Study Companion',
+  description: 'Meet Eli. Not a Coach. Not a Tracker. Just a Companion for your focused study sessions.',
   manifest: 'https://progressier.app/npJ4ibkRsWFIMDC7IIyX/progressier.json',
 };
 
