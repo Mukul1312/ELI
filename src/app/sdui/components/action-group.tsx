@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiActionGroup } from '@/ei/sdui/types/components';
+import type { SduiActionGroup } from '@/ei/study-session-orchestration/domain/types/components';
 
 const btnStyles: Record<string, React.CSSProperties> = {
   primary: { background: 'var(--color-accent)', color: '#fff', border: 'none' },

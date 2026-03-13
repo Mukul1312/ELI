@@ -8,10 +8,22 @@
 import type { EiDb } from '@/ei/runtime/db';
 import type { IQueryEventsPort, QueryEventsFilter, QueriedEvent } from '@/ei/application/shared/port-query-events';
 import type { IGetStudentAggregatesPort, StudentAggregatesRow } from '@/ops/application/get-student-timeline/port';
-import { queryEvents, getAggregates } from '@/ei/db/queries';
+import { queryEvents, getAggregates, getEventBySessionId } from '@/ei/db/queries';
 
 export class LedgerTimelineAdapter implements IQueryEventsPort, IGetStudentAggregatesPort {
   constructor(private readonly db: EiDb) {}
+
+  async queryBySessionId(sessionId: string, eventType: string): Promise<QueriedEvent | null> {
+    const row = await getEventBySessionId(this.db, sessionId, eventType);
+    if (!row) return null;
+    return {
+      id: row.id,
+      eventType: row.event_type,
+      topicId: row.topic_id,
+      payload: row.payload,
+      occurredAt: row.occurred_at,
+    };
+  }
 
   async queryEvents(studentId: string, filter: QueryEventsFilter): Promise<QueriedEvent[]> {
     const rows = await queryEvents(this.db, studentId, {

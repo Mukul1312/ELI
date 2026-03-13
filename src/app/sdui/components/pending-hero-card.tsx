@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiPendingHeroCard } from '@/ei/sdui/types/components';
+import type { SduiPendingHeroCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiPendingHeroCard({
   node,

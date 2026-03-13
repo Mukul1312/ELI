@@ -23,6 +23,7 @@ describe('GetStudentTimelineHandler', () => {
 
     const adapter: IGetStudentTimelineDataPort = {
       queryEvents: async () => eventsDesc,
+      queryBySessionId: async () => null,
       getStudentAggregates: async () => null,
     };
 
@@ -44,6 +45,7 @@ describe('GetStudentTimelineHandler', () => {
         receivedLimits.push(filter.limit ?? 0);
         return [];
       },
+      queryBySessionId: async () => null,
       getStudentAggregates: async () => null,
     };
 

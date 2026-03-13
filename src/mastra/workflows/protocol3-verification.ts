@@ -22,7 +22,7 @@ import { RunP3GateHandler } from '../../ei/application/run-p3-gate/handler';
 import { PostgresStudySessionRepository } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { VerificationDecisionIssuedSchema } from '../../ei/schemas/outputs';
-import { P3WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { P3WrappedResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
 import { composeP3ViewStep } from './steps/compose-p3-view';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';

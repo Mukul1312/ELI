@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { SduiTopicInput } from '@/ei/sdui/types/components';
+import type { SduiTopicInput } from '@/ei/study-session-orchestration/domain/types/components';
 import { TopicBrowseSheet } from './topic-browse-sheet';
 
 type ComponentState = 'idle' | 'typing' | 'searching' | 'suggestions' | 'selected' | 'browse';

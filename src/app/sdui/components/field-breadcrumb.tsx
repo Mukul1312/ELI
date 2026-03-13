@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiFieldBreadcrumb } from '@/ei/sdui/types/components';
+import type { SduiFieldBreadcrumb } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiFieldBreadcrumb({
   node,

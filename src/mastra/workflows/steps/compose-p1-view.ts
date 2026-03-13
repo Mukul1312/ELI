@@ -13,10 +13,10 @@ import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
 import { SessionIntentIssuedSchema } from '../../../ei/schemas/outputs';
-import { P1WrappedResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { buildP1PresentationContext } from '../../../ei/sdui/presentation-context';
-import { composeP1View } from '../../../ei/sdui/view-composer';
-import type { AggregatesForPresentation } from '../../../ei/sdui/types/aggregates-for-presentation';
+import { P1WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { buildP1PresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { composeP1View } from '../../../ei/study-session-orchestration/domain/services/view-composer';
+import type { AggregatesForPresentation } from '../../../ei/study-session-orchestration/domain/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
 import type { StateTrend } from '../../../ei/domain/student-aggregates/student-aggregates';
 

@@ -11,8 +11,8 @@ import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
 import { VerificationDecisionIssuedSchema } from '../../../ei/schemas/outputs';
-import { P3WrappedResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { composeP3View, composeLearnCloseView } from '../../../ei/sdui/view-composer';
+import { P3WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { composeP3View, composeLearnCloseView } from '../../../ei/study-session-orchestration/domain/services/view-composer';
 
 export const ComposeP3ViewInputSchema = VerificationDecisionIssuedSchema;
 

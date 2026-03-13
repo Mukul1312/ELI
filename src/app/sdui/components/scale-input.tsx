@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import type { SduiScaleInput } from '@/ei/sdui/types/components';
+import type { SduiScaleInput } from '@/ei/study-session-orchestration/domain/types/components';
 
 /** Chip style per Phase 1 spec: 44px height, 12px radius, 12px/10px padding, flex:1 for row fill. */
 function chipStyle(selected: boolean, index: number, total: number): React.CSSProperties {

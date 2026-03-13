@@ -8,6 +8,7 @@ import { microcopyCatalog } from '../microcopy/catalog';
 import { resolveMicrocopy } from '../microcopy/resolver';
 import type { MicrocopyKey } from '../microcopy/resolver';
 
+
 const MODES = ['Rescue', 'Neutral', 'Boost'] as const;
 
 const P1_REQUIRED_SLOTS: MicrocopyKey['slot'][] = [

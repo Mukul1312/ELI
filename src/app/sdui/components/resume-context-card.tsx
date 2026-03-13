@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import type { SduiResumeContextCard } from '@/ei/sdui/types/components';
+import type { SduiResumeContextCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 const RESCUE_VARIANTS = ['SILENCE_RE_ENTRY', 'LOW_ENERGY', 'HIGH_PRESSURE'] as const;
 const BOOST_VARIANTS = ['CHALLENGE', 'CLEAR_THEN_CHALLENGE'] as const;

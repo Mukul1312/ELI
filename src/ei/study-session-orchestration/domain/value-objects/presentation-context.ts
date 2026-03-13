@@ -7,11 +7,16 @@
  * Builders receive application-mapped DTOs from the calling Mastra step.
  * ZERO DB calls in this file — all data passed in from the step's execute().
  * No persistence row types — use AggregatesForPresentation and TopicStateSnapshot.
+ *
+ * Per tactical spec §10 finding #2: create() factory enforces domain invariants.
+ * Per ADR-005 §C6: throws domain errors, does not clamp.
  */
 
-import type { Mode } from '../schemas/outputs';
-import type { StateTrend, TopicStateSnapshot } from '../domain/student-aggregates/student-aggregates';
-import type { AggregatesForPresentation } from './types/aggregates-for-presentation';
+import type { Mode } from '../../../schemas/outputs';
+import type { StateTrend, TopicStateSnapshot } from '../../../domain/student-aggregates/student-aggregates';
+import type { AggregatesForPresentation } from '../types/aggregates-for-presentation';
+
+const VALID_MODES: readonly Mode[] = ['Rescue', 'Neutral', 'Boost'];
 
 export interface PresentationContext {
   readonly studentId: string;
@@ -52,6 +57,30 @@ export interface PresentationContext {
   readonly nextPendingTopic: { topicName: string; waitingSinceDays: number } | null;
 }
 
+/**
+ * Factory with domain validation for PresentationContext.
+ * Per tactical spec §10 finding #2 and ADR-005 §C6.
+ * Throws on invariant violations — surfaces projection bugs early.
+ */
+export function createPresentationContext(input: PresentationContext): PresentationContext {
+  if (!VALID_MODES.includes(input.mode)) {
+    throw new Error(`PresentationContext invariant: mode must be one of ${VALID_MODES.join(', ')}, got '${input.mode}'`);
+  }
+  if (input.pendingChecks < 0) {
+    throw new Error('PresentationContext invariant: pendingChecks must be non-negative');
+  }
+  if (input.verificationRate7d < 0 || input.verificationRate7d > 1) {
+    throw new Error('PresentationContext invariant: verificationRate7d must be in [0, 1]');
+  }
+  if (input.sessionsLast7d < 0) {
+    throw new Error('PresentationContext invariant: sessionsLast7d must be non-negative');
+  }
+  if (input.sessionsTotal < 0) {
+    throw new Error('PresentationContext invariant: sessionsTotal must be non-negative');
+  }
+  return input;
+}
+
 function sortedTopicSnapshots(snapshots?: TopicStateSnapshot[]): TopicStateSnapshot[] {
   return [...(snapshots ?? [])].sort(
     (a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0),
@@ -85,7 +114,7 @@ export function buildP1PresentationContext(
   sessionsTotal = 0,
 ): PresentationContext {
   const closeOpenLoopFirst = domainOutput.constraints?.closeOpenLoopFirst ?? false;
-  return {
+  return createPresentationContext({
     studentId: domainOutput.studentId,
     topicId: domainOutput.topicId ?? domainOutput.topic ?? '',
     mode: domainOutput.mode ?? 'Neutral',
@@ -110,7 +139,7 @@ export function buildP1PresentationContext(
     hasPriorOpen,
     dropoutSignalActive: false,
     nextPendingTopic: null,
-  };
+  });
 }
 
 /**
@@ -129,7 +158,7 @@ export function buildCheckinPresentationContext(
   hasPriorOpen = true,
   sessionsTotal = 0,
 ): PresentationContext {
-  return {
+  return createPresentationContext({
     studentId,
     topicId: '',
     mode: 'Neutral',
@@ -154,7 +183,7 @@ export function buildCheckinPresentationContext(
     hasPriorOpen,
     dropoutSignalActive: false,
     nextPendingTopic: null,
-  };
+  });
 }
 
 /**
@@ -169,7 +198,7 @@ export function buildP2PresentationContext(
   },
   workflowInput?: { topic?: string },
 ): PresentationContext {
-  return {
+  return createPresentationContext({
     studentId: domainOutput.studentId,
     topicId: workflowInput?.topic ?? '',
     mode: domainOutput.mode,
@@ -194,7 +223,7 @@ export function buildP2PresentationContext(
     hasPriorOpen: true,
     dropoutSignalActive: false,
     nextPendingTopic: null,
-  };
+  });
 }
 
 /**
@@ -213,7 +242,7 @@ export function buildP3PresentationContext(
   eventCounts?: { sessionsLast7d: number; loopsClosedLast7d: number },
   nextPendingTopic?: { topicName: string; waitingSinceDays: number } | null,
 ): PresentationContext {
-  return {
+  return createPresentationContext({
     studentId: domainOutput.studentId,
     topicId: domainOutput.topic,
     mode: domainOutput.mode,
@@ -238,5 +267,5 @@ export function buildP3PresentationContext(
     hasPriorOpen: true,
     dropoutSignalActive: false,
     nextPendingTopic: nextPendingTopic ?? null,
-  };
+  });
 }

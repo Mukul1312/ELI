@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiNumericInput } from '@/ei/sdui/types/components';
+import type { SduiNumericInput } from '@/ei/study-session-orchestration/domain/types/components';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { composeP1View, composeCheckinView, selectPhase1Variant, composeOnboardingWelcomeView, composeOnboardingTopicTaskView, composeOnboardingResponseView, composeP3View, composePhase3View } from '../view-composer';
+import { composeP1View, composeCheckinView, selectPhase1Variant, composeOnboardingWelcomeView, composeOnboardingTopicTaskView, composeOnboardingResponseView, composeP3View, composePhase3View } from '../domain/services/view-composer';
 import { SduiResponseSchema, unwrapSlotEntry } from '../types/sdui-contract';
 import type { SduiSlotEntry } from '../types/sdui-contract';
 import { AppOpenMicroPayloadSchema } from '../../application/ei-protocol-router/command-schema';
 import type { SessionIntentIssuedOutput, VerificationDecisionIssuedOutput } from '../../schemas/outputs';
-import type { PresentationContext } from '../presentation-context';
+import type { PresentationContext } from '../domain/value-objects/presentation-context';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Test helpers

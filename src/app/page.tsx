@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { SduiSlot, resolvePayload } from '@/app/sdui/renderer';
 import type { SduiResponse, SduiComponent } from '@/app/sdui/types';
 import { unwrapSlotEntry } from '@/app/sdui/types';
-import { composeOnboardingTopicTaskView } from '@/ei/sdui/view-composer';
+import { composeOnboardingTopicTaskView } from '@/ei/study-session-orchestration/domain/services/view-composer';
 
 // ============================================================================
 // Styles
@@ -229,41 +229,11 @@ export default function Home() {
         return;
       }
 
-      const action = currentSduiResponse?.actions?.[actionId];
-      if (!action) return;
-      
-      const isAppOpen = action.payload?.commandType === 'AppOpen';
-      const isIntentSet = action.payload?.commandType === 'IntentSet';
-      const isFirstTouch = isAppOpen && (action.payload.payload as any)?.initial === true;
-      const isMicroStart = isAppOpen && (action.payload.payload as any)?.timeboxMin === 1;
-      const isOnboardingSubmit = isAppOpen && (action.payload.payload as any)?.taskType !== undefined && (action.payload.payload as any)?.energy === undefined;
-      
-      // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
-      if (isAppOpen && !isFirstTouch && !isOnboardingSubmit && !isMicroStart) {
-        if (!hasRequiredCheckinFields()) {
-          setErrorMessage('Please fill in topic, energy, sleep, and task type to continue.');
-          return;
-        }
-      }
-      
-      // Onboarding submit: only topic + taskType required (no energy/sleep)
-      if (isOnboardingSubmit || isIntentSet) {
-        const topic = formValues['topic'] || (action.payload.payload as any)?.topic;
-        const taskType = formValues['taskType'] || (action.payload.payload as any)?.taskType;
-        
-        // Only validate if these fields are expected to be filled from the form
-        const needsTopic = (action.payload.payload as any)?.topic === '{{topic}}';
-        const needsTaskType = (action.payload.payload as any)?.taskType === '{{taskType}}';
-        
-        if ((needsTopic && (!topic || typeof topic !== 'string' || !topic.trim())) || 
-            (needsTaskType && (!taskType || typeof taskType !== 'string' || !taskType))) {
-          setErrorMessage('Please enter a topic and select a task type.');
-          return;
-        }
-      }
-      
-      // Pending topic tap: set topic in formValues and reveal 1C (client-only)
+      // Pending topic tap: set topic in formValues and reveal 1C (client-only).
+      // Must run before AppOpen validation — these actions have commandType: 'AppOpen'
+      // in their payload but are client-only (no POST).
       if (actionId.startsWith('intent_topic_')) {
+        const action = currentSduiResponse?.actions?.[actionId];
         const topicAction = action;
         const topicPayload = topicAction?.payload?.payload as Record<string, unknown> | undefined;
         if (topicPayload) {
@@ -275,6 +245,38 @@ export default function Home() {
         }
         revealGroup('1C');
         return;
+      }
+
+      const action = currentSduiResponse?.actions?.[actionId];
+      if (!action) return;
+
+      const isAppOpen = action.payload?.commandType === 'AppOpen';
+      const isIntentSet = action.payload?.commandType === 'IntentSet';
+      const isFirstTouch = isAppOpen && (action.payload.payload as any)?.initial === true;
+      const isMicroStart = isAppOpen && (action.payload.payload as any)?.timeboxMin === 1;
+      const isOnboardingSubmit = isAppOpen && (action.payload.payload as any)?.taskType !== undefined && (action.payload.payload as any)?.energy === undefined;
+
+      // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
+      if (isAppOpen && !isFirstTouch && !isOnboardingSubmit && !isMicroStart) {
+        if (!hasRequiredCheckinFields()) {
+          setErrorMessage('Please fill in topic, energy, sleep, and task type to continue.');
+          return;
+        }
+      }
+
+      // Onboarding submit: only topic + taskType required (no energy/sleep)
+      if (isOnboardingSubmit || isIntentSet) {
+        const topic = formValues['topic'] || (action.payload.payload as any)?.topic;
+        const taskType = formValues['taskType'] || (action.payload.payload as any)?.taskType;
+
+        const needsTopic = (action.payload.payload as any)?.topic === '{{topic}}';
+        const needsTaskType = (action.payload.payload as any)?.taskType === '{{taskType}}';
+
+        if ((needsTopic && (!topic || typeof topic !== 'string' || !topic.trim())) ||
+            (needsTaskType && (!taskType || typeof taskType !== 'string' || !taskType))) {
+          setErrorMessage('Please enter a topic and select a task type.');
+          return;
+        }
       }
 
       const resolved = resolvePayload(action.payload, formValues);

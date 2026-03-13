@@ -25,7 +25,7 @@ import { z } from 'zod';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
 import { eiStore } from '../../ei/runtime/db';
 import * as Q from '../../ei/db/queries';
-import { getTopicDisplayName } from '../../ei/sdui/topic-display-name';
+import { getTopicDisplayName } from '../../ei/study-session-orchestration/domain/services/topic-display-name';
 import { createResolveTopicUseCase } from '../../lib/curriculum-catalog';
 import { createCorrelationId, logBackfillAudit } from '../../ei/infrastructure/logging';
 

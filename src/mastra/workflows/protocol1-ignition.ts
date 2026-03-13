@@ -19,7 +19,7 @@ import { AssessLoopHealthHandler } from '../../ei/application/assess-loop-health
 import { RunP1GateHandler } from '../../ei/application/run-p1-gate/handler';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { SessionIntentIssuedSchema } from '../../ei/schemas/outputs';
-import { P1WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { P1WrappedResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { composeP1ViewStep } from './steps/compose-p1-view';
 
 // ============================================================================

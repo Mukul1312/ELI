@@ -1,7 +1,7 @@
 'use client';
 
-import type { SduiComponent } from '@/ei/sdui/types/components';
-import type { SduiViewTree, SduiAction, SduiSlotEntry } from '@/ei/sdui/types/sdui-contract';
+import type { SduiComponent } from '@/ei/study-session-orchestration/domain/types/components';
+import type { SduiViewTree, SduiAction, SduiSlotEntry } from '@/ei/study-session-orchestration/types/sdui-contract';
 import { getSduiComponent } from './registry';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

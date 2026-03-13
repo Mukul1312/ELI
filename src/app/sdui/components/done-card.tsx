@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiDoneCard } from '@/ei/sdui/types/components';
+import type { SduiDoneCard } from '@/ei/study-session-orchestration/domain/types/components';
 import { SduiModeBadge } from './mode-badge';
 
 export function SduiDoneCard({ node }: { node: SduiDoneCard }) {

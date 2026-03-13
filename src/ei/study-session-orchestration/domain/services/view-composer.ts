@@ -13,16 +13,16 @@ import type {
   ActivationPlanIssuedOutput,
   VerificationDecisionIssuedOutput,
   Mode,
-} from '../schemas/outputs';
-import type { SduiResponse, SduiAction, SduiSlotEntry } from './types/sdui-contract';
-import type { SduiComponent } from './types/components';
-import type { PresentationContext } from './presentation-context';
-import { resolveMicrocopy, type MicrocopyKey } from './microcopy/resolver';
-import { microcopyCatalog, type MicrocopySlot } from './microcopy/catalog';
+} from '../../../schemas/outputs';
+import type { SduiResponse, SduiAction, SduiSlotEntry } from '../../types/sdui-contract';
+import type { SduiComponent } from '../types/components';
+import type { PresentationContext } from '../value-objects/presentation-context';
+import { resolveMicrocopy, type MicrocopyKey } from '../../microcopy/resolver';
+import { microcopyCatalog, type MicrocopySlot } from '../../microcopy/catalog';
 import { getTopicDisplayName } from './topic-display-name';
-import type { IdentityEligibilityResult } from './identity/compute-identity-eligibility';
-import { detectIdentityPattern } from './identity/compute-identity-eligibility';
-import { IDENTITY_STATEMENTS } from './microcopy/identity';
+import type { IdentityEligibilityResult } from '../specifications/identity-eligibility';
+import { detectIdentityPattern } from '../specifications/identity-eligibility';
+import { IDENTITY_STATEMENTS } from '../../microcopy/identity';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Progressive disclosure helper — wraps a component with visibility metadata

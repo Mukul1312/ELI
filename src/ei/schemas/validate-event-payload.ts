@@ -16,6 +16,7 @@ import {
   FirstActionStartedSchema,
   ReplanSchema,
   IdentityMomentShownSchema,
+  FlowSelectedSchema,
 } from './events';
 import {
   SessionIntentIssuedSchema,
@@ -50,6 +51,7 @@ const EVENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   StrategicAdjustmentDecision: StrategicAdjustmentDecisionSchema.strict(),
   ScheduleMissed: ScheduleMissedSchema,
   IdentityMomentShown: IdentityMomentShownSchema,
+  FlowSelected: FlowSelectedSchema,
 };
 
 export function validateEventPayload(

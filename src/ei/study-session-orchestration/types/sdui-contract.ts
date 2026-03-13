@@ -18,7 +18,7 @@ import {
   ActivationPlanIssuedSchema,
   VerificationDecisionIssuedSchema,
 } from '../../schemas/outputs';
-import { SduiComponentSchema, type SduiComponent } from './components';
+import { SduiComponentSchema, type SduiComponent } from '../domain/types/components';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Phase

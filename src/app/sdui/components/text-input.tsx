@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiTextInput } from '@/ei/sdui/types/components';
+import type { SduiTextInput } from '@/ei/study-session-orchestration/domain/types/components';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',

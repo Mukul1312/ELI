@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { SduiLoopClosedCard } from '@/ei/sdui/types/components';
+import type { SduiLoopClosedCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 // Scenarios that close a loop (get closed-soft bg and --color-closed headline)
 const LOOP_CLOSED_SCENARIOS = new Set(['verified', 'milestone', 'first_ever']);

@@ -14,8 +14,8 @@ import { getDb } from '../../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../../ei/infrastructure/persistence/append-event.pg';
 import { validateEventPayload } from '../../../ei/schemas/validate-event-payload';
 import { ActivationPlanIssuedSchema } from '../../../ei/schemas/outputs';
-import { P2WrappedResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { composeP2View } from '../../../ei/sdui/view-composer';
+import { P2WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { composeP2View } from '../../../ei/study-session-orchestration/domain/services/view-composer';
 
 export const ComposeP2ViewInputSchema = z.object({
   domainOutput: ActivationPlanIssuedSchema,

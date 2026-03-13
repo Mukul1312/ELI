@@ -9,12 +9,12 @@
  * @see docs/student-experience/09-escalation-arc.md §4 — Day 21 identity moment
  */
 
-import type { PresentationContext } from '../presentation-context';
+import type { PresentationContext } from '../value-objects/presentation-context';
 import {
   IDENTITY_STATEMENTS,
   type IdentityPattern,
   type IdentityStatement,
-} from '../microcopy/identity';
+} from '../../microcopy/identity';
 
 export interface IdentityEligibilityResult {
   eligible: boolean;

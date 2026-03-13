@@ -187,6 +187,22 @@ export const IdentityMomentShownSchema = z
 export type IdentityMomentShown = z.infer<typeof IdentityMomentShownSchema>;
 
 // ============================================================================
+// SSO internal events (StudySessionOrchestration bounded context)
+// ============================================================================
+
+/** Per tactical spec §5: internal domain event — same category as SessionIntentIssued. */
+export const FlowSelectedSchema = z
+  .object({
+    studentId: z.string(),
+    sessionId: z.string().optional(),
+    templateId: z.string(),
+    selectionContext: z.record(z.unknown()),
+    selectedAt: z.string().datetime(),
+  })
+  .strict();
+export type FlowSelected = z.infer<typeof FlowSelectedSchema>;
+
+// ============================================================================
 // All event types enum (for ei_events.event_type column)
 // ============================================================================
 
@@ -207,5 +223,6 @@ export const EventTypeEnum = z.enum([
   'StrategicAdjustmentDecision',
   'ScheduleMissed',
   'IdentityMomentShown',
+  'FlowSelected',
 ]);
 export type EventType = z.infer<typeof EventTypeEnum>;

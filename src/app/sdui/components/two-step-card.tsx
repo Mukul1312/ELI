@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiTwoStepCard } from '@/ei/sdui/types/components';
+import type { SduiTwoStepCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiTwoStepCard({ node, onAction }: { node: SduiTwoStepCard; onAction?: (actionId: string) => void }) {
   const { message, step1, step2, actionId } = node.props;

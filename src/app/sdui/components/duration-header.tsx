@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiDurationHeader } from '@/ei/sdui/types/components';
+import type { SduiDurationHeader } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiDurationHeader({
   node,

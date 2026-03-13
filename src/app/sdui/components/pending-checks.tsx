@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiPendingChecks } from '@/ei/sdui/types/components';
+import type { SduiPendingChecks } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiPendingChecks({ node }: { node: SduiPendingChecks }) {
   const { count, label, celebratory } = node.props;

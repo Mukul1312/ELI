@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiSessionTimer } from '@/ei/sdui/types/components';
+import type { SduiSessionTimer } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiSessionTimer({
   node,

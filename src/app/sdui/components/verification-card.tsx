@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { SduiVerificationCard } from '@/ei/sdui/types/components';
+import type { SduiVerificationCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiVerificationCard({
   node,

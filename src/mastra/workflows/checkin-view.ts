@@ -7,7 +7,7 @@
 import { createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { SduiResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { composeCheckinViewStep } from './steps/compose-checkin-view';
 
 const CheckinViewInput = z.object({

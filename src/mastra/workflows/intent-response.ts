@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
-import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { SduiResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
 

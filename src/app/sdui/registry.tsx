@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import type { SduiComponent } from '@/ei/sdui/types/components';
+import type { SduiComponent } from '@/ei/study-session-orchestration/domain/types/components';
 
 import { SduiMessage } from './components/message';
 import { SduiModeBadge } from './components/mode-badge';

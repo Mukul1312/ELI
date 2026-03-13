@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composeSessionView, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/sdui/view-composer';
+import { composeSessionView, FIRST_ACTION_BY_TASK, FIRST_ACTION_DEFAULT } from '../../ei/study-session-orchestration/domain/services/view-composer';
 
 const SessionStartInput = z.object({
   studentId: z.string(),

@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiDealCard } from '@/ei/sdui/types/components';
+import type { SduiDealCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiDealCard({
   node,

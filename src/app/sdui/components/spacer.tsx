@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiSpacer } from '@/ei/sdui/types/components';
+import type { SduiSpacer } from '@/ei/study-session-orchestration/domain/types/components';
 
 const sizes: Record<string, number> = { sm: 8, md: 16, lg: 24 };
 

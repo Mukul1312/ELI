@@ -17,6 +17,8 @@ Infrastructure → Application → Domain
 - `src/ei/domain/` imports NOTHING outside itself (no db/, mastra/, schemas/, infrastructure/)
 - `src/ei/application/` imports domain + port interfaces only — NO db/, mastra/, infrastructure/ imports
 - `src/ei/infrastructure/` implements ports — NO domain logic
+- `src/ei/study-session-orchestration/domain/` imports NOTHING outside itself (no db/, mastra/, infrastructure/; may import `src/ei/schemas/` for Published Language types)
+- `src/ei/study-session-orchestration/application/` imports SSO domain + port interfaces only
 
 **Violations to catch:** domain importing a DB library; application calling a repo implementation directly; use-case handler importing from mastra/.
 
@@ -30,7 +32,7 @@ Infrastructure → Application → Domain
 | EI Event Ledger | `src/ei/schemas/events.ts`, `src/ei/db/queries.ts`, `src/ei/infrastructure/persistence/append-event.pg.ts` |
 | EI Projections | `src/ei/domain/topic-loop/`, `src/ei/domain/student-aggregates/`, `src/ei/application/apply-event-to-topic-loop/`, `src/ei/application/recompute-student-aggregates/`, `src/ei/infrastructure/projector/` |
 | LoopHealthAssessment | `src/ei/domain/loop-health/`, `src/ei/application/assess-loop-health/` |
-| StudySessionOrchestration (presentation) | `src/ei/sdui/` |
+| StudySessionOrchestration | `src/ei/study-session-orchestration/domain/` (ViewComposer, PresentationContext, FlowStrategy, FlowTemplate), `src/ei/study-session-orchestration/types/` (SduiResponse boundary) |
 | Strategic Adjustment | `src/ei/application/apply-strategic-adjustment-decision/`, `src/mastra/workflows/strategic-adjustment.ts` |
 | CohortAccess | ACL at API boundary — server-derived `studentId` only |
 | OpsObservability | `src/mastra/tools/signal-compute.ts`, timeline reads in `src/ei/db/queries.ts` |

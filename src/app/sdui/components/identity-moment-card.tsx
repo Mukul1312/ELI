@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiIdentityMomentCard } from '@/ei/sdui/types/components';
+import type { SduiIdentityMomentCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiIdentityMomentCard({
   node,

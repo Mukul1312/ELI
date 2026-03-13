@@ -12,12 +12,12 @@ import { z } from 'zod';
 
 import { getDb } from '../../../ei/runtime/db';
 import * as Q from '../../../ei/db/queries';
-import { SduiResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { buildCheckinPresentationContext } from '../../../ei/sdui/presentation-context';
-import { composeCheckinView, composeOnboardingWelcomeView } from '../../../ei/sdui/view-composer';
-import { computeIdentityEligibility } from '../../../ei/sdui/identity/compute-identity-eligibility';
+import { SduiResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { buildCheckinPresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { composeCheckinView, composeOnboardingWelcomeView } from '../../../ei/study-session-orchestration/domain/services/view-composer';
+import { computeIdentityEligibility } from '../../../ei/study-session-orchestration/domain/specifications/identity-eligibility';
 import { recomputeStudentAggregates } from '../../../ei/infrastructure/projector/student-aggregates-projector';
-import type { AggregatesForPresentation } from '../../../ei/sdui/types/aggregates-for-presentation';
+import type { AggregatesForPresentation } from '../../../ei/study-session-orchestration/domain/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
 import type { StateTrend } from '../../../ei/domain/student-aggregates/student-aggregates';
 

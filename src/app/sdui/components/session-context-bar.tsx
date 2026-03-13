@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { SduiSessionContextBar } from '@/ei/sdui/types/components';
+import type { SduiSessionContextBar } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiSessionContextBar({ node }: { node: SduiSessionContextBar }) {
   const { topic, taskType, scopeLabel, sessionStartedAt } = node.props;

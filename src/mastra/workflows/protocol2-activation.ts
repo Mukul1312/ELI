@@ -21,7 +21,7 @@ import { RunP2GateHandler } from '../../ei/application/run-p2-gate/handler';
 import { PostgresStudySessionRepository } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { ActivationPlanIssuedSchema } from '../../ei/schemas/outputs';
-import { P2WrappedResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { P2WrappedResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { composeP2ViewStep } from './steps/compose-p2-view';
 
 // ============================================================================

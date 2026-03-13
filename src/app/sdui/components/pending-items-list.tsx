@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiPendingItemsList } from '@/ei/sdui/types/components';
+import type { SduiPendingItemsList } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiPendingItemsList({
   node,

@@ -5,7 +5,7 @@
  * Mapping from DB rows happens in the application/workflow boundary.
  */
 
-import type { StateTrend } from '../../domain/student-aggregates/student-aggregates';
+import type { StateTrend } from '../../../domain/student-aggregates/student-aggregates';
 
 export interface AggregatesForPresentation {
   readonly pendingChecks: number;

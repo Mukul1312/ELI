@@ -52,6 +52,10 @@ export class InMemoryEventStore
 
   // ── IQueryEventsPort ────────────────────────────────────────────────────────
 
+  async queryBySessionId(_sessionId: string, _eventType: string): Promise<QueriedEvent | null> {
+    return Promise.resolve(null);
+  }
+
   async queryEvents(studentId: string, filter: QueryEventsFilter): Promise<QueriedEvent[]> {
     let results = this.events.filter((e) => e.studentId === studentId);
 
