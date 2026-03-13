@@ -5,17 +5,19 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composePhase3View, type Phase3Scenario } from '../../ei/sdui/view-composer';
-import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
+import { composePhase3View, type Phase3Scenario } from '../../ei/study-session-orchestration/domain/services/view-composer';
+import { buildP3PresentationContext } from '../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
+import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
 import * as Q from '../../ei/db/queries';
 
 const RetrievalSkipInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   reason: z.string(),
   idempotencyKey: z.string().optional(),
@@ -27,23 +29,31 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalSkipInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', reason, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', reason, idempotencyKey, correlationId } = inputData;
     const skippedAt = new Date().toISOString();
 
     const payload = validateEventPayload('RetrievalSkipped', {
       studentId,
       topic,
+      ...(topicNameFromInput && { topicName: topicNameFromInput }),
       reason,
       skippedAt,
     });
 
-    const db = eiStore.db;
+    const db = getDb();
 
-    const [aggregates, eventCounts, energyPressure] = await Promise.all([
+    // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
-      Q.getLastAppOpenEnergyPressure(db, studentId),
+      Q.getLastAppOpenEnergy(db, studentId),
+      topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
+      Q.getOldestPendingTopic(db, studentId, topic),
+      Q.getTopicState(db, studentId, topic),
+      Q.getSessionDurationSec(db, studentId, topic),
     ]);
+    const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
+    const taskType = topicState?.last_task_type ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -53,14 +63,6 @@ const appendAndComposeStep = createStep({
       payload,
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalSkipped` : undefined,
     });
-
-    // Close the active session for this topic — terminal outcome.
-    const sessionRepo = new StudySessionRepositoryPg(db);
-    const activeSession = await sessionRepo.findActiveByStudentTopic(studentId, topic);
-    if (activeSession) {
-      activeSession.close();
-      await sessionRepo.save(activeSession);
-    }
 
     const aggregatesForPresentation = aggregates
       ? {
@@ -72,9 +74,10 @@ const appendAndComposeStep = createStep({
       : null;
     const ctx = buildP3PresentationContext(
       { studentId, mode, playId: 'P3-N1', topic },
-      energyPressure,
+      lastEnergy,
       aggregatesForPresentation,
       eventCounts,
+      nextPendingTopic,
     );
 
     const skipScenarios: Record<string, Phase3Scenario> = {
@@ -84,7 +87,14 @@ const appendAndComposeStep = createStep({
     };
     const scenario: Phase3Scenario = skipScenarios[reason.toLowerCase()] ?? 'skip_time';
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName, taskType, sessionDurationSec);
+
+    // Fire-and-forget: keep projections fresh for next AppOpen.
+    Promise.all([
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
+
     return sdui;
   },
 });

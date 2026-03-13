@@ -19,6 +19,8 @@ function makeInput(overrides: Partial<RecomputeInput> = {}): RecomputeInput {
     events: [],
     topicStates: [],
     allTimeLatestEvent: null,
+    hasPriorAppOpen: false,
+    lastIdentityShownAt: null,
     ...overrides,
   };
 }
@@ -33,6 +35,8 @@ function makeTopicState(overrides: Partial<TopicStateSnapshot> = {}): TopicState
     lastEffortAt: null,
     lastRetrievalAt: null,
     lastScheduledDueAt: null,
+    effortCountTotal: 0,
+    lastTaskType: null,
     ...overrides,
   };
 }
@@ -228,15 +232,15 @@ describe('StudentAggregates.recompute', () => {
   });
 
   describe('intentAcceptanceRate7d', () => {
-    it('returns null when no NegotiatedIntentIssued', () => {
+    it('returns null when no SessionIntentIssued', () => {
       const agg = StudentAggregates.recompute(makeId(), makeInput());
       expect(agg.metrics.intentAcceptanceRate7d).toBeNull();
     });
 
     it('computes ratio of accepted/edited to issued', () => {
       const events = [
-        makeEvent('NegotiatedIntentIssued', new Date('2025-03-14T10:00:00Z')),
-        makeEvent('NegotiatedIntentIssued', new Date('2025-03-14T11:00:00Z')),
+        makeEvent('SessionIntentIssued', new Date('2025-03-14T10:00:00Z')),
+        makeEvent('SessionIntentIssued', new Date('2025-03-14T11:00:00Z')),
         makeEvent('IntentResponse', new Date('2025-03-14T10:05:00Z'), null, { decision: 'accepted' }),
       ];
 

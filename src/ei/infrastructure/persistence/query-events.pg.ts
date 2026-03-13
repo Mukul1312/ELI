@@ -6,7 +6,7 @@
 
 import type { EiDb } from '../../runtime/db';
 import type { IQueryEventsPort, QueryEventsFilter, QueriedEvent } from '../../application/shared/port-query-events';
-import { queryEvents } from '../../db/queries';
+import { queryEvents, getEventBySessionId } from '../../db/queries';
 
 export class PostgresQueryEventsAdapter implements IQueryEventsPort {
   constructor(private readonly db: EiDb) {}
@@ -26,5 +26,22 @@ export class PostgresQueryEventsAdapter implements IQueryEventsPort {
       payload: row.payload,
       occurredAt: row.occurred_at,
     }));
+  }
+
+  /**
+   * Targeted single-event lookup by sessionId + eventType.
+   * Uses JSONB index on ei_events.payload->>'sessionId' (ADR-004 C1).
+   */
+  async queryBySessionId(sessionId: string, eventType: string): Promise<QueriedEvent | null> {
+    const row = await getEventBySessionId(this.db, sessionId, eventType);
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      eventType: row.event_type,
+      topicId: row.topic_id,
+      payload: row.payload,
+      occurredAt: row.occurred_at,
+    };
   }
 }

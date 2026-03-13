@@ -37,6 +37,14 @@ class InMemoryStudentEventStreamReader implements IStudentEventStreamReader {
   async readLatestEvent(): Promise<StudentStreamedEvent | null> {
     return this.latest;
   }
+
+  async hasEventOfType(): Promise<boolean> {
+    return false;
+  }
+
+  async readLatestEventOfType(): Promise<StudentStreamedEvent | null> {
+    return null;
+  }
 }
 
 class InMemoryTopicStateReader implements ITopicStateReader {

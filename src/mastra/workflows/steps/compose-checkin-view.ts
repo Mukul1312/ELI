@@ -10,13 +10,14 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../../ei/runtime/db';
+import { getDb } from '../../../ei/runtime/db';
 import * as Q from '../../../ei/db/queries';
-import { SduiResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { buildCheckinPresentationContext } from '../../../ei/sdui/presentation-context';
-import { composeCheckinView, composeOnboardingWelcomeView } from '../../../ei/sdui/view-composer';
-import { computeIdentityEligibility } from '../../../ei/sdui/identity/compute-identity-eligibility';
-import type { AggregatesForPresentation } from '../../../ei/sdui/types/aggregates-for-presentation';
+import { SduiResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { buildCheckinPresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { composeCheckinView, composeOnboardingWelcomeView } from '../../../ei/study-session-orchestration/domain/services/view-composer';
+import { computeIdentityEligibility } from '../../../ei/study-session-orchestration/domain/specifications/identity-eligibility';
+import { recomputeStudentAggregates } from '../../../ei/infrastructure/projector/student-aggregates-projector';
+import type { AggregatesForPresentation } from '../../../ei/study-session-orchestration/domain/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
 import type { StateTrend } from '../../../ei/domain/student-aggregates/student-aggregates';
 
@@ -34,9 +35,12 @@ function mapTopicSnapshots(rows: Q.TopicStateRow[]): TopicStateSnapshot[] {
   return [...rows]
     .map((r) => ({
       topicId: r.topic_id,
+      topicName: r.topic_name ?? undefined,
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,
+      effortCountTotal: r.effort_count_total ?? 0,
+      lastTaskType: r.last_task_type ?? null,
     }))
     .sort((a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0));
 }
@@ -53,18 +57,29 @@ export const composeCheckinViewStep = createStep({
   inputSchema: CheckinViewInputSchema,
   outputSchema: SduiResponseSchema,
   execute: async ({ inputData }): Promise<z.infer<typeof SduiResponseSchema>> => {
-    const { studentId, isFirstOfDay, idempotencyKey } = inputData;
-    const db = eiStore.db;
+    const { studentId, isFirstOfDay, idempotencyKey, correlationId } = inputData;
+    const db = getDb();
 
-    const [aggregates, topicRows, eventCounts, lastIdentityShownAt, historicalIndicators, hasPriorOpen] =
+    // Consolidated: 4 parallel queries instead of 9 (see 06-infrastructure-optimization.md §2)
+    const [aggregatesRaw, topicRows, checkinCtx, historicalIndicators] =
       await Promise.all([
         Q.getAggregates(db, studentId),
         Q.getAllTopicStates(db, studentId),
-        Q.countStudentEventsLast7d(db, studentId),
-        Q.getLastIdentityShownAt(db, studentId),
+        Q.getCheckinEventContext(db, studentId),
         Q.getHistoricalIdentityIndicators(db, studentId),
-        Q.hasPriorAppOpen(db, studentId),
       ]);
+
+    const { sessionsLast7d, loopsClosedLast7d, sessionsTotal, hasPriorOpen, latestEventTs, lastIdentityShownAt } = checkinCtx;
+    const eventCounts = { sessionsLast7d, loopsClosedLast7d };
+
+    // On-demand safety net: if fire-and-forget projection failed or hasn't run,
+    // recompute now so the checkin view shows accurate aggregates.
+    let aggregates = aggregatesRaw;
+    const aggregatesStale = latestEventTs && (!aggregates || aggregates.updated_at < latestEventTs);
+    if (aggregatesStale) {
+      await recomputeStudentAggregates(db, studentId, undefined, correlationId);
+      aggregates = await Q.getAggregates(db, studentId);
+    }
 
     const ctx = buildCheckinPresentationContext(
       isFirstOfDay,
@@ -75,6 +90,7 @@ export const composeCheckinViewStep = createStep({
       lastIdentityShownAt,
       historicalIndicators,
       hasPriorOpen,
+      sessionsTotal,
     );
 
     // First-ever: show onboarding welcome (Screen 1) — no identity card, no energy/sleep
@@ -94,6 +110,13 @@ export const composeCheckinViewStep = createStep({
       );
     }
 
-    return composeCheckinView(ctx, identityEligibility);
+    // Derive recent topics from already-fetched topic states (no extra query)
+    const recentTopics = [...topicRows]
+      .sort((a, b) => (b.updated_at?.getTime() ?? 0) - (a.updated_at?.getTime() ?? 0))
+      .slice(0, 5)
+      .filter((r) => r.topic_name)
+      .map((r) => ({ id: r.topic_id, name: r.topic_name! }));
+
+    return composeCheckinView(ctx, identityEligibility, recentTopics);
   },
 });

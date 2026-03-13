@@ -5,12 +5,11 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composePhase3View, type Phase3Scenario } from '../../ei/sdui/view-composer';
-import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
+import { composePhase3View, type Phase3Scenario } from '../../ei/study-session-orchestration/domain/services/view-composer';
+import { buildP3PresentationContext } from '../../ei/study-session-orchestration/domain/value-objects/presentation-context';
 import * as Q from '../../ei/db/queries';
 import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
 import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
@@ -18,8 +17,9 @@ import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/st
 const VerificationCompleteInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-  result: z.enum(['confident', 'partial', 'needs_review']),
+  result: z.enum(['confident', 'not_confident']),
   completedAt: z.string().datetime(),
   idempotencyKey: z.string().optional(),
   correlationId: z.string().optional(),
@@ -30,23 +30,32 @@ const appendAndComposeStep = createStep({
   inputSchema: VerificationCompleteInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', result, completedAt, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', result, completedAt, idempotencyKey, correlationId } = inputData;
 
     const payload = validateEventPayload('VerificationCompleted', {
       studentId,
       topic,
+      ...(topicNameFromInput && { topicName: topicNameFromInput }),
       completedAt,
       result,
     });
 
-    const db = eiStore.db;
+    const db = getDb();
 
-    // Load aggregates + energy/pressure before appending event (pre-event snapshot for counter display)
-    const [aggregates, eventCounts, energyPressure] = await Promise.all([
+    // Load aggregates + energy before appending event (pre-event snapshot for counter display).
+    // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
-      Q.getLastAppOpenEnergyPressure(db, studentId),
+      Q.getLastAppOpenEnergy(db, studentId),
+      topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
+      Q.getOldestPendingTopic(db, studentId, topic),
+      Q.getTopicState(db, studentId, topic),
+      Q.getSessionDurationSec(db, studentId, topic),
     ]);
+
+    const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
+    const taskType = topicState?.last_task_type ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -57,19 +66,9 @@ const appendAndComposeStep = createStep({
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:VerificationCompleted` : undefined,
     });
 
-    // Close the active session for this topic — terminal outcome.
-    const sessionRepo = new StudySessionRepositoryPg(db);
-    const activeSession = await sessionRepo.findActiveByStudentTopic(studentId, topic);
-    if (activeSession) {
-      activeSession.close();
-      await sessionRepo.save(activeSession);
-    }
-
-    // Sync-on-append: update projections after VerificationCompleted is written.
-    // This keeps aggregates fresh for subsequent sessions.
-    await recomputeTopicLoop(db, studentId, topic);
-    await recomputeStudentAggregates(db, studentId);
-
+    // Compose the view FIRST from pre-event snapshot (loaded above), then
+    // recompute projections in parallel — they keep data fresh for the *next*
+    // session but don't feed this response.
     const aggregatesForPresentation = aggregates
       ? {
           pendingChecks: aggregates.pending_checks,
@@ -80,17 +79,23 @@ const appendAndComposeStep = createStep({
       : null;
     const ctx = buildP3PresentationContext(
       { studentId, mode, playId: 'P3-N1', topic },
-      energyPressure,
+      lastEnergy,
       aggregatesForPresentation,
       eventCounts,
+      nextPendingTopic,
     );
 
     // Determine scenario.
-    // first_ever (loopsClosedLast7d === 0) takes priority over milestone —
-    // a new user closing their first loop must see G, not F.
-    const countAfter = Math.max(0, ctx.pendingChecks - 1);
+    // not_confident: loop stays open, pending_checks unchanged.
+    // confident: loop closed, pending_checks decremented.
+    const isConfident = result === 'confident';
+    const countAfter = isConfident ? Math.max(0, ctx.pendingChecks - 1) : ctx.pendingChecks;
+
     let scenario: Phase3Scenario;
-    if (eventCounts.loopsClosedLast7d === 0) {
+    if (!isConfident) {
+      scenario = 'not_yet';
+    } else if (eventCounts.loopsClosedLast7d === 0) {
+      // first_ever takes priority over milestone — new user closing first loop sees G, not F.
       scenario = 'first_ever';
     } else if (countAfter === 0 && ctx.pendingChecks > 0) {
       scenario = 'milestone';
@@ -98,7 +103,15 @@ const appendAndComposeStep = createStep({
       scenario = 'verified';
     }
 
-    const sdui = composePhase3View(topic, mode, scenario, ctx);
+    const sdui = composePhase3View(topic, mode, scenario, ctx, resolvedTopicName, taskType, sessionDurationSec);
+
+    // Fire-and-forget: recompute projections for future reads.
+    // Current response uses pre-recompute data; recompute only benefits next AppOpen.
+    Promise.all([
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
+
     return sdui;
   },
 });

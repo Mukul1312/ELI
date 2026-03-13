@@ -74,6 +74,26 @@ const SQL_STATEMENTS = [
       ALTER TABLE ei_topic_state ADD COLUMN retrieval_count_7d INTEGER NOT NULL DEFAULT 0;
     END IF;
   END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'topic_name') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN topic_name TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'consecutive_deferrals') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN consecutive_deferrals INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'effort_count_total') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN effort_count_total INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'last_task_type') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN last_task_type TEXT;
+    END IF;
+  END $$`,
 
   // ================================================================
   // 3. ei_student_aggregates (per student, recomputed)
@@ -131,20 +151,12 @@ const SQL_STATEMENTS = [
    ON ei_radar_alerts (student_id, alert_type)`,
 
   // ================================================================
-  // 5b. ei_study_sessions (concurrency safety, phase derivation)
+  // 5b. ei_study_sessions — REMOVED (ADR-001)
+  // Session state is fully derivable from SessionIntentIssued event in the Ledger.
+  // sessionId (aggregate ID) is carried in SessionIntentIssued.payload per DDD canonical
+  // event structure (CQRS-EVENTS.md). Drop on migration to clean up existing deployments.
   // ================================================================
-  `CREATE TABLE IF NOT EXISTS ei_study_sessions (
-    id                    TEXT PRIMARY KEY,
-    student_id            TEXT NOT NULL,
-    topic_id              TEXT NOT NULL,
-    status                TEXT NOT NULL CHECK (status IN ('negotiating','activating','active','verifying','closed')),
-    negotiated_intent_id  TEXT,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`,
-
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_ei_study_sessions_active_per_topic
-   ON ei_study_sessions (student_id, topic_id) WHERE status IN ('negotiating','activating','active')`,
+  `DROP TABLE IF EXISTS ei_study_sessions CASCADE`,
 
   // ================================================================
   // 5c. ops_backfill_jobs (Ops persistent job orchestration, checkpoints)
@@ -203,6 +215,190 @@ const SQL_STATEMENTS = [
     scope           TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`,
+
+  // ================================================================
+  // 7. CurriculumCatalog tables
+  // ================================================================
+
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
+
+  `CREATE TABLE IF NOT EXISTS curriculum_exams (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            TEXT NOT NULL,
+    slug            TEXT NOT NULL UNIQUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS curriculum_subjects (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_id         UUID NOT NULL REFERENCES curriculum_exams(id),
+    name            TEXT NOT NULL,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_curriculum_subjects_exam_name
+   ON curriculum_subjects (exam_id, name)`,
+
+  `CREATE TABLE IF NOT EXISTS curriculum_units (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_id      UUID NOT NULL REFERENCES curriculum_subjects(id),
+    name            TEXT NOT NULL,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_curriculum_units_subject_name
+   ON curriculum_units (subject_id, name)`,
+
+  `CREATE TABLE IF NOT EXISTS curriculum_chapters (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unit_id         UUID NOT NULL REFERENCES curriculum_units(id),
+    name            TEXT NOT NULL,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_curriculum_chapters_unit_name
+   ON curriculum_chapters (unit_id, name)`,
+
+  `CREATE TABLE IF NOT EXISTS curriculum_topics (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            TEXT NOT NULL,
+    aliases         TEXT[] NOT NULL DEFAULT '{}',
+    exam_id         UUID NOT NULL REFERENCES curriculum_exams(id),
+    subject_id      UUID NOT NULL REFERENCES curriculum_subjects(id),
+    unit_id         UUID NOT NULL REFERENCES curriculum_units(id),
+    chapter_id      UUID NOT NULL REFERENCES curriculum_chapters(id),
+    provisional     BOOLEAN NOT NULL DEFAULT false,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_curriculum_topics_name_trgm
+   ON curriculum_topics USING gin (name gin_trgm_ops)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_curriculum_topics_aliases
+   ON curriculum_topics USING gin (aliases)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_curriculum_topics_exam
+   ON curriculum_topics (exam_id)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_curriculum_topics_chapter
+   ON curriculum_topics (chapter_id)`,
+
+  `CREATE TABLE IF NOT EXISTS institute_curriculum (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institute_id    UUID NOT NULL REFERENCES institutes(id),
+    topic_id        UUID NOT NULL REFERENCES curriculum_topics(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_institute_curriculum_unique
+   ON institute_curriculum (institute_id, topic_id)`,
+
+  `CREATE TABLE IF NOT EXISTS topic_normalization_queue (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    raw_text        TEXT NOT NULL,
+    student_id      TEXT NOT NULL,
+    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    status          TEXT NOT NULL CHECK (status IN ('pending', 'resolved')) DEFAULT 'pending',
+    resolved_topic_id UUID REFERENCES curriculum_topics(id),
+    resolved_alias  TEXT,
+    resolved_at     TIMESTAMPTZ,
+    resolved_by     TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_topic_normalization_queue_status
+   ON topic_normalization_queue (status) WHERE status = 'pending'`,
+
+  // Sentinel "Uncategorized" hierarchy for provisional topic FK satisfaction
+  `INSERT INTO curriculum_exams (id, name, slug)
+   VALUES ('00000000-0000-0000-0000-000000000000', 'Uncategorized', 'uncategorized')
+   ON CONFLICT (slug) DO NOTHING`,
+
+  `INSERT INTO curriculum_subjects (id, exam_id, name, sort_order)
+   VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'Uncategorized', 0)
+   ON CONFLICT (exam_id, name) DO NOTHING`,
+
+  `INSERT INTO curriculum_units (id, subject_id, name, sort_order)
+   VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'Uncategorized', 0)
+   ON CONFLICT (subject_id, name) DO NOTHING`,
+
+  `INSERT INTO curriculum_chapters (id, unit_id, name, sort_order)
+   VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'Uncategorized', 0)
+   ON CONFLICT (unit_id, name) DO NOTHING`,
+
+  // ================================================================
+  // 8. ADR-003: Projection schema evolution — 6 new ei_topic_state columns
+  // ================================================================
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'session_phase') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN session_phase TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'current_session_id') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN current_session_id TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'verification_floor') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN verification_floor INTEGER;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'watch_only_flag') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN watch_only_flag BOOLEAN NOT NULL DEFAULT false;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'intent_source') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN intent_source TEXT;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'last_session_started_at') THEN
+      ALTER TABLE ei_topic_state ADD COLUMN last_session_started_at TIMESTAMPTZ;
+    END IF;
+  END $$`,
+
+  // ================================================================
+  // 9. ADR-003: Projection schema evolution — 5 new ei_student_aggregates columns
+  // ================================================================
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'sessions_last_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN sessions_last_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'loops_closed_last_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN loops_closed_last_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'has_prior_app_open') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN has_prior_app_open BOOLEAN NOT NULL DEFAULT false;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'last_identity_shown_at') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN last_identity_shown_at TIMESTAMPTZ;
+    END IF;
+  END $$`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_student_aggregates' AND column_name = 'active_days_7d') THEN
+      ALTER TABLE ei_student_aggregates ADD COLUMN active_days_7d INTEGER NOT NULL DEFAULT 0;
+    END IF;
+  END $$`,
+
+  // ================================================================
+  // 10. ADR-004: JSONB functional index for event-sourced StudySession fold
+  // ================================================================
+  `CREATE INDEX IF NOT EXISTS idx_ei_events_session_id
+   ON ei_events ((payload->>'sessionId'))
+   WHERE event_type IN ('SessionIntentIssued','ActivationPlanIssued','VerificationDecisionIssued')`,
 ];
 
 export async function runMigration(connectionString: string): Promise<void> {
@@ -230,7 +426,7 @@ async function migrate() {
   try {
     await runMigration(connectionString);
     console.log(
-      'Migration complete. All EI tables (including ei_idempotency_keys), ops_backfill_jobs, and CohortAccess tables created/verified.'
+      'Migration complete. All EI tables, ops_backfill_jobs, CohortAccess, and CurriculumCatalog tables created/verified.'
     );
   } catch (err) {
     console.error('Migration failed:', err);

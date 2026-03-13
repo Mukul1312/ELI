@@ -9,9 +9,9 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter, withIdempotencyKey } from '../../ei/infrastructure/persistence/append-event.pg';
-import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { SduiResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
 
@@ -21,6 +21,7 @@ const IntentResponseInput = z.object({
   decision: z.enum(['accepted', 'rejected', 'edited', 'ignored']),
   respondedAt: z.string().datetime(),
   topic: z.string().optional(),
+  topicName: z.string().optional(),
   taskType: z.string().optional(),
   difficultyTier: z.union([z.number(), z.string()]).optional(),
   setAt: z.string().datetime().optional(),
@@ -41,12 +42,13 @@ const intentResponseStep = createStep({
       decision,
       respondedAt,
       topic,
+      topicName,
       taskType,
       setAt,
       idempotencyKey,
     } = inputData;
 
-    const db = eiStore.db;
+    const db = getDb();
     const baseAdapter = new PostgresAppendEventAdapter(db);
     const appendEvent = idempotencyKey
       ? withIdempotencyKey(baseAdapter, idempotencyKey)
@@ -73,8 +75,8 @@ const intentResponseStep = createStep({
         inputData: {
           studentId,
           topic,
+          topicName,
           taskType,
-          difficultyTier: inputData.difficultyTier,
           setAt: setAt ?? respondedAt,
           idempotencyKey,
         },

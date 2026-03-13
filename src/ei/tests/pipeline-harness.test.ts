@@ -33,12 +33,13 @@ import { RecomputeStudentAggregatesHandler } from '../application/recompute-stud
 
 // ── Real domain services ─────────────────────────────────────────────────────
 import { ProtocolEngine } from '../domain/study-session/protocol-engine';
+import type { IStudySessionRepository } from '../domain/study-session/repository';
+import type { StudySession } from '../domain/study-session/study-session';
 
 // ── In-memory ports (test infrastructure) ───────────────────────────────────
 import { InMemoryEventStore } from './infrastructure/in-memory-event-store';
 import { InMemoryTopicStateStore } from './infrastructure/in-memory-topic-state-store';
 import { InMemoryStudentAggregatesRepo } from './infrastructure/in-memory-student-aggregates-repo';
-import { InMemoryStudySessionRepo } from './infrastructure/in-memory-study-session-repo';
 import { InMemorySignalsPort } from './infrastructure/in-memory-signals-port';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -56,18 +57,22 @@ interface Pipeline {
   eventStore: InMemoryEventStore;
   topicStore: InMemoryTopicStateStore;
   aggregatesRepo: InMemoryStudentAggregatesRepo;
-  sessionRepo: InMemoryStudySessionRepo;
   aggregatesHandler: RecomputeStudentAggregatesHandler;
   p1Handler: RunP1GateHandler;
   p2Handler: RunP2GateHandler;
   p3Handler: RunP3GateHandler;
 }
 
+// Null-returning session repo — handlers fall back to StudySession.reconstitute()
+const nullSessionRepo: IStudySessionRepository = {
+  async findById(): Promise<StudySession | null> { return null; },
+  async save(): Promise<void> {},
+};
+
 function buildPipeline(): Pipeline {
   const eventStore = new InMemoryEventStore();
   const topicStore = new InMemoryTopicStateStore();
   const aggregatesRepo = new InMemoryStudentAggregatesRepo();
-  const sessionRepo = new InMemoryStudySessionRepo();
   const signalsPort = new InMemorySignalsPort(aggregatesRepo);
   const clock = { now: () => new Date() };
 
@@ -86,7 +91,6 @@ function buildPipeline(): Pipeline {
     assessLoopHealthUseCase,
     eventStore,
     protocolEngine,
-    sessionRepo,
   );
 
   const p2Handler = new RunP2GateHandler(
@@ -95,7 +99,7 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
-    sessionRepo,
+    nullSessionRepo,
   );
 
   const p3Handler = new RunP3GateHandler(
@@ -104,10 +108,10 @@ function buildPipeline(): Pipeline {
     eventStore,
     eventStore,
     protocolEngine,
-    sessionRepo,
+    nullSessionRepo,
   );
 
-  return { eventStore, topicStore, aggregatesRepo, sessionRepo, aggregatesHandler, p1Handler, p2Handler, p3Handler };
+  return { eventStore, topicStore, aggregatesRepo, aggregatesHandler, p1Handler, p2Handler, p3Handler };
 }
 
 // ============================================================================
@@ -188,18 +192,16 @@ function assertPartialMatch(
 /**
  * Returns true if the P1 context forces LOW_ENERGY regardless of aggregate history.
  * These conditions produce Rescue purely from context, not from computed stateTrend7d:
- *   energy ≤ 2, sleep='<6', pressure ≥ 4, backlogPressure ≥ 4
+ *   energy ≤ 2, sleep='<6', highPressureDetected=true
  */
 function isContextForcedRescue(payload: Record<string, unknown>): boolean {
   const energy = payload.energy as number | undefined;
   const sleep = payload.sleepBucket as string | undefined;
-  const pressure = payload.pressure as number | undefined;
-  const backlog = payload.backlogPressure as number | undefined;
+  const highPressure = payload.highPressureDetected as boolean | undefined;
   return (
     (energy !== undefined && energy <= 2) ||
     sleep === '<6' ||
-    (pressure !== undefined && pressure >= 4) ||
-    (backlog !== undefined && backlog >= 4)
+    highPressure === true
   );
 }
 
@@ -222,14 +224,13 @@ async function runP1Assertion(
     sessionId,
     energy: (payload.energy as number) ?? 3,
     sleepBucket: (payload.sleepBucket as string | undefined) ?? '7-8',
-    pressure: (payload.pressure as number | undefined) ?? 3,
-    backlogPressure: (payload.backlogPressure as number | undefined) ?? 3,
+    highPressureDetected: (payload.highPressureDetected as boolean | undefined) ?? false,
   });
 
   // Assert mode only when the aggregate history cannot override the expectation:
   //   (a) First fixture day — aggregates are safe defaults, context determines mode.
   //   (b) Expected Rescue AND context alone forces LOW_ENERGY (energy≤2, sleep='<6',
-  //       pressure≥4, backlog≥4) — these conditions beat stateTrend7d.
+  //       highPressureDetected=true) — these conditions beat stateTrend7d.
   // Late-day Boost/Neutral expectations depend on stateTrend7d which the real
   // RecomputeStudentAggregatesHandler may compute differently from mock values.
   if (expected.mode) {
@@ -244,9 +245,9 @@ async function runP1Assertion(
   }
 
   // Structural invariants: scope floors hold for any mode
-  expect(output.scope.timeboxMin, `P1 scope.timeboxMin on day ${day.day}`).toBeGreaterThanOrEqual(10);
-  expect(output.scope.questionCount, `P1 scope.questionCount on day ${day.day}`).toBeGreaterThanOrEqual(1);
-  expect(output.verificationPlan.minQuestions, `P1 verificationPlan.minQuestions on day ${day.day}`).toBeGreaterThanOrEqual(1);
+  expect(output.timebox, `P1 timebox on day ${day.day}`).toBeGreaterThanOrEqual(10);
+  expect(output.questionCount, `P1 questionCount on day ${day.day}`).toBeGreaterThanOrEqual(1);
+  expect(output.verificationFloor?.minQuestions, `P1 verificationFloor.minQuestions on day ${day.day}`).toBeGreaterThanOrEqual(1);
 
   // Only assert partialMatch on Day 1. Late-day partialMatch values (e.g. constraints)
   // depend on aggregate state (openLoops count from real overdue-schedule computation)
@@ -350,14 +351,14 @@ async function processDay(
   }
 
   // ── Phase B: Feed IntentSet/FirstActionStarted/Replan events → Run P2 ───
-  // P2 reads NegotiatedIntentIssued written by P1 from the event store.
+  // P2 reads SessionIntentIssued written by P1 from the event store.
   ingestEvents(p2Events, studentId, day.day, eventStore, topicStore);
   for (const expected of day.expectedOutputs.filter((o) => o.protocol === 2)) {
     await runP2Assertion(day, expected, pipeline, studentId, sessionId);
   }
 
   // ── Phase C: Feed remaining events (SessionEnd, Retrieval*) → Run P3 ────
-  // P3 reads NegotiatedIntentIssued (P1) and ActivationPlanIssued (P2) from
+  // P3 reads SessionIntentIssued (P1) and ActivationPlanIssued (P2) from
   // the event store for cross-protocol constraint propagation.
   ingestEvents(p3Events, studentId, day.day, eventStore, topicStore);
   for (const expected of day.expectedOutputs.filter((o) => o.protocol === 3)) {
@@ -412,12 +413,10 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-boost',
       energy: 4,
       sleepBucket: '7-8',
-      pressure: 1,
-      backlogPressure: 1,
     });
     expect(output.mode).toBe('Boost');
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
-    expect(output.verificationPlan.minQuestions).toBeGreaterThanOrEqual(1);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
+    expect(output.verificationFloor?.minQuestions).toBeGreaterThanOrEqual(1);
   });
 
   it('P1 Rescue path: burnout state gets mode=Rescue', async () => {
@@ -428,13 +427,12 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-rescue',
       energy: 2,
       sleepBucket: '<6',
-      pressure: 5,
-      backlogPressure: 5,
+      highPressureDetected: true,
     });
     expect(output.mode).toBe('Rescue');
     // Rescue still enforces scope floors
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
-    expect(output.verificationPlan.minQuestions).toBeGreaterThanOrEqual(1);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
+    expect(output.verificationFloor?.minQuestions).toBeGreaterThanOrEqual(1);
   });
 
   it('P1 Neutral path: moderate state gets mode=Neutral', async () => {
@@ -445,11 +443,9 @@ describe('Pipeline invariants', () => {
       sessionId: 'session-neutral',
       energy: 3,
       sleepBucket: '7-8',
-      pressure: 3,
-      backlogPressure: 3,
     });
     expect(['Neutral', 'Boost', 'Rescue']).toContain(output.mode);
-    expect(output.scope.timeboxMin).toBeGreaterThanOrEqual(10);
+    expect(output.timebox).toBeGreaterThanOrEqual(10);
   });
 });
 

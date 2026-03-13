@@ -63,6 +63,8 @@ describe.skipIf(!process.env.DATABASE_URL)(
         events: [],
         topicStates: [],
         allTimeLatestEvent: null,
+        hasPriorAppOpen: false,
+        lastIdentityShownAt: null,
       });
 
       await repo.save(agg);

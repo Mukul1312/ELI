@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiIdentityMomentCard } from '@/ei/sdui/types/components';
+import type { SduiIdentityMomentCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiIdentityMomentCard({
   node,
@@ -16,6 +16,7 @@ export function SduiIdentityMomentCard({
       {/* Statement is the ONLY weight-600 element in the product — quotation marks signal reflection */}
       <div
         style={{
+          fontFamily: 'var(--font-family-greeting)',
           fontSize: 'var(--font-size-greeting)',
           fontWeight: 600,
           lineHeight: 1.3,

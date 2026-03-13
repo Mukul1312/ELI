@@ -10,43 +10,37 @@ import { AccessScope } from '../../domain/shared/access-scope';
  * Requires @neondatabase/auth to be installed and createAuthClient() in lib/auth/client.ts.
  *
  * Flow:
- * 1. Validate session via auth.getSession() (caller passes session or we get from cookies)
- * 2. Map session.user.id (auth_user_id) -> students.id (student_id)
- * 3. Query student_cohort_membership for cohortId
- * 4. Query roles for role
- * 5. Build AuthSession
+ * 1. Map session.user.id (auth_user_id) -> students.id (student_id)
+ * 2. Query student_cohort_membership for cohortId
+ * 3. Query roles for role
+ * 4. Build AuthSession
  */
 export class NeonAuthResolverPg implements IResolveAuthSessionPort {
-  constructor(
-    private readonly db: CohortAccessDb,
-    private readonly getSession: () => Promise<{ user: { id: string }; session: { userId: string } } | null>,
-  ) {}
+  constructor(private readonly db: CohortAccessDb) {}
 
-  async resolve(sessionContext: unknown): Promise<AuthSession | null> {
-    const session = await this.getSession();
-    if (!session?.user?.id) return null;
+  async resolve(sessionContextUser: { id: string } | null): Promise<AuthSession | null> {
+    if (!sessionContextUser?.id) return null;
 
-    const authUserId = session.user.id;
+    const authUserId = sessionContextUser.id;
 
-    const studentRow = await this.db.oneOrNone<{ id: string }>(
-      'SELECT id FROM students WHERE auth_user_id = $1',
+    // Single query joining students, cohort membership, and roles
+    const row = await this.db.oneOrNone<{ id: string; cohort_id: string | null; role: string | null }>(
+      `SELECT
+         s.id,
+         scm.cohort_id,
+         r.role
+       FROM students s
+       LEFT JOIN student_cohort_membership scm ON s.id = scm.student_id
+       LEFT JOIN roles r ON s.id = r.student_id
+       WHERE s.auth_user_id = $1`,
       [authUserId],
     );
-    if (!studentRow) return null;
 
-    const studentId = studentRow.id;
+    if (!row) return null;
 
-    const membershipRow = await this.db.oneOrNone<{ cohort_id: string | null }>(
-      'SELECT cohort_id FROM student_cohort_membership WHERE student_id = $1',
-      [studentId],
-    );
-    const cohortId = membershipRow?.cohort_id ?? null;
-
-    const roleRow = await this.db.oneOrNone<{ role: string }>(
-      'SELECT role FROM roles WHERE student_id = $1',
-      [studentId],
-    );
-    const role = Role.create(roleRow?.role ?? 'student');
+    const studentId = row.id;
+    const cohortId = row.cohort_id ?? null;
+    const role = Role.create(row.role ?? 'student');
 
     const cohortIds = cohortId ? [cohortId] : [];
     // Scope is role-aware:

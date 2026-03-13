@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { SduiSessionContextBar } from '@/ei/sdui/types/components';
+import type { SduiSessionContextBar } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiSessionContextBar({ node }: { node: SduiSessionContextBar }) {
-  const { topic, taskType, difficultyTier, sessionStartedAt } = node.props;
+  const { topic, taskType, scopeLabel, sessionStartedAt } = node.props;
 
   // Elapsed minutes — computed from sessionStartedAt, updates every 60s
   const [elapsedMin, setElapsedMin] = useState<number | null>(null);
@@ -34,7 +34,7 @@ export function SduiSessionContextBar({ node }: { node: SduiSessionContextBar })
         fontWeight: 400,
         color: 'var(--color-text-secondary)',
       }}>
-        {topic} · {taskType} · {difficultyTier}
+        {topic} · {taskType} · {scopeLabel}
       </span>
       {elapsedMin !== null && elapsedMin > 0 && (
         <span style={{

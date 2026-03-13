@@ -20,6 +20,8 @@ export const AppOpenFirstTouchSchema = z
 export const AppOpenOnboardingPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     taskType: z.string(),
     subject: z.string().optional(),
   })
@@ -29,10 +31,10 @@ export const AppOpenOnboardingPayloadSchema = z
 export const AppOpenMicroPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
-    pressure: z.number().min(1).max(5).optional(),
-    backlogPressure: z.number().min(1).max(5).optional(),
     timeboxMin: z.literal(1),
     openedAt: z.string().datetime().optional(),
   })
@@ -42,11 +44,13 @@ export const AppOpenMicroPayloadSchema = z
 export const AppOpenFullPayloadSchema = z
   .object({
     topic: z.string(),
+    topicId: z.string().optional(),
+    topicName: z.string().optional(),
     energy: z.number().min(1).max(5),
     sleepBucket: z.enum(['<6', '6-7', '7-8', '>=8']).optional(),
-    pressure: z.number().min(1).max(5).optional(),
-    backlogPressure: z.number().min(1).max(5).optional(),
     openedAt: z.string().datetime().optional(),
+    taskType: z.string().optional(),
+    timebox: z.number().optional(),
   })
   .strict();
 
@@ -60,6 +64,7 @@ export const AppOpenPayloadSchema = z.union([
 export const IntentSetPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     taskType: z.string().optional(),
     setAt: z.string().datetime(),
   })
@@ -68,6 +73,8 @@ export const IntentSetPayloadSchema = z
 export const SessionEndPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
+    taskType: z.string().optional(),
     endedAt: z.string().datetime(),
     effortSummary: z.record(z.unknown()).optional(),
   })
@@ -76,15 +83,17 @@ export const SessionEndPayloadSchema = z
 export const SessionStartPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     taskType: z.string().optional(),
-    difficultyTier: z.string().optional(),
+    timebox: z.number().optional(),
   })
   .strict();
 
 export const ReplanPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     reason: z.string().optional(),
   })
@@ -93,8 +102,9 @@ export const ReplanPayloadSchema = z
 export const VerificationCompletePayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
-    result: z.enum(['confident', 'partial', 'needs_review']),
+    result: z.enum(['confident', 'not_confident']),
     completedAt: z.string().datetime(),
   })
   .strict();
@@ -102,6 +112,7 @@ export const VerificationCompletePayloadSchema = z
 export const RetrievalSchedulePayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     dueInHours: z.number(),
     minQuestions: z.number().int(),
@@ -111,6 +122,7 @@ export const RetrievalSchedulePayloadSchema = z
 export const RetrievalSkipPayloadSchema = z
   .object({
     topic: z.string(),
+    topicName: z.string().optional(),
     mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
     reason: z.string(),
   })
@@ -122,6 +134,7 @@ export const IntentResponsePayloadSchema = z
     decision: z.enum(['accepted', 'rejected', 'edited', 'ignored']),
     respondedAt: z.string().datetime(),
     topic: z.string().optional(),
+    topicName: z.string().optional(),
     taskType: z.string().optional(),
     difficultyTier: z.union([z.number(), z.string()]).optional(),
     setAt: z.string().datetime().optional(),

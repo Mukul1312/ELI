@@ -22,7 +22,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-01T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-01T09:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -66,7 +66,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 2, openedAt: '2025-01-02T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-02T09:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -108,7 +108,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 2, openedAt: '2025-01-03T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-03T09:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -152,7 +152,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 3, openedAt: '2025-01-04T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-04T09:00:00Z' },
         },
       ],
       expectedOutputs: [
@@ -182,7 +182,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
         },
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 2, openedAt: '2025-01-05T09:30:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-05T09:30:00Z' },
         },
         {
           eventType: 'SessionEnd',
@@ -212,7 +212,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 4, pressure: 1, sleepBucket: '>=8', backlogPressure: 2, openedAt: '2025-01-06T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 4, sleepBucket: '>=8', openedAt: '2025-01-06T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -251,7 +251,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-09T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-09T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -285,7 +285,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 3, pressure: 3, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-11T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 3, sleepBucket: '7-8', openedAt: '2025-01-11T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',
@@ -318,7 +318,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 5, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-14T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 5, sleepBucket: '>=8', openedAt: '2025-01-14T09:00:00Z' },
         },
       ],
       expectedOutputs: [
@@ -336,7 +336,7 @@ export const s7AmbitiousFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s7', energy: 4, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-17T09:00:00Z' },
+          payload: { studentId: 'student-s7', energy: 4, sleepBucket: '>=8', openedAt: '2025-01-17T09:00:00Z' },
         },
       ],
       expectedOutputs: [

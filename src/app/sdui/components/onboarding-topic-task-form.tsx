@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import type { SduiOnboardingTopicTaskForm } from '@/ei/sdui/types/components';
+import type { SduiOnboardingTopicTaskForm } from '@/ei/study-session-orchestration/domain/types/components';
 import type { SduiComponentProps } from '../registry';
 
 function chipStyle(selected: boolean): React.CSSProperties {

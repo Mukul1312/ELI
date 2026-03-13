@@ -146,6 +146,7 @@ describe('TopicLoop aggregate', () => {
         lastEffortAt: t1,
         lastRetrievalAt: t2,
         lastScheduledDueAt: t3,
+        consecutiveDeferrals: 0,
       });
       const loop = TopicLoop.reconstitute(id, state);
 
@@ -154,6 +155,64 @@ describe('TopicLoop aggregate', () => {
       expect(loop.state.lastScheduledDueAt).toEqual(t3);
       expect(loop.studentId).toBe('s1');
       expect(loop.topicId).toBe('t1');
+    });
+  });
+
+  describe('consecutiveDeferrals counter', () => {
+    it('starts at 0 for empty loop', () => {
+      const loop = makeLoop();
+      expect(loop.state.consecutiveDeferrals).toBe(0);
+    });
+
+    it('increments on RetrievalScheduled', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalScheduled', { dueAt: t1.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(1);
+    });
+
+    it('increments on RetrievalSkipped (null-timestamp event)', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalSkipped', { reason: 'time', skippedAt: t1.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(1);
+    });
+
+    it('accumulates across multiple deferrals', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalScheduled', { dueAt: t1.toISOString() });
+      loop.applyEvent('RetrievalSkipped', { reason: 'fatigue' });
+      loop.applyEvent('RetrievalScheduled', { dueAt: t2.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(3);
+    });
+
+    it('resets on RetrievalVerified', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalScheduled', { dueAt: t1.toISOString() });
+      loop.applyEvent('RetrievalSkipped', { reason: 'time' });
+      loop.applyEvent('RetrievalVerified', { verifiedAt: t2.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(0);
+    });
+
+    it('resets on VerificationCompleted', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalScheduled', { dueAt: t1.toISOString() });
+      loop.applyEvent('RetrievalScheduled', { dueAt: t2.toISOString() });
+      loop.applyEvent('VerificationCompleted', { completedAt: t3.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(0);
+    });
+
+    it('reaches dropout threshold (>= 3) after 3 consecutive deferrals', () => {
+      const loop = makeLoop();
+      loop.applyEvent('RetrievalScheduled', { dueAt: t1.toISOString() });
+      loop.applyEvent('RetrievalSkipped', { reason: 'time' });
+      loop.applyEvent('RetrievalScheduled', { dueAt: t2.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(3);
+      expect(loop.state.consecutiveDeferrals >= 3).toBe(true);
+    });
+
+    it('does not increment on SessionEnd', () => {
+      const loop = makeLoop();
+      loop.applyEvent('SessionEnd', { endedAt: t1.toISOString() });
+      expect(loop.state.consecutiveDeferrals).toBe(0);
     });
   });
 });

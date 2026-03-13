@@ -43,7 +43,7 @@ Maintain a faithful, append-only record of what happened (domain events) as the 
 | Term | Definition (in this context) |
 |------|------------------------------|
 | Event | **Domain Event (stored, not raised here):** immutable record of a significant occurrence in the EI domain — type, student context, schema-validated payload, occurred_at. Produced by Runtime or SA; schema-owned by Ledger; stored (not raised) by Ledger. Equality by all fields; no mutable lifecycle; append-only. |
-| Event type | **Enum Value Object:** one of `AppOpen \| IntentSet \| SessionEnd \| NegotiatedIntentIssued \| ActivationPlanIssued \| IntentResponse \| FirstActionStarted \| Replan \| VerificationDecisionIssued \| RetrievalVerified \| RetrievalScheduled \| RetrievalSkipped \| VerificationCompleted \| StrategicAdjustmentDecision \| ScheduleMissed` — immutable string union, equality by value. Schema ownership: Ledger (`src/ei/schemas/events.ts`). |
+| Event type | **Enum Value Object:** one of `AppOpen \| IntentSet \| SessionEnd \| SessionIntentIssued \| ActivationPlanIssued \| IntentResponse \| FirstActionStarted \| Replan \| VerificationDecisionIssued \| RetrievalVerified \| RetrievalScheduled \| RetrievalSkipped \| VerificationCompleted \| StrategicAdjustmentDecision \| ScheduleMissed` — immutable string union, equality by value. Schema ownership: Ledger (`src/ei/schemas/events.ts`). |
 | Event payload | **Structural Value Object (per-type):** Zod-validated JSONB data for one event type; shape varies per EventType (AppOpenPayload, IntentSetPayload, etc.). Immutable by convention, equality by all fields. See `src/ei/schemas/events.ts`. |
 | Append-only | Invariant (not a building block): no updates or deletes; events are immutable once written. |
 | Idempotency key | **Value Object:** non-empty string uniquely identifying one logical append attempt. Recommended format: `{context}:{eventType}:{studentId}:{timestamp}`. Equality by string value. Stored in `ei_idempotency_keys`; guards against duplicate appends on retry. |
@@ -57,8 +57,8 @@ Maintain a faithful, append-only record of what happened (domain events) as the 
 
 | Collaborator | Message type | Message name | Key data | Integration style | Relationship (from context map) |
 |--------------|--------------|--------------|----------|-------------------|-----------------------------------|
-| EI Runtime | Event | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse | energy, pressure, topic, taskType, etc. | Sync append | Customer-Supplier |
-| EI Runtime | Event | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued | scope, mode, verificationDecision | Sync append | Customer-Supplier |
+| EI Runtime | Event | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse | energy, sleep, `timeCommitment` (optional), `taskType` (optional); topic-bearing events carry topicId (UUID) + topicName from CC | Sync append | Customer-Supplier |
+| EI Runtime | Event | SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued | scope, mode, verificationDecision | Sync append | Customer-Supplier |
 | EI Runtime | Event | RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, ScheduleMissed | questions, dueAt, reason | Sync append | Customer-Supplier |
 
 ---

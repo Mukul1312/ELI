@@ -19,6 +19,10 @@ export type DifficultyTier = z.infer<typeof DifficultyTierEnum>;
 export const TaskTypeEnum = z.enum(['practice', 'reading', 'video', 'revision', 'mixed']);
 export type TaskType = z.infer<typeof TaskTypeEnum>;
 
+/** Session-level task type for SessionIntentIssued (both declared and negotiated paths). */
+export const SessionTaskTypeEnum = z.enum(['Learn', 'Practice', 'Test']);
+export type SessionTaskType = z.infer<typeof SessionTaskTypeEnum>;
+
 export const IntentDecisionEnum = z.enum(['accepted', 'edited', 'rejected', 'ignored']);
 export type IntentDecision = z.infer<typeof IntentDecisionEnum>;
 
@@ -35,9 +39,10 @@ export type VerificationFormat = z.infer<typeof VerificationFormatEnum>;
 export const AppOpenSchema = z.object({
   studentId: z.string(),
   energy: z.number().int().min(1).max(5),
-  pressure: z.number().int().min(1).max(5).optional(),
+  pressure: z.number().int().min(1).max(5).optional(),          // Deprecated — kept for backward compat with existing ledger events
   sleepBucket: SleepBucketEnum.optional(),
-  backlogPressure: z.number().int().min(1).max(5).optional(),
+  backlogPressure: z.number().int().min(1).max(5).optional(),   // Deprecated — kept for backward compat with existing ledger events
+  highPressureDetected: z.boolean().optional(),                  // System-derived; defaults false (V3 triggers, Stage 2)
   openedAt: z.string().datetime(),
 });
 export type AppOpen = z.infer<typeof AppOpenSchema>;
@@ -45,6 +50,7 @@ export type AppOpen = z.infer<typeof AppOpenSchema>;
 export const IntentSetSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   taskType: TaskTypeEnum.optional(),
   scope: z.object({
     timeboxMin: z.number().optional(),
@@ -58,6 +64,8 @@ export type IntentSet = z.infer<typeof IntentSetSchema>;
 export const SessionEndSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
+  taskType: z.string().optional(),
   endedAt: z.string().datetime(),
 });
 export type SessionEnd = z.infer<typeof SessionEndSchema>;
@@ -82,6 +90,7 @@ export type IntentResponse = z.infer<typeof IntentResponseSchema>;
 export const RetrievalVerifiedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   questionsAttempted: z.number().int(),
   tier: DifficultyTierEnum,
   format: VerificationFormatEnum,
@@ -93,6 +102,7 @@ export type RetrievalVerified = z.infer<typeof RetrievalVerifiedSchema>;
 export const RetrievalScheduledSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   dueAt: z.string().datetime(),
   questionsPlanned: z.number().int(),
   tier: DifficultyTierEnum,
@@ -104,6 +114,7 @@ export type RetrievalScheduled = z.infer<typeof RetrievalScheduledSchema>;
 export const RetrievalSkippedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   reason: z.string(),
   skippedAt: z.string().datetime(),
 });
@@ -112,8 +123,9 @@ export type RetrievalSkipped = z.infer<typeof RetrievalSkippedSchema>;
 export const VerificationCompletedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   completedAt: z.string().datetime(),
-  result: z.enum(['confident', 'partial', 'needs_review']).optional(),
+  result: z.enum(['confident', 'not_confident']).optional(),
 });
 export type VerificationCompleted = z.infer<typeof VerificationCompletedSchema>;
 
@@ -124,6 +136,7 @@ export type VerificationCompleted = z.infer<typeof VerificationCompletedSchema>;
 export const FirstActionStartedSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   startedAt: z.string().datetime(),
 });
 export type FirstActionStarted = z.infer<typeof FirstActionStartedSchema>;
@@ -131,6 +144,7 @@ export type FirstActionStarted = z.infer<typeof FirstActionStartedSchema>;
 export const ReplanSchema = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   reason: z.string().optional(),
   replannedAt: z.string().datetime(),
 });
@@ -173,12 +187,28 @@ export const IdentityMomentShownSchema = z
 export type IdentityMomentShown = z.infer<typeof IdentityMomentShownSchema>;
 
 // ============================================================================
+// SSO internal events (StudySessionOrchestration bounded context)
+// ============================================================================
+
+/** Per tactical spec §5: internal domain event — same category as SessionIntentIssued. */
+export const FlowSelectedSchema = z
+  .object({
+    studentId: z.string(),
+    sessionId: z.string().optional(),
+    templateId: z.string(),
+    selectionContext: z.record(z.unknown()),
+    selectedAt: z.string().datetime(),
+  })
+  .strict();
+export type FlowSelected = z.infer<typeof FlowSelectedSchema>;
+
+// ============================================================================
 // All event types enum (for ei_events.event_type column)
 // ============================================================================
 
 export const EventTypeEnum = z.enum([
   'AppOpen',
-  'NegotiatedIntentIssued',
+  'SessionIntentIssued',
   'IntentResponse',
   'IntentSet',
   'ActivationPlanIssued',
@@ -193,5 +223,6 @@ export const EventTypeEnum = z.enum([
   'StrategicAdjustmentDecision',
   'ScheduleMissed',
   'IdentityMomentShown',
+  'FlowSelected',
 ]);
 export type EventType = z.infer<typeof EventTypeEnum>;

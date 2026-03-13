@@ -5,9 +5,12 @@ export type StateTrend = 'improving' | 'flat' | 'worsening';
 
 export interface TopicStateSnapshot {
   topicId: string;
+  topicName?: string;
   lastEffortAt: Date | null;
   lastRetrievalAt: Date | null;
   lastScheduledDueAt: Date | null;
+  effortCountTotal: number;
+  lastTaskType: string | null;
 }
 
 export interface DomainEventSnapshot {
@@ -24,6 +27,9 @@ export interface RecomputeInput {
   events: DomainEventSnapshot[];
   topicStates: TopicStateSnapshot[];
   allTimeLatestEvent: DomainEventSnapshot | null;
+  // ADR-003: Pass-through inputs sourced by handler
+  hasPriorAppOpen: boolean;
+  lastIdentityShownAt: Date | null;
 }
 
 export interface AggregateMetrics {
@@ -39,6 +45,12 @@ export interface AggregateMetrics {
   replanLoopCount7d: number;
   stateTrend7d: StateTrend;
   loopLatencyTrend: string | null;
+  // ADR-003: New aggregate metrics
+  sessionsLast7d: number;
+  loopsClosedLast7d: number;
+  hasPriorAppOpen: boolean;
+  lastIdentityShownAt: Date | null;
+  activeDays7d: number;
 }
 
 export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
@@ -132,7 +144,7 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       silenceDays = 0;
     }
 
-    const intentIssued = events.filter((e) => e.eventType === 'NegotiatedIntentIssued').length;
+    const intentIssued = events.filter((e) => e.eventType === 'SessionIntentIssued').length;
     const intentAccepted = events.filter(
       (e) => e.eventType === 'IntentResponse' &&
         ((e.payload as any).decision === 'accepted' || (e.payload as any).decision === 'edited'),
@@ -169,6 +181,14 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       else if (firstEnergy - lastEnergy >= 1) stateTrend7d = 'worsening';
     }
 
+    // ADR-003: New aggregate metrics
+    const sessionsLast7d = sessionEnds;
+    const loopsClosedLast7d = events.filter(
+      (e) => e.eventType === 'RetrievalVerified' ||
+        (e.eventType === 'VerificationCompleted' && (e.payload as any).result === 'confident'),
+    ).length;
+    const activeDays7d = new Set(events.map((e) => e.occurredAt.toISOString().slice(0, 10))).size;
+
     return new StudentAggregates(id, {
       pendingChecks,
       openLoops,
@@ -182,6 +202,11 @@ export class StudentAggregates extends AggregateRoot<StudentAggregatesId> {
       replanLoopCount7d,
       stateTrend7d,
       loopLatencyTrend: null,
+      sessionsLast7d,
+      loopsClosedLast7d,
+      hasPriorAppOpen: input.hasPriorAppOpen,
+      lastIdentityShownAt: input.lastIdentityShownAt,
+      activeDays7d,
     });
   }
 }

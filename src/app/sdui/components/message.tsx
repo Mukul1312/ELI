@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiMessage } from '@/ei/sdui/types/components';
+import type { SduiMessage } from '@/ei/study-session-orchestration/domain/types/components';
 
 const variantStyles: Record<string, React.CSSProperties> = {
   heading: { fontSize: 20, fontWeight: 700, marginTop: 0, marginBottom: 4, color: 'var(--color-text-primary)' },

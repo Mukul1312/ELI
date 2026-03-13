@@ -9,5 +9,8 @@ export type {
   SduiPhase,
   SduiResponse,
   P1WrappedResponse,
-} from '@/ei/sdui/types/sdui-contract';
-export type { SduiComponent } from '@/ei/sdui/types/components';
+  SduiSlotEntry,
+  SduiGroupedComponent,
+} from '@/ei/study-session-orchestration/types/sdui-contract';
+export { unwrapSlotEntry } from '@/ei/study-session-orchestration/types/sdui-contract';
+export type { SduiComponent } from '@/ei/study-session-orchestration/domain/types/components';

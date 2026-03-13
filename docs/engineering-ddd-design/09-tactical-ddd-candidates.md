@@ -11,23 +11,25 @@
 
 ## Aggregates (candidates)
 
-| Aggregate | Responsibility | Consistency boundary | Code location (current) | Canvas |
-|-----------|-----------------|----------------------|-------------------------|--------|
-| StudySession | One student study session: P1→P2→P3 lifecycle; cross-protocol invariants (P1 verification floor → P3, P2 watchOnly → P3); emits NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued | One session from AppOpen to retrieval decision | [src/ei/domain/study-session/](../../src/ei/domain/study-session/), [src/ei/application/run-p1-gate/](../../src/ei/application/run-p1-gate/), [src/ei/application/run-p2-gate/](../../src/ei/application/run-p2-gate/), [src/ei/application/run-p3-gate/](../../src/ei/application/run-p3-gate/) | [canvas-ei-runtime.md](canvas-ei-runtime.md), [ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md) |
-| TopicLoop | Per (studentId, topicId): effort → verification lifecycle; overdue detection | ei_topic_state + relevant events | [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/), [src/ei/infrastructure/projector/topic-loop-projector.ts](../../src/ei/infrastructure/projector/topic-loop-projector.ts), [src/ei/infrastructure/persistence/topic-loop-repository.pg.ts](../../src/ei/infrastructure/persistence/topic-loop-repository.pg.ts) | [agg-topic-loop.md](aggregates/agg-topic-loop.md) |
-| StudentPolicy | SA dials, tightness level, constraints; read by all protocols | ei_student_policy | [src/ei/domain/student-policy/](../../src/ei/domain/student-policy/), [src/ei/application/apply-strategic-adjustment-decision/](../../src/ei/application/apply-strategic-adjustment-decision/) | [agg-student-policy.md](aggregates/agg-student-policy.md) |
-| StudentAggregates | Per student: openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | ei_student_aggregates | [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/), [src/ei/infrastructure/projector/student-aggregates-projector.ts](../../src/ei/infrastructure/projector/student-aggregates-projector.ts), [src/ei/infrastructure/persistence/](../../src/ei/infrastructure/persistence/) (repository and mappers) | [agg-student-aggregates.md](aggregates/agg-student-aggregates.md) |
-| StudentMembership | Exactly one active cohort or unassigned; atomic join on redemption | student_cohort_membership | student_cohort_membership (future) | [agg-student-membership.md](aggregates/agg-student-membership.md) |
-| Coupon | Eligibility, limits, expiry; idempotency for redemptions | coupons | coupons (future) | [agg-coupon.md](aggregates/agg-coupon.md) |
-| Redemption | Idempotent record of coupon use; triggers membership change | coupon_redemptions | coupon_redemptions (future) | [agg-redemption.md](aggregates/agg-redemption.md) |
+| Aggregate | Responsibility | Consistency boundary | Code location (current) | Canvas | Persistence |
+|-----------|-----------------|----------------------|-------------------------|--------|-------------|
+| StudySession | One student study session: P1→P2→P3 lifecycle; cross-protocol invariants (P1 verification floor → P3 when intentSource='negotiated', P2 watchOnly → P3); emits SessionIntentIssued (intentSource='negotiated'\|'declared'), ActivationPlanIssued, VerificationDecisionIssued | One session from AppOpen to retrieval decision | [src/ei/domain/study-session/](../../src/ei/domain/study-session/), [src/ei/application/run-p1-gate/](../../src/ei/application/run-p1-gate/), [src/ei/application/run-p2-gate/](../../src/ei/application/run-p2-gate/), [src/ei/application/run-p3-gate/](../../src/ei/application/run-p3-gate/) | [canvas-ei-runtime.md](canvas-ei-runtime.md), [ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md) | Event-sourced repo ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)): Ledger is write store; fold-to-aggregate on `findById`; `save`=no-op. Read-side: TopicLoop projection ([ADR-003](decisions/adr-003-projection-schema-evolution.md)) |
+| TopicLoop | Per (studentId, topicId): effort → verification lifecycle; overdue detection | ei_topic_state + relevant events | [src/ei/domain/topic-loop/](../../src/ei/domain/topic-loop/), [src/ei/application/apply-event-to-topic-loop/](../../src/ei/application/apply-event-to-topic-loop/), [src/ei/infrastructure/projector/topic-loop-projector.ts](../../src/ei/infrastructure/projector/topic-loop-projector.ts), [src/ei/infrastructure/persistence/topic-loop-repository.pg.ts](../../src/ei/infrastructure/persistence/topic-loop-repository.pg.ts) | [agg-topic-loop.md](aggregates/agg-topic-loop.md) | Projection (`ei_topic_state`; GREATEST semantics) |
+| StudentPolicy | SA dials, tightness level, constraints; read by all protocols | ei_student_policy | [src/ei/domain/student-policy/](../../src/ei/domain/student-policy/), [src/ei/application/apply-strategic-adjustment-decision/](../../src/ei/application/apply-strategic-adjustment-decision/) | [agg-student-policy.md](aggregates/agg-student-policy.md) | Hybrid (SA writes via Ledger; Projections persist to `ei_student_policy`) |
+| StudentAggregates | Per student: openLoops, verificationRate7d, silenceDays, startLatencyMinMedian7d | ei_student_aggregates | [src/ei/domain/student-aggregates/](../../src/ei/domain/student-aggregates/), [src/ei/application/recompute-student-aggregates/](../../src/ei/application/recompute-student-aggregates/), [src/ei/infrastructure/projector/student-aggregates-projector.ts](../../src/ei/infrastructure/projector/student-aggregates-projector.ts), [src/ei/infrastructure/persistence/](../../src/ei/infrastructure/persistence/) (repository and mappers) | [agg-student-aggregates.md](aggregates/agg-student-aggregates.md) | Projection (`ei_student_aggregates`; full recompute) |
+| StudentMembership | Exactly one active cohort or unassigned; atomic join on redemption | student_cohort_membership | student_cohort_membership (future) | [agg-student-membership.md](aggregates/agg-student-membership.md) | State table (planned) |
+| Coupon | Eligibility, limits, expiry; idempotency for redemptions | coupons | coupons (future) | [agg-coupon.md](aggregates/agg-coupon.md) | State table (planned) |
+| Redemption | Idempotent record of coupon use; triggers membership change | coupon_redemptions | coupon_redemptions (future) | [agg-redemption.md](aggregates/agg-redemption.md) | State table (planned) |
 
 ---
 
 ## Domain services (candidates)
 
-| Domain Service | Responsibility | Dependencies | Code location (current) | Canvas |
+| Domain Service | Responsibility | Dependencies | Code location (current) | Canvas / Spec |
 |----------------|----------------|--------------|-------------------------|--------|
 | LoopHealth | Interpret metrics to labels + LoopHealthSnapshot | GetStudentSignals (Projections) | [src/ei/domain/loop-health/](../../src/ei/domain/loop-health/), [src/ei/application/assess-loop-health/](../../src/ei/application/assess-loop-health/) | [canvas-loop-health-assessment.md](canvas-loop-health-assessment.md), [ds-loop-health.md](domainService/ds-loop-health.md) |
+| FlowStrategy (SSO) | Given student context signals (FlowSelectionContext VO), select a FlowTemplate. Stateless, deterministic, pure. Analogous to ProtocolEngine. | FlowSelectionContext (VO), FlowTemplate (VO) | NEW — planned for `src/ei/study-session-orchestration/domain/services/flow-strategy.ts` | [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md), [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
+| ViewComposer (SSO) | Per-phase pure functions mapping gate outputs + PresentationContext → SduiResponse. Includes microcopy resolution as internal capability. SSO's core domain service. | PresentationContext (VO), gate outputs (Published Language), SduiComponent types | [src/ei/sdui/view-composer.ts](../../src/ei/sdui/view-composer.ts) (implemented) | [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md), [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
 
 ---
 
@@ -43,6 +45,24 @@
 | Mode | Rescue / Neutral / Boost | enum |
 | TightnessLevel | Loose / Normal / Tight | enum |
 | OccurredAt | ISO datetime; validation | string |
+| TopicReference | Published Language VO: `{ topicId: UUID, topicName: string }` — stable topic identity consumed by EI Runtime, Projections, Radar | (to be implemented) |
+| NegotiatedIntent | P1 output VO (ELI-driven): scope, verificationPlan, constraints, mode. Enforces all ELI business invariants (floor >= 1, rescue scope, risk override). intentSource = 'negotiated'. See [ei-runtime-tactical-spec.md §7c](tactical/ei-runtime-tactical-spec.md). | Implemented |
+| DeclaredIntent | P1 output VO (student-driven): timebox, taskType, energy, sleep (all real student inputs); verificationFloor student-set or null; mode = null. Data integrity invariants only — ELI imposes no business rules. intentSource = 'declared'. Primary case for Sessions 1–8. See [ei-runtime-tactical-spec.md §7f](tactical/ei-runtime-tactical-spec.md), [ADR-001](decisions/adr-001-declared-intent-design.md). | NEW — to be implemented |
+| TimeCommitment | Student-declared study duration; constrained to 10/20/45/60 minutes; feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint fallback when absent (for variants that hide time chips) | (to be implemented) |
+| HighPressureDetected | System-derived boolean: true when V3 triggers fire (`examProximityDays <= 7`, `avoidancePattern`, `recentMockFailure`); replaces retired self-reported Pressure and BacklogPressure scales; defaults to false in Stage 1; see `05-cross-cutting-concerns.md` §V3 Trigger Signals | (to be implemented) |
+| DropoutSignalActive | Per-topic boolean: `consecutiveDeferrals >= 3`. Consumed by PresentationContext for Shrunk Card rendering (binary Got it / Not yet). Not a domain routing signal — P3 gate uses AVOIDANT label for routing. See `05-cross-cutting-concerns.md` §Dropout Signal | (to be implemented) |
+| TopicSeed | Presentation VO: `{ topicName: string, waitingSinceDays: number }` for Dynamic Footer Seed in Phase 3 close view ("Next: [topic] waiting since [Day X]"). Sourced from oldest open TopicLoop in Projections. | (to be implemented) |
+| FlowTemplate (SSO) | Describes which phases are included and whether each shows UI. Immutable. Static factories for known templates (declared-standard, negotiated-standard, onboarding, micro). Self-validates: "if session present, p3 must be present" (pending canvas Q2). | NEW — planned for `src/ei/study-session-orchestration/domain/value-objects/flow-template.ts` |
+| FlowSelectionContext (SSO) | Input VO for FlowStrategy. Subset of projection signals: pendingChecks, silenceDays, sessionsTotal, openLoops, cohortFlags, isOnboarding, isMicro. `create()` factory with validation. | NEW — planned for `src/ei/study-session-orchestration/domain/value-objects/flow-selection-context.ts` |
+| PresentationContext (SSO) | Student-level signals for ViewComposer and IdentityEligibility: mode, pendingChecks, verificationRate7d, sessionsLast7d, etc. **Needs `create()` factory** with validation (mode enum, non-negative counts, rate ∈ [0,1]). Currently built by application builders without domain validation. | [src/ei/sdui/presentation-context.ts](../../src/ei/sdui/presentation-context.ts) (implemented — needs validation upgrade) |
+
+---
+
+## Specifications (candidates)
+
+| Specification | Responsibility | Input | Output | Code location (current) | Canvas / Spec |
+|--------------|----------------|-------|--------|-------------------------|--------|
+| IdentityEligibility (SSO) | Pure eligibility check: verificationRate7d ≥ 0.70 AND pendingChecks ≤ 2 AND sessionsLast7d ≥ 4 AND 7+ days since last shown. Function form (not class — single predicate, no composition needed). | PresentationContext fields + lastShownAt | `{ eligible: boolean, statement?: string }` | [src/ei/sdui/identity/compute-identity-eligibility.ts](../../src/ei/sdui/identity/compute-identity-eligibility.ts) (implemented) | [study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) |
 
 ---
 
@@ -99,6 +119,30 @@ src/ei/
 
 Full EI layer layout and port rules: [tactical/01-ei-tactical-conventions.md](tactical/01-ei-tactical-conventions.md).
 
+**Planned: CurriculumCatalog** (`src/curriculum-catalog/`)
+
+Note: No aggregate needed — CatalogTopic is a simple entity (reference data, read-heavy). NormalizationQueue is a lightweight entity, not an aggregate.
+
+```
+src/curriculum-catalog/
+├── domain/
+│   ├── catalog-topic.ts          # CatalogTopic entity (id, name, aliases, hierarchy refs)
+│   ├── value-objects.ts          # TopicReference, ExamId, SubjectId, etc.
+│   └── topic-search-service.ts   # Domain service: fuzzy match, ranking, institute priority
+├── application/
+│   ├── search-topics/            # Type-ahead search use case
+│   ├── browse-tree/              # Hierarchical browse use case
+│   ├── resolve-topic/            # Raw string → TopicReference resolution
+│   └── import-curriculum/        # Institute CSV/JSON import use case
+├── infrastructure/
+│   ├── persistence/
+│   │   ├── catalog-repository.pg.ts
+│   │   └── normalization-queue.pg.ts
+│   └── search/
+│       └── topic-search-adapter.pg.ts  # pg_trgm or prefix-match queries
+└── __tests__/
+```
+
 ---
 
 ## Context-level tactical specs (cross-cutting)
@@ -109,3 +153,4 @@ Bounded contexts that have a tactical spec but no aggregate in this doc; they im
 |---------|------|---------|
 | CohortAccess | [tactical/cohort-access-tactical-spec.md](tactical/cohort-access-tactical-spec.md) | Auth resolution (ACL), GetCohortScope, StudentMembership, RBAC |
 | Ops & Observability | [tactical/ops-observability-tactical-spec.md](tactical/ops-observability-tactical-spec.md) | Debug timeline, correlation ids, repair/backfill orchestration; consumer + ops-level orchestrator; admin-only, redaction |
+| StudySessionOrchestration | [tactical/study-session-orchestration-tactical-spec.md](tactical/study-session-orchestration-tactical-spec.md) | Domain services + VOs BC (no aggregate). FlowStrategy, ViewComposer, IdentityEligibility; FlowTemplate, PresentationContext, FlowSelectionContext; FlowSelected, IdentityMomentShown events. Presentation-side of EI. |

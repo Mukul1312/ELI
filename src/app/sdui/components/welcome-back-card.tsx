@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiWelcomeBackCard } from '@/ei/sdui/types/components';
+import type { SduiWelcomeBackCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiWelcomeBackCard({
   node,

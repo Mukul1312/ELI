@@ -18,6 +18,11 @@ export const StudentAggregatesMapper = {
       replanLoopCount7d: row.replan_loop_count_7d,
       stateTrend7d: row.state_trend_7d as StateTrend,
       loopLatencyTrend: row.loop_latency_trend,
+      sessionsLast7d: row.sessions_last_7d,
+      loopsClosedLast7d: row.loops_closed_last_7d,
+      hasPriorAppOpen: row.has_prior_app_open,
+      lastIdentityShownAt: row.last_identity_shown_at,
+      activeDays7d: row.active_days_7d,
     });
   },
 
@@ -38,6 +43,11 @@ export const StudentAggregatesMapper = {
       replan_loop_count_7d: m.replanLoopCount7d,
       state_trend_7d: m.stateTrend7d,
       loop_latency_trend: m.loopLatencyTrend,
+      sessions_last_7d: m.sessionsLast7d,
+      loops_closed_last_7d: m.loopsClosedLast7d,
+      has_prior_app_open: m.hasPriorAppOpen,
+      last_identity_shown_at: m.lastIdentityShownAt,
+      active_days_7d: m.activeDays7d,
     };
   },
 };

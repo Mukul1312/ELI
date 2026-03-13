@@ -15,9 +15,8 @@ import type { IAssessLoopHealthUseCase } from '../assess-loop-health/port';
 import type { IAppendEventPort } from '../shared/port-append-event';
 import type { IQueryEventsPort } from '../shared/port-query-events';
 import type { IProtocolEngine } from '../../domain/study-session/protocol-engine';
-import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
 import type { IStudySessionRepository } from '../../domain/study-session/repository';
-
+import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
 import { StudySession } from '../../domain/study-session/study-session';
 import { P2GateContext } from '../../domain/study-session/value-objects/gate-context';
 import {
@@ -33,7 +32,7 @@ export class RunP2GateHandler implements IRunP2GateUseCase {
     private readonly appendEvent: IAppendEventPort,
     private readonly queryEvents: IQueryEventsPort,
     private readonly protocolEngine: IProtocolEngine,
-    private readonly sessionRepo?: IStudySessionRepository,
+    private readonly sessionRepo: IStudySessionRepository,
   ) {}
 
   async execute(command: RunP2GateCommand): Promise<ActivationPlanIssuedOutput> {
@@ -102,7 +101,6 @@ export class RunP2GateHandler implements IRunP2GateUseCase {
       replanCount,
       startLatencyMin: startLatencyMin ?? undefined,
       currentEnergy: undefined,
-      currentPressure: undefined,
     };
     const play = this.protocolEngine.selectPlay(2, mode, playContext);
 
@@ -120,8 +118,9 @@ export class RunP2GateHandler implements IRunP2GateUseCase {
     });
 
     // ── 8. Drive StudySession aggregate ─────────────────────────────────────
-    // Reconstitute in 'activating' state (P1 has been run)
-    const session = StudySession.reconstitute(sessionId, studentId, topicId, 'activating', null, null, null);
+    // ADR-004: Reconstitute from event-sourced fold; fallback for pre-migration sessions.
+    const session = await this.sessionRepo.findById(sessionId)
+      ?? StudySession.reconstitute(sessionId, studentId, topicId, 'activating', null, null, null);
     session.issueActivationPlan(play, gateCtx, policy);
 
     // ── 9. Pull domain events + build output ─────────────────────────────────
@@ -151,11 +150,6 @@ export class RunP2GateHandler implements IRunP2GateUseCase {
         topicId,
         payload: event.payload,
       });
-    }
-
-    // ── 11. Persist session status transition (activating → active) ───────────
-    if (this.sessionRepo) {
-      await this.sessionRepo.save(session);
     }
 
     return output;

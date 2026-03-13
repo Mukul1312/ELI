@@ -23,7 +23,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 2, pressure: 4, sleepBucket: '<6', backlogPressure: 5, openedAt: '2025-01-01T22:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 2, sleepBucket: '<6', highPressureDetected: true, openedAt: '2025-01-01T22:00:00Z' },
         },
         // P1 should route Rescue MVW (minimum viable win)
         // Student ignores the intent
@@ -48,7 +48,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
         // Day 4: student opens app
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 2, pressure: 3, sleepBucket: '6-7', backlogPressure: 4, openedAt: '2025-01-04T20:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 2, sleepBucket: '6-7', highPressureDetected: true, openedAt: '2025-01-04T20:00:00Z' },
         },
         // P1 should route Rescue with gentle recovery
         // (do-no-harm: NOT volume tightening despite high openLoops)
@@ -96,7 +96,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 2, pressure: 3, sleepBucket: '6-7', backlogPressure: 4, openedAt: '2025-01-06T20:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 2, sleepBucket: '6-7', highPressureDetected: true, openedAt: '2025-01-06T20:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -133,7 +133,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 3, pressure: 3, sleepBucket: '7-8', backlogPressure: 3, openedAt: '2025-01-07T19:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 3, sleepBucket: '7-8', openedAt: '2025-01-07T19:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -161,7 +161,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
         },
       ],
       expectedOutputs: [
-        { protocol: 1, mode: 'Neutral' }, // energy=3, pressure=3, sleep='7-8' — no LOW_ENERGY trigger; worsening trend caps at Neutral (not Rescue)
+        { protocol: 1, mode: 'Neutral' }, // energy=3, sleep='7-8', no highPressureDetected — no LOW_ENERGY trigger; worsening trend caps at Neutral (not Rescue)
       ],
       expectedSignals: {
         silenceDays: { min: 0, max: 0 },
@@ -177,7 +177,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 3, pressure: 2, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-09T19:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 3, sleepBucket: '7-8', openedAt: '2025-01-09T19:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -219,7 +219,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 2, pressure: 3, sleepBucket: '6-7', backlogPressure: 3, openedAt: '2025-01-11T21:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 2, sleepBucket: '6-7', openedAt: '2025-01-11T21:00:00Z' },
         },
         {
           eventType: 'IntentResponse',
@@ -245,7 +245,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 3, pressure: 2, sleepBucket: '7-8', backlogPressure: 2, openedAt: '2025-01-14T19:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 3, sleepBucket: '7-8', openedAt: '2025-01-14T19:00:00Z' },
         },
       ],
       expectedOutputs: [
@@ -262,7 +262,7 @@ export const s5BurnoutFixture: StoryboardFixture = {
       events: [
         {
           eventType: 'AppOpen',
-          payload: { studentId: 'student-s5', energy: 4, pressure: 1, sleepBucket: '>=8', backlogPressure: 1, openedAt: '2025-01-17T09:00:00Z' },
+          payload: { studentId: 'student-s5', energy: 4, sleepBucket: '>=8', openedAt: '2025-01-17T09:00:00Z' },
         },
         {
           eventType: 'IntentSet',

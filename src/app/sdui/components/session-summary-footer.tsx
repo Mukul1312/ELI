@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { SduiSessionSummaryFooter } from '@/ei/sdui/types/components';
+import type { SduiSessionSummaryFooter } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiSessionSummaryFooter({ node }: { node: SduiSessionSummaryFooter }) {
   const [expanded, setExpanded] = useState(false);

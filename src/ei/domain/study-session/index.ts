@@ -9,6 +9,9 @@ export type { SessionStatus } from './study-session';
 export { NegotiatedIntent } from './value-objects/negotiated-intent';
 export type { DifficultyTier } from './value-objects/negotiated-intent';
 
+export { DeclaredIntent } from './value-objects/declared-intent';
+export type { DeclaredIntentInput } from './value-objects/declared-intent';
+
 export { ActivationPlan } from './value-objects/activation-plan';
 
 export { VerificationDecision } from './value-objects/verification-decision';
@@ -20,8 +23,6 @@ export { P1GateContext, P2GateContext, P3GateContext } from './value-objects/gat
 
 export { ProtocolEngine } from './protocol-engine';
 export type { IProtocolEngine } from './protocol-engine';
-
-export type { IStudySessionRepository } from './repository';
 
 export {
   SessionAlreadyClosedError,

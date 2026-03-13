@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ApplyEventToTopicLoopHandler } from '../../../../application/apply-event-to-topic-loop/handler';
 import { InvalidEventPayloadError } from '../../../../application/apply-event-to-topic-loop/errors';
 import type { ITopicLoopRepository } from '../../../../domain/topic-loop/repository';
+import type { ITopicDisplayNameWriter } from '../../../../application/apply-event-to-topic-loop/display-name-port';
 import type { TopicLoop } from '../../../../domain/topic-loop/topic-loop';
 import type { TopicLoopId } from '../../../../domain/topic-loop/value-objects';
 import { MissingStudentIdError, MissingTopicIdError } from '../../../../domain/topic-loop/errors';
@@ -26,8 +27,21 @@ class InMemoryTopicLoopRepository implements ITopicLoopRepository {
   }
 }
 
+class InMemoryDisplayNameWriter implements ITopicDisplayNameWriter {
+  private names = new Map<string, string>();
+
+  async upsertDisplayName(studentId: string, topicId: string, displayName: string): Promise<void> {
+    this.names.set(`${studentId}::${topicId}`, displayName);
+  }
+
+  getTopicName(studentId: string, topicId: string): string | undefined {
+    return this.names.get(`${studentId}::${topicId}`);
+  }
+}
+
 describe('ApplyEventToTopicLoopHandler', () => {
   let repo: InMemoryTopicLoopRepository;
+  let displayNameWriter: InMemoryDisplayNameWriter;
   let handler: ApplyEventToTopicLoopHandler;
 
   const t1 = new Date('2025-03-01T10:00:00Z');
@@ -35,7 +49,8 @@ describe('ApplyEventToTopicLoopHandler', () => {
 
   beforeEach(() => {
     repo = new InMemoryTopicLoopRepository();
-    handler = new ApplyEventToTopicLoopHandler(repo);
+    displayNameWriter = new InMemoryDisplayNameWriter();
+    handler = new ApplyEventToTopicLoopHandler(repo, displayNameWriter);
   });
 
   it('creates a new TopicLoop when none exists and applies the event', async () => {
@@ -151,6 +166,39 @@ describe('ApplyEventToTopicLoopHandler', () => {
     await expect(
       handler.execute({ studentId: 's1', topicId: 't1', eventType: 'RetrievalVerified', payload: {} }),
     ).rejects.toThrow(InvalidEventPayloadError);
+  });
+
+  it('extracts topicName from payload and passes to repo.save', async () => {
+    await handler.execute({
+      studentId: 's1',
+      topicId: 't1',
+      eventType: 'SessionEnd',
+      payload: { endedAt: t1.toISOString(), topicName: 'Integration' },
+    });
+
+    expect(displayNameWriter.getTopicName('s1', 't1')).toBe('Integration');
+  });
+
+  it('does not set topicName when payload has no topicName', async () => {
+    await handler.execute({
+      studentId: 's1',
+      topicId: 't1',
+      eventType: 'SessionEnd',
+      payload: { endedAt: t1.toISOString() },
+    });
+
+    expect(displayNameWriter.getTopicName('s1', 't1')).toBeUndefined();
+  });
+
+  it('trims whitespace from topicName', async () => {
+    await handler.execute({
+      studentId: 's1',
+      topicId: 't1',
+      eventType: 'SessionEnd',
+      payload: { endedAt: t1.toISOString(), topicName: '  Limits  ' },
+    });
+
+    expect(displayNameWriter.getTopicName('s1', 't1')).toBe('Limits');
   });
 
   it('keeps separate TopicLoops for different (studentId, topicId) pairs', async () => {

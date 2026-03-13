@@ -106,6 +106,8 @@ Ops does not supply domain data to other bounded contexts. Replay/backfill write
 - Replay/backfill jobs complete without corrupting aggregates or policy.
 - Debug timeline correctly assembles events and projection state for a student.
 - Ops views respect tenant boundaries; no unauthorized cross-cohort access.
+- TracedDbAdapter emits span logs for every DB query without modifying business code.
+- TracedAuthAdapter captures getSession, ensureMapping, resolveAuth as separate spans with correlationId.
 
 ---
 

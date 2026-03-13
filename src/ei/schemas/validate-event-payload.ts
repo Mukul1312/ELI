@@ -16,9 +16,10 @@ import {
   FirstActionStartedSchema,
   ReplanSchema,
   IdentityMomentShownSchema,
+  FlowSelectedSchema,
 } from './events';
 import {
-  NegotiatedIntentIssuedSchema,
+  SessionIntentIssuedSchema,
   ActivationPlanIssuedSchema,
   VerificationDecisionIssuedSchema,
   StrategicAdjustmentDecisionSchema,
@@ -28,6 +29,7 @@ const ScheduleMissedSchema = z
   .object({
     studentId: z.string(),
     topic: z.string(),
+    topicName: z.string().optional(),
     missedAt: z.string().datetime(),
   })
   .strict();
@@ -43,12 +45,13 @@ const EVENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   VerificationCompleted: VerificationCompletedSchema.strict(),
   FirstActionStarted: FirstActionStartedSchema.strict(),
   Replan: ReplanSchema.strict(),
-  NegotiatedIntentIssued: NegotiatedIntentIssuedSchema.strict(),
+  SessionIntentIssued: SessionIntentIssuedSchema.strict(),
   ActivationPlanIssued: ActivationPlanIssuedSchema.strict(),
   VerificationDecisionIssued: VerificationDecisionIssuedSchema.strict(),
   StrategicAdjustmentDecision: StrategicAdjustmentDecisionSchema.strict(),
   ScheduleMissed: ScheduleMissedSchema,
   IdentityMomentShown: IdentityMomentShownSchema,
+  FlowSelected: FlowSelectedSchema,
 };
 
 export function validateEventPayload(

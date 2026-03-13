@@ -8,6 +8,13 @@
         "@mastra/mcp-docs-server@latest"
       ],
       "env": {}
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ]
     }
   }
 }

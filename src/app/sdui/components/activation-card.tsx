@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { SduiActivationCard } from '@/ei/sdui/types/components';
+import type { SduiActivationCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 const CARD_STYLE: React.CSSProperties = {
   background: 'var(--color-surface, #fff)',

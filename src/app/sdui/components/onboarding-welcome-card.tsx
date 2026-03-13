@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiOnboardingWelcomeCard } from '@/ei/sdui/types/components';
+import type { SduiOnboardingWelcomeCard } from '@/ei/study-session-orchestration/domain/types/components';
 import type { SduiComponentProps } from '../registry';
 
 export function SduiOnboardingWelcomeCard({ node, onAction }: SduiComponentProps) {

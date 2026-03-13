@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Lora } from 'next/font/google';
 import { AuthProvider } from './auth-provider';
 import { UserButton } from '@neondatabase/auth/react/ui';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' });
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-family' });
+const lora = Lora({ subsets: ['latin'], display: 'swap', variable: '--font-family-greeting', weight: ['400', '500'] });
 
 export const metadata: Metadata = {
   title: 'AI Study Brother — ELI',
@@ -19,7 +20,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${lora.variable}`} suppressHydrationWarning>
       <body
         style={{
           margin: 0,
@@ -33,13 +34,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header
             style={{
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
               padding: 16,
               gap: 16,
               minHeight: 64,
             }}
           >
+            <div style={{ textAlign: 'left', }}>
+              <span style={{ textTransform: 'uppercase' as const }}>ELI</span>
+            </div>
             <UserButton size="icon" />
           </header>
           {children}

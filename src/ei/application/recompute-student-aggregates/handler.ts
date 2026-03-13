@@ -22,10 +22,12 @@ export class RecomputeStudentAggregatesHandler implements IRecomputeStudentAggre
     const sevenDaysAgo = new Date(now.getTime() - SEVEN_DAYS_MS);
     const graceMs = command.graceMs;
 
-    const [rawEvents, rawTopicStates, latestEvent] = await Promise.all([
+    const [rawEvents, rawTopicStates, latestEvent, hasPriorAppOpen, lastIdentityEvent] = await Promise.all([
       this.eventReader.readEventsForStudentInWindow(command.studentId, sevenDaysAgo),
       this.topicReader.getAllTopicStates(command.studentId),
       this.eventReader.readLatestEvent(command.studentId),
+      this.eventReader.hasEventOfType(command.studentId, 'AppOpen'),
+      this.eventReader.readLatestEventOfType(command.studentId, 'IdentityMomentShown'),
     ]);
 
     const events: DomainEventSnapshot[] = rawEvents.map((e) => ({
@@ -40,6 +42,8 @@ export class RecomputeStudentAggregatesHandler implements IRecomputeStudentAggre
       lastEffortAt: t.lastEffortAt,
       lastRetrievalAt: t.lastRetrievalAt,
       lastScheduledDueAt: t.lastScheduledDueAt,
+      effortCountTotal: 0,
+      lastTaskType: null,
     }));
 
     const allTimeLatestEvent: DomainEventSnapshot | null = latestEvent
@@ -54,6 +58,8 @@ export class RecomputeStudentAggregatesHandler implements IRecomputeStudentAggre
       events,
       topicStates,
       allTimeLatestEvent,
+      hasPriorAppOpen,
+      lastIdentityShownAt: lastIdentityEvent?.occurredAt ?? null,
     });
 
     await this.repo.save(aggregate);

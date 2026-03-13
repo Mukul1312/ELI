@@ -13,8 +13,6 @@ import {
   SLEEP_6_TO_7_ADJUSTMENT,
   SLEEP_7_TO_8_ADJUSTMENT,
   SLEEP_8_PLUS_ADJUSTMENT,
-  PRESSURE_WEIGHTS,
-  BACKLOG_PRESSURE_WEIGHTS,
   INTENT_TIMEBOX_10_30_SCORE,
   INTENT_TIMEBOX_31_60_SCORE,
   INTENT_TIMEBOX_61_90_SCORE,
@@ -37,8 +35,6 @@ export type DifficultyTier = 'easy' | 'med' | 'hard' | 'advanced';
 export interface AppOpenContext {
   energy: number; // 1-5
   sleepBucket: SleepBucket;
-  pressure: number; // 1-5
-  backlogPressure: number; // 1-5
 }
 
 export interface IntentScope {
@@ -54,9 +50,7 @@ export interface IntentScope {
  * 1. Start from base score of 5
  * 2. Add energy adjustment: [-2, -1, 0, +1, +2] for energy [1, 2, 3, 4, 5]
  * 3. Add sleep adjustment: <6h:-2, 6-7h:-1, 7-8h:0, >=8h:+1
- * 4. Add pressure adjustment: [+1, 0, -1, -2, -3] for pressure [1, 2, 3, 4, 5]
- * 5. Add backlog pressure adjustment: [+1, 0, -1, -2, -3] for backlogPressure [1, 2, 3, 4, 5]
- * 6. Clamp to [1..10]
+ * 4. Clamp to [1..10]
  * 
  * @returns StateScore in range [1..10]
  */
@@ -82,16 +76,6 @@ export function computeStateScore(context: AppOpenContext): number {
     case '>=8':
       score += SLEEP_8_PLUS_ADJUSTMENT;
       break;
-  }
-
-  // Pressure adjustment (1-5 scale, inverted: low pressure is good)
-  if (context.pressure >= 1 && context.pressure <= 5) {
-    score += PRESSURE_WEIGHTS[context.pressure - 1];
-  }
-
-  // Backlog pressure adjustment (1-5 scale, inverted: low backlog is good)
-  if (context.backlogPressure >= 1 && context.backlogPressure <= 5) {
-    score += BACKLOG_PRESSURE_WEIGHTS[context.backlogPressure - 1];
   }
 
   // Clamp to [1..10]

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import type { SduiResumeContextCard } from '@/ei/sdui/types/components';
+import type { SduiResumeContextCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 const RESCUE_VARIANTS = ['SILENCE_RE_ENTRY', 'LOW_ENERGY', 'HIGH_PRESSURE'] as const;
 const BOOST_VARIANTS = ['CHALLENGE', 'CLEAR_THEN_CHALLENGE'] as const;
@@ -30,12 +30,32 @@ export function SduiResumeContextCard({
     tertiaryCta,
     showGreetingAfterEnergySelected,
     makeItSmallerContent,
+    compact,
   } = node.props;
 
   const [makeItSmallerTapped, setMakeItSmallerTapped] = React.useState(false);
   const mode = variantToMode(variant);
   const energySelected = formValues['energy'] !== undefined && formValues['energy'] !== '';
   const showGreeting = !showGreetingAfterEnergySelected || energySelected;
+
+  if (compact) {
+    return (
+      <div style={{ marginBottom: 'var(--sp-3)' }}>
+        <div
+          style={{
+            fontFamily: 'inherit',
+            fontSize: 'var(--font-size-body)',
+            fontWeight: 400,
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.4,
+            whiteSpace: 'pre-line',
+          }}
+        >
+          {greeting}
+        </div>
+      </div>
+    );
+  }
 
   const content = makeItSmallerTapped && makeItSmallerContent
     ? {
@@ -107,6 +127,7 @@ export function SduiResumeContextCard({
         <>
           <div
             style={{
+              fontFamily: 'var(--font-family-greeting)',
               fontSize: 'var(--font-size-greeting)',
               fontWeight: 400,
               color: 'var(--color-text-primary)',

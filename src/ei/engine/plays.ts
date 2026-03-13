@@ -28,8 +28,7 @@ export interface PlayContext {
   // P1-specific
   p1FailurePatterns?: P1FailurePatterns;
   currentEnergy?: number;
-  currentPressure?: number;
-  currentBacklogPressure?: number;
+  highPressureDetected?: boolean;
 
   // P2-specific
   p2Escalation?: P2Escalation;
@@ -66,10 +65,10 @@ export const P1_PLAYS: PlayDefinition[] = [
     name: 'Minimum Viable Win (MVW)',
     description: 'LOW_ENERGY or high pressure; scope 10-30m, tier easy/med, minVerify 1-2Q',
     trigger: (ctx) => {
-      // Triggers when low energy or high pressure
+      // Triggers when low energy or high pressure detected
       return (
         (ctx.currentEnergy !== undefined && ctx.currentEnergy <= 2) ||
-        (ctx.currentPressure !== undefined && ctx.currentPressure >= 4)
+        ctx.highPressureDetected === true
       );
     },
     priority: 100,
@@ -206,9 +205,9 @@ export const P2_PLAYS: PlayDefinition[] = [
     description:
       'Resisting start, anxiety high; timeboxMin=2, permission to stop after 2min',
     trigger: (ctx) => {
-      // Triggers when anxiety/pressure high and stalling
+      // Triggers when high pressure detected and stalling
       return (
-        (ctx.currentPressure !== undefined && ctx.currentPressure >= 4) &&
+        ctx.highPressureDetected === true &&
         (ctx.replanCount !== undefined && ctx.replanCount >= 1)
       );
     },

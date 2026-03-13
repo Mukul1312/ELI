@@ -17,7 +17,7 @@ A study session's NegotiatedIntent, ActivationPlan, and VerificationDecision:
 - The P1 verification floor from NegotiatedIntent MUST reach VerificationDecision (cross-protocol invariant)
 - All three change as part of the same student session — they must be consistent together
 
-The SKILL.md anemic anti-pattern is: *"Entities are data bags, logic in services."* The previous draft was anemic because `NegotiatedIntentIssued`, `ActivationPlanIssued`, `VerificationDecisionIssued` were plain TypeScript interfaces (data bags), with execution logic in free functions (`executeP1Play`, etc.). The fix is to have a proper aggregate root (`StudySession`) that owns these value objects, with behavior living in the aggregate's command methods.
+The SKILL.md anemic anti-pattern is: *"Entities are data bags, logic in services."* The previous draft was anemic because `SessionIntentIssued`, `ActivationPlanIssued`, `VerificationDecisionIssued` were plain TypeScript interfaces (data bags), with execution logic in free functions (`executeP1Play`, etc.). The fix is to have a proper aggregate root (`StudySession`) that owns these value objects, with behavior living in the aggregate's command methods.
 
 The `ProtocolEngine` domain service is still legitimate (per DDD-TACTICAL.md "Domain Service: When to Use") for **play selection** because:
 - Play selection spans the entire 24-play catalog (multiple modes, multiple protocols)
@@ -57,13 +57,19 @@ The gate decision methods naturally belong to the `StudySession` entity. A domai
 | Mode | Rescue / Neutral / Boost — coaching posture for the gate |
 | Play | Named coaching move within a protocol + mode (24 total) |
 | PlaySelection | Value Object: selected play id, mode, protocol, name |
-| NegotiatedIntent | P1 output Value Object: scope, verification plan, constraints (child of StudySession) |
+| SessionIntent | Ubiquitous language concept (not a VO name): the intent established for a session. In code: `NegotiatedIntent \| DeclaredIntent`. The aggregate field is named `sessionIntent`. |
+| NegotiatedIntent | P1 output Value Object (ELI-driven): scope, verification plan, constraints, mode. `intentSource = 'negotiated'`. ELI enforces all P1 business invariants on `create()`. Child of StudySession. |
+| DeclaredIntent | P1 output Value Object (student-driven): timebox, taskType, energy, sleep — all student-provided real inputs. `verificationFloor` student-set or absent. `mode = null`. ELI imposes no business invariants. `intentSource = 'declared'`. Child of StudySession. |
 | ActivationPlan | P2 output Value Object: firstAction, replanCap, constraints (child of StudySession) |
 | VerificationDecision | P3 output Value Object: decision type + parameters (child of StudySession) |
 | ProtocolEngine | Domain Service: selects a play from the 24-play catalog |
-| VerificationFloor | P1 minQuestions commitment; P3 must honor it — aggregate enforces this |
+| VerificationFloor | P1 minQuestions commitment set by ELI. P3 must honor it — aggregate enforces this **only when `sessionIntent instanceof NegotiatedIntent`**. Not applicable to DeclaredIntent; ELI sets no floor for declared sessions. |
 | WatchOnlyConstraint | P2-R3 cross-protocol flag; P3 overrides Skip to VerifyNow |
 | RiskOverride | openLoops ≥ maxOpenLoops → closeLoopFirst=true regardless of energy |
+| ProgressiveDisclosure | Presentation pattern: ViewComposer builds per-state component trees; client morphs between states (P1: 1A→1B→1C vertical stack, P3: 3A→3B state replacement) |
+| DropoutSignal | Per-topic boolean: consecutiveDeferrals ≥ 3 (Projections); triggers ShrunkCard variant in P3 ViewComposer |
+| ShrunkCard | P3 verification ask variant: binary Got it / Not yet when DropoutSignal active; escape hatches demoted to text links |
+| DynamicFooterSeed | P3 close view element: "Next: [topic] waiting since [Day X]" from oldest pending TopicLoop |
 
 ---
 
@@ -73,9 +79,9 @@ The gate decision methods naturally belong to the `StudySession` entity. A domai
 |-------|------|-----------|
 | sessionId | string | Aggregate identity |
 | studentId | string | Student this session belongs to |
-| topicId | string | Topic for this session |
+| topicId | string (UUID) | Topic for this session. Resolved via CurriculumCatalog `ResolveTopic`; carries `TopicReference { topicId: UUID, topicName: string }`. Free-text fallback creates a provisional entry in CC. See §4a below. |
 | status | SessionStatus | Current lifecycle stage |
-| negotiatedIntent | NegotiatedIntent \| null | Set by `issueNegotiatedIntent()`; null until called |
+| sessionIntent | NegotiatedIntent \| DeclaredIntent \| null | Set by `issueNegotiatedIntent()` or `issueDeclaredIntent()`; null until called |
 | activationPlan | ActivationPlan \| null | Set by `issueActivationPlan()`; null until called |
 | verificationDecision | VerificationDecision \| null | Set by `issueVerificationDecision()`; null until called |
 
@@ -87,7 +93,10 @@ StudySession.open(studentId, topicId, sessionId)
          ▼
    [negotiating]
          │
-         │ issueNegotiatedIntent(play, ctx, policy)
+         ├─ issueNegotiatedIntent(play, ctx, policy)   ← ELI-driven path
+         │
+         └─ issueDeclaredIntent(input)                  ← student-driven path
+         │
          ▼
    [activating]
          │
@@ -106,6 +115,24 @@ StudySession.open(studentId, topicId, sessionId)
 
 `close()` is callable from any non-closed state (e.g. student abandons session).
 
+### 4a) Topic Identity Resolution (CurriculumCatalog integration)
+
+Before `StudySession.open()` is called, the topic must be resolved to a `TopicReference` via CurriculumCatalog.
+
+**When:** During the `IntentSet` command processing, before the P1 gate runs.
+
+**How:**
+1. Student selects a topic from the SDUI topic picker (type-ahead search, browse, or recent chip) → `topicId` and `topicName` are already resolved.
+2. Student types free-text → EI Runtime calls `IResolveTopicUseCase.execute({ rawText, studentId, instituteId })` → returns `TopicReference { topicId: UUID, topicName: string }`.
+
+**Contract:**
+- **Always succeeds.** ResolveTopic never throws for valid input. If no catalog match, CC creates a provisional topic with a stable UUID and logs to the normalization queue.
+- **Immutability:** Once `SessionIntentIssued` is emitted, `topicId` is locked for the session and carried through all subsequent events (SessionEnd, RetrievalVerified, etc.).
+
+**Published Language:** `TopicReference { topicId: UUID, topicName: string }` from CurriculumCatalog. See [canvas-curriculum-catalog.md](../canvas-curriculum-catalog.md), [tactical/curriculum-catalog-tactical-spec.md](curriculum-catalog-tactical-spec.md).
+
+**Event payload change:** All events that previously carried `topic: z.string()` now carry `topicId: UUID` + `topicName: string`. See [05-cross-cutting-concerns.md § Topic ID evolution](../05-cross-cutting-concerns.md#topic-id-evolution-curriculumcatalog-integration).
+
 ---
 
 ## 5) Commands and Decisions (Aggregate Methods)
@@ -115,7 +142,8 @@ Following the `Order.confirm()` / `Order.ship()` pattern from DDD-TACTICAL.md:
 | Command | Guard (precondition) | State change | Domain events emitted |
 |---------|---------------------|-------------|----------------------|
 | `open(studentId, topicId, sessionId)` | Factory; no precondition | `→ negotiating` | (none; AppOpen already in Ledger) |
-| `issueNegotiatedIntent(play, ctx, policy)` | `status === 'negotiating'` | sets `negotiatedIntent`; `→ activating` | `NegotiatedIntentIssued` |
+| `issueNegotiatedIntent(play, ctx, policy)` | `status === 'negotiating'` | sets `sessionIntent`; `→ activating` | `SessionIntentIssued` |
+| `issueDeclaredIntent(input)` | `status === 'negotiating'` | sets `sessionIntent`; `→ activating` | `SessionIntentIssued` |
 | `issueActivationPlan(play, ctx, policy)` | `status === 'activating'` | sets `activationPlan`; `→ active` | `ActivationPlanIssued` |
 | `issueVerificationDecision(play, ctx, policy)` | `status === 'active'` | sets `verificationDecision`; `→ verifying` | `VerificationDecisionIssued` |
 | `close()` | not already `'closed'` | `→ closed` | (none) |
@@ -124,9 +152,9 @@ Following the `Order.confirm()` / `Order.ship()` pattern from DDD-TACTICAL.md:
 
 ## 6) Invariants (Must Hold Atomically at Aggregate Boundary)
 
-1. **Lifecycle ordering:** `issueActivationPlan` guards `status === 'activating'` — NegotiatedIntent must exist first. `issueVerificationDecision` guards `status === 'active'` — ActivationPlan must exist first.
+1. **Lifecycle ordering:** `issueActivationPlan` guards `status === 'activating'` — `sessionIntent` (NegotiatedIntent or DeclaredIntent) must exist first. `issueVerificationDecision` guards `status === 'active'` — ActivationPlan must exist first.
 2. **No commands after closed:** Any command on a closed session throws `SessionAlreadyClosedError`.
-3. **P1 Verification Floor:** When `issueVerificationDecision()` is called, if `negotiatedIntent.verificationPlan.minQuestions > 0`, the VerificationDecision `verifyNow.minQuestions` must be ≥ that floor.
+3. **P1 Verification Floor (NegotiatedIntent only):** When `issueVerificationDecision()` is called, if `sessionIntent instanceof NegotiatedIntent` AND `sessionIntent.verificationPlan.minQuestions > 0`, the VerificationDecision `verifyNow.minQuestions` must be ≥ that floor. If `sessionIntent instanceof DeclaredIntent`, this invariant does not apply — ELI sets no floor for declared sessions.
 4. **Watch-Only P3 Override:** If `activationPlan.constraints.enforceWatchOnlyVerification === true` AND the resulting VerificationDecision decision would be `Skip`, override to `VerifyNow(minQ=1)`.
 5. **Risk Override on NegotiatedIntent:** If `ctx.openLoops ≥ policy.maxOpenLoops`, set `negotiatedIntent.constraints.closeOpenLoopFirst = true`.
 6. **Rescue Scope Floor:** If `mode === Rescue`, `negotiatedIntent.scope.timeboxMin` must be ≤ 30.
@@ -170,19 +198,23 @@ class P1GateContext {
   private constructor(private readonly props: P1GateContextProps) {}
 
   static create(props: {
-    studentId: string;        energy: number;       pressure: number
-    backlogPressure: number;  sleepDebt: boolean;   openLoops: number
+    studentId: string;        energy: number;       sleepDebt: boolean
+    highPressureDetected: boolean;  // System-derived from V3 triggers (Stage 2); defaults to false when absent
+    openLoops: number
     verificationRate7d: number; scheduleMisses7d: number; silenceDays: number
     startLatencyMedian7d: number | null;   tightnessLevel: TightnessLevel
     loopLatencyTrend: 'improving' | 'stable' | 'worsening'
+    timeCommitment: number | null;  // Student-declared minutes (10/20/45/60); null = use mode fallback
+    taskType: string | null;        // Student-declared: 'Learn' | 'Practice' | 'Revise'; null = system default
   }): P1GateContext
-  // Validates: energy 1-5, pressure 1-5, openLoops >= 0, verificationRate7d 0-1
+  // Validates: energy 1-5, openLoops >= 0, verificationRate7d 0-1
 
-  isLowEnergy(): boolean           // energy <= 2
-  isHighPressure(): boolean        // pressure >= 4
-  hasOpenLoopRisk(): boolean       // openLoops >= 3
-  hasSilenceRisk(): boolean        // silenceDays >= 3
-  isRevengePlanningRisk(): boolean // pressure >= 4 AND energy >= 3 (S2 scenario)
+  isLowEnergy(): boolean               // energy <= 2
+  isHighPressure(): boolean            // highPressureDetected === true
+  hasOpenLoopRisk(): boolean           // openLoops >= 3
+  hasSilenceRisk(): boolean            // silenceDays >= 3
+  isRevengePlanningRisk(): boolean     // highPressureDetected === true AND energy >= 3 (S2 scenario)
+  hasStudentDeclaredTime(): boolean    // timeCommitment !== null
 }
 ```
 
@@ -202,25 +234,66 @@ class NegotiatedIntent {
 
   static create(play: PlaySelection, ctx: P1GateContext, policy: StudentPolicy): NegotiatedIntent
   // Enforces:
-  //   scope.timeboxMin >= 10
+  //   scope.timeboxMin >= 1  (relaxed; 2-min micro-start valid; student 10 min is natural minimum in standard flows)
+  //   scope.timeboxMin = ctx.timeCommitment when ctx.hasStudentDeclaredTime(); mode-range midpoint fallback otherwise
   //   verificationPlan.minQuestions >= 1
   //   if mode === Rescue: scope.timeboxMin <= 30
   //   if play.playId === 'P1-R2': constraints.closeOpenLoopFirst = true
   //   if ctx.openLoops >= policy.maxOpenLoops: constraints.closeOpenLoopFirst = true
+  //   difficultyTier: computed internally from mode + policy.difficultyTierDelta + energy;
+  //     no student input. Rescue or energy<=2 → easy; Boost and energy>=4 → hard; else med.
 
   get playId(): string
   get mode(): Mode
   get scope(): { timeboxMin: number; questionCount: number; difficultyTier: DifficultyTier }
+  get taskType(): string | undefined   // Student-declared task type ('Learn'|'Practice'|'Revise') or undefined
   get verificationPlan(): { minQuestions: number; preferVerifyNow: boolean }
   get constraints(): { closeOpenLoopFirst?: boolean; noNewTopicUntil?: string } | undefined
 
   isRescueMode(): boolean
   requiresVerificationNow(): boolean   // verificationPlan.preferVerifyNow === true
   closeLoopFirst(): boolean            // constraints?.closeOpenLoopFirst === true
-  toEventPayload(studentId: string, topicId: string): NegotiatedIntentIssuedPayload
+  toEventPayload(studentId: string, topicId: string): SessionIntentIssuedPayload
   equals(other: NegotiatedIntent): boolean
 }
 ```
+
+### 7f) DeclaredIntent
+
+Student-driven P1 output VO. Enforces data integrity invariants only on `create()`. ELI imposes no business invariants.
+
+```typescript
+class DeclaredIntent {
+  private constructor(private readonly props: DeclaredIntentProps) {}
+
+  static create(input: DeclaredIntentInput): DeclaredIntent
+  // Enforces (data integrity only — no ELI business invariants):
+  //   input.timebox > 0
+  //   input.taskType in ['Learn', 'Practice', 'Test']
+  //   input.energy in [1, 2, 3, 4, 5]
+  //   input.sleep is valid SleepQuality enum value
+  //   input.topicId is non-empty string (resolved by CurriculumCatalog before this call)
+  // Does NOT enforce:
+  //   verificationFloor minimum — student-set or absent; ELI does not touch this
+  //   timebox upper bound — no rescue scope floor
+  //   mode — always null; ELI has no coaching posture for declared sessions
+  // Note: energy and sleep are REQUIRED real student inputs — no defaults
+
+  get timebox(): number                        // student-declared minutes
+  get taskType(): string                       // 'Learn' | 'Practice' | 'Test'
+  get energy(): number                         // 1–5; real student input
+  get sleep(): SleepQuality                    // real student input
+  get verificationFloor(): number | null       // student-set or null (absent)
+  get mode(): null                             // always null — ELI has no posture
+  get loopHealthSnapshot(): LoopHealthSnapshot | null  // passive attachment; not used to constrain
+  get intentSource(): 'declared'              // always 'declared'
+
+  toEventPayload(studentId: string, topicId: string): SessionIntentIssuedPayload
+  equals(other: DeclaredIntent): boolean
+}
+```
+
+**File:** `src/ei/domain/study-session/value-objects/declared-intent.ts`
 
 ### 7d) ActivationPlan
 
@@ -276,6 +349,37 @@ class VerificationDecision {
 }
 ```
 
+### 7g) VO Reconstitute Pattern (ADR-004)
+
+All gate output VOs (NegotiatedIntent, DeclaredIntent, ActivationPlan, VerificationDecision) have two factory methods:
+
+| Factory | Purpose | Validates? | Computes? | Used by |
+|---------|---------|-----------|-----------|---------|
+| `create(play, ctx, policy, ...)` | Create new VO from raw inputs | Yes — all invariants | Yes — derives scope, difficulty, etc. from tunables + mode | Aggregate command methods (`issueX`) |
+| `reconstitute(props)` | Rebuild VO from event payload | No | No — accepts pre-computed values as-is | `StudySession.fold()` ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) |
+
+**Why two factories?**
+
+Events are immutable facts — they record computed values at a specific point in time. When the event-sourced repository folds events to reconstitute the aggregate, it must accept stored values as-is. Using `create()` would re-compute derived values (e.g., `timeboxMin` from current tunables), which may differ from the stored values if tunables changed since the event was written. This violates temporal correctness.
+
+**DDD alignment:** Follows the `OrderId.from(value)` pattern in DDD-TACTICAL.md — a secondary factory for recreating VOs from persisted data.
+
+**Contract for `reconstitute()`:**
+
+```typescript
+// Same pattern for all 4 gate output VOs:
+static reconstitute(props: XProps): X {
+  return new X(props);  // same private constructor as create()
+  // No invariant validation — event was valid at write time
+  // No derived value computation — props are already-computed
+  // Props accepted as-is from event payload
+}
+```
+
+**NegotiatedIntent: payload → props mapping required.** `toEventPayload()` renames and nests fields for the event schema (e.g., `scope.timeboxMin` → `timebox`, `verificationPlan` → `verificationFloor`, `negotiatedIntentId` → `sessionIntentId`). The fold function must reverse this mapping when calling `reconstitute()`. See [ADR-004 mapping table](../decisions/adr-004-session-lifecycle-persistence.md) for the full field-by-field correspondence.
+
+**DeclaredIntent, ActivationPlan, VerificationDecision:** payload shape ≈ props shape. Direct pass-through, no mapping needed.
+
 ---
 
 ## 8) Domain Service: ProtocolEngine
@@ -322,15 +426,41 @@ Following LAYERS.md pattern: aggregate collects events via `addDomainEvent()`, u
 
 | Domain Event | Emitted when | Key payload fields |
 |-------------|-------------|-------------------|
-| `NegotiatedIntentIssued` | `issueNegotiatedIntent()` completes | studentId, topicId, playId, scope, verificationPlan, constraints, mode |
+| `SessionIntentIssued` | `issueNegotiatedIntent()` OR `issueDeclaredIntent()` completes | `intentSource` ('negotiated'\|'declared'), studentId, topicId, timebox, taskType, energy, sleep, issuedAt; **negotiated-only:** mode, playId, verificationFloor, constraints; **passive:** loopHealthSnapshot |
 | `ActivationPlanIssued` | `issueActivationPlan()` completes | studentId, topicId, playId, firstAction, replanCap, constraints, mode |
 | `VerificationDecisionIssued` | `issueVerificationDecision()` completes | studentId, topicId, playId, decision, verifyNow/scheduleVerify, mode |
+
+**`SessionIntentIssuedPayload` full shape:**
+
+```typescript
+type SessionIntentIssuedPayload = {
+  intentSource: 'negotiated' | 'declared'   // discriminator
+  studentId: string
+  sessionId: string
+  topicId: string
+  topicName: string
+  // present on both paths (student-provided for declared; ELI-resolved for negotiated)
+  timebox: number             // minutes
+  taskType: string            // 'Learn' | 'Practice' | 'Test'
+  energy: number              // 1–5; real student input on both paths
+  sleep: SleepQuality         // real student input on both paths
+  // negotiated-only (null for declared)
+  mode: Mode | null
+  playId: string | null
+  verificationFloor: number | null   // null = ELI set no floor
+  constraints: IntentConstraints | null
+  // passive attachment (present when LoopHealth ran; null if skipped)
+  loopHealthSnapshot: LoopHealthSnapshot | null
+}
+```
 
 Event type names from `EventTypeEnum` in `src/ei/schemas/events.ts`. Events are appended to EI Event Ledger by the application handler, not by the aggregate directly.
 
 ---
 
 ## 10) Repository Interface (Domain Port)
+
+> **Gap acknowledged ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)):** The repository interface and persistence note below document the MVP deferral. ADR-004 identifies this as an architectural gap (not a principled design choice) and proposes an event-sourced repository implementation. The `reconstitute(null)` pattern means the aggregate cannot enforce cross-protocol invariants via `instanceof` checks. See ADR-004 for the canonical CQRS+ES fix.
 
 Per DDD-TACTICAL.md: "One repository per aggregate, domain interface in domain layer."
 
@@ -345,17 +475,21 @@ export interface IStudySessionRepository {
 
 **Persistence note for MVP:** Since StudySession state is derivable from Ledger events, a dedicated `ei_study_sessions` table is deferred. For MVP:
 - `RunP1GateHandler` creates a fresh `StudySession.open()` — no repository load needed
-- `RunP3GateHandler` reconstructs partial state by querying the last `NegotiatedIntentIssued` event from the Ledger (via `IStudentEventStreamReader`), extracts `p1VerificationFloor`, and passes it via `P3GateContext`
+- `RunP3GateHandler` reconstructs partial state by querying the last `SessionIntentIssued` event from the Ledger (via `IStudentEventStreamReader`), reads `intentSource` + `verificationFloor`, and passes `p1VerificationFloor` (null for declared, set for negotiated) via `P3GateContext`
 - The `IStudySessionRepository` interface is defined now but implemented as a no-op / Ledger-based adapter
 
+> **Gap ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)):** The `reconstitute(null, null, null)` pattern used by P2/P3 handlers means the aggregate cannot enforce cross-protocol invariants via `instanceof` checks on `_sessionIntent`. The verification floor is threaded via `P3GateContext` instead of loaded from aggregate state. The canonical fix is an event-sourced repository that folds Ledger events into the aggregate on `findById()`. See ADR-004.
+
 ### Session state derivation
+
+> This derivation logic (flags → lifecycle mapping) is the specification for the event-sourced repository's fold function documented in [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md). The fold function replays session events in order, applying the same flag → status transitions described below.
 
 **Goal:** Define how Runtime derives StudySession lifecycle phase from system-of-record facts (Ledger and Projections).
 
 **Inputs (authoritative):**
 
 - **Ledger events** (per [05-cross-cutting-concerns.md](../05-cross-cutting-concerns.md) event catalog):
-  - `NegotiatedIntentIssued` — P1 output; establishes intent
+  - `SessionIntentIssued` — P1 output; establishes intent (either negotiated or declared; `intentSource` field discriminates)
   - `ActivationPlanIssued` — P2 output; establishes plan
   - `VerificationDecisionIssued` — P3 output; establishes decision
   - Command events (as needed for routing): `AppOpen` (session start), `IntentSet`, `SessionEnd`, `Replan`
@@ -365,7 +499,7 @@ export interface IStudySessionRepository {
 
 | Flag | Source event(s) | Meaning |
 |------|------------------|---------|
-| `hasIntent` | `NegotiatedIntentIssued` | P1 has completed for this topic |
+| `hasIntent` | `SessionIntentIssued` | P1 has completed for this topic (either negotiated or declared path) |
 | `hasActivationPlan` | `ActivationPlanIssued` | P2 has completed for this topic |
 | `hasVerificationDecision` | `VerificationDecisionIssued` | P3 has completed for this topic |
 | `lastIssuedAt` | Most recent protocol output event | Used for recency and ordering |
@@ -379,9 +513,9 @@ export interface IStudySessionRepository {
 | Plan but no decision | `active` |
 | Decision exists | `verifying` (optionally `closed` when retrieval is resolved, if modeled) |
 
-**Recency rule:** "Recent" = within last 7 days (per S2 Day 2-21 scenario in domain message flows). Used for AppOpen routing: if a recent `NegotiatedIntentIssued` exists for the topic, route to P2 (resume); otherwise route to P1 (fresh session). Code reference: `ProtocolRouter.decideForAppOpen` uses `RECENT_DAYS_MS = 7 * 24 * 60 * 60 * 1000`.
+**Recency rule (superseded by [ADR-003](../decisions/adr-003-projection-schema-evolution.md) D3):** AppOpen routing now uses `ei_topic_state.session_phase` column instead of event scanning. If `session_phase` is `'activating'` or `'active'` for the topic, route to P2 (resume); otherwise route to P1 (fresh session). The old `ProtocolRouter.decideForAppOpen` method (which scanned `SessionIntentIssued` events with `RECENT_DAYS_MS`) has been removed.
 
-**SessionId note:** `sessionId` matches the AppOpen event's idempotency key for traceability and linking events to a session. Without an explicit stored session record (deferred), we derive phase from Ledger events only; cross-protocol state (P1 floor, P2 watchOnly) is threaded via gate contexts. See Open Questions (§17) for sessionId sourcing.
+**SessionId note:** `sessionId` is sourced from `ei_topic_state.current_session_id` (projection column, [ADR-003](../decisions/adr-003-projection-schema-evolution.md) D2) for standalone P2/P3 workflows. For the synchronous declared-intent path (P1→P2 in `ei-app-open.ts`), `sessionId` flows through workflow context directly. `IStudySessionRepository.findById(sessionId)` ([ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) reconstitutes the aggregate from Ledger events via fold. Cross-protocol state (P1 floor, P2 watchOnly) is sourced from the reconstituted aggregate's VOs, not via P3GateContext threading.
 
 ### Routing matrix
 
@@ -396,8 +530,9 @@ Command × derived phase → next protocol or flow. Aligns with [05-cross-cuttin
 
 | Command | Derived state (per topic) | Protocol/flow |
 |---------|---------------------------|---------------|
-| `AppOpen` | No recent NegotiatedIntent | P1 (Ignition) |
-| `AppOpen` | Recent NegotiatedIntent | P2 (Activation) — resume flow |
+| `AppOpen` | `declaredEntry: true`, no recent `SessionIntentIssued` | RunDeclaredIntentHandler — student-driven path |
+| `AppOpen` | `declaredEntry: false`, no recent `SessionIntentIssued` | P1 Ignition (RunP1GateHandler) — ELI-driven path |
+| `AppOpen` | Recent `SessionIntentIssued` exists (either source) | P2 (Activation) — resume flow |
 | `IntentSet` | (any; client accepted intent) | P2 (Activation) |
 | `SessionEnd` | (any; client ended session) | P3 (Verification) |
 | `SessionStart` | — | SessionStart workflow (no protocol routing) |
@@ -406,7 +541,7 @@ Command × derived phase → next protocol or flow. Aligns with [05-cross-cuttin
 | `RetrievalSchedule` | — | RetrievalSchedule workflow (emits RetrievalScheduled event) |
 | `RetrievalSkip` | — | RetrievalSkip workflow (emits RetrievalSkipped event) |
 
-**Invalid transitions:** If the routing logic receives an unexpected command (e.g. IntentSet when derived state is negotiating and no prior P1 completed), the route returns 400 or 500 with an error message. Example: ProtocolRouter throws for unknown commandType; route returns `{ error: "Protocol routing failed" }` (500) or workflow-specific validation errors (400).
+**Invalid transitions:** If the routing logic receives an unexpected command, the route returns 400 or 500. `ProtocolRouter.decideProtocol()` throws for commandTypes other than `IntentSet` and `SessionEnd` (AppOpen routing is handled inline in `ei-app-open.ts` via `session_phase` — [ADR-004 D3](../decisions/adr-004-session-lifecycle-persistence.md)).
 
 **Replan flow:** `Replan` triggers P2 re-run with incremented `replanCount`. Session conceptually transitions back to `activating`. Handled by Replan workflow → RunP2GateHandler. Cross-protocol floor (P1 minQuestions) remains in P3GateContext when P3 runs later.
 
@@ -421,6 +556,7 @@ Per HEXAGONAL.md: Driver ports = "how the world uses your app"; Driven ports = "
 | Port Interface | Pattern | Implemented by |
 |---------------|---------|----------------|
 | `IRunP1GateUseCase` | `I{Action}UseCase` | `RunP1GateHandler` |
+| `IRunDeclaredIntentUseCase` | `I{Action}UseCase` | `RunDeclaredIntentHandler` |
 | `IRunP2GateUseCase` | `I{Action}UseCase` | `RunP2GateHandler` |
 | `IRunP3GateUseCase` | `I{Action}UseCase` | `RunP3GateHandler` |
 
@@ -432,6 +568,7 @@ Per HEXAGONAL.md: Driver ports = "how the world uses your app"; Driven ports = "
 | `IAssessLoopHealthUseCase` | `I{Action}UseCase` | `application/assess-loop-health/port.ts` (reuse) | `AssessLoopHealthHandler` |
 | `IAppendEventPort` | `I{Action}Port` | `application/shared/port-append-event.ts` (new) | `PostgresAppendEventAdapter` (new) |
 | `IStudentEventStreamReader` | `I{Resource}Reader` | `application/shared/port-student-event-stream-reader.ts` (existing) | `PostgresStudentEventStreamReader` |
+| `IStudySessionRepository` | `I{Resource}Repository` | `domain/study-session/repository.ts` | `PostgresStudySessionRepository` (event-sourced fold, [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md)) |
 
 ---
 
@@ -523,7 +660,7 @@ The `/api/ei/command` route is the choke point that ensures the minimum event se
 | Owner | Events |
 |-------|--------|
 | **UI-only (client emits)** | AppOpen, IntentSet, IntentResponse, FirstActionStarted, Replan, SessionEnd, VerificationCompleted — client sends commands; route validates and routes to workflows that append |
-| **Runtime-appended (command boundary)** | Command events recorded when workflow runs; protocol output events (NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued) appended by gate handlers |
+| **Runtime-appended (command boundary)** | Command events recorded when workflow runs; protocol output events (SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued) appended by gate/declared handlers |
 | **Workflow-appended (post-P3 outcomes)** | VerificationCompleted, RetrievalScheduled, RetrievalSkipped — appended by VerificationComplete, RetrievalSchedule, RetrievalSkip workflows |
 
 The orchestrator ensures each command path results in the correct event emissions; validation and schema strictness prevent malformed writes.
@@ -550,10 +687,11 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     // 2. Assess loop health → LoopHealthSnapshot
     const loopHealth = await this.assessLoopHealth.execute({
       studentId: command.studentId,
-      p1StateInput: { energy: command.energy, pressure: command.pressure, ... }
+      p1StateInput: { energy: command.energy, highPressureDetected: command.highPressureDetected ?? false, ... }
     })
 
     // 3. Build P1GateContext value object (throws DomainError on invalid input)
+    // Command carries timeCommitment: number | null and taskType: string | null from AppOpen payload
     const ctx = P1GateContext.create({ ...signals, ...command })
 
     // 4. Resolve mode + select play
@@ -569,12 +707,57 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
       await this.appendEvent.append(command.studentId, event)
     }
 
-    return { negotiatedIntent: session.negotiatedIntent! }
+    return { sessionIntent: session.sessionIntent! }
   }
 }
 ```
 
-Same pattern for `RunP2GateHandler` and `RunP3GateHandler`. P3 handler additionally reads last `NegotiatedIntentIssued` event to populate `P3GateContext.p1VerificationFloor`.
+**`RunDeclaredIntentHandler`** — student-driven path (no play selection, no mode derivation):
+
+```typescript
+export class RunDeclaredIntentHandler implements IRunDeclaredIntentUseCase {
+  constructor(
+    private readonly assessLoopHealth: IAssessLoopHealthUseCase,  // passive only
+    private readonly appendEvent: IAppendEventPort,
+  ) {}
+
+  async execute(command: RunDeclaredIntentCommand): Promise<RunDeclaredIntentResult> {
+    // 1. Passive LoopHealth — output stored in event; does NOT constrain session
+    const loopHealth = await this.assessLoopHealth.execute({
+      studentId: command.studentId,
+      p1StateInput: { energy: command.energy, ... }
+    })
+
+    // 2. Build DeclaredIntent — no P1GateContext, no ProtocolEngine, no mode
+    //    energy and sleep are REQUIRED real student inputs — no defaults
+    const session = StudySession.open(command.studentId, command.topicId, command.sessionId)
+    session.issueDeclaredIntent({
+      timebox: command.timebox,
+      taskType: command.taskType,
+      energy: command.energy,
+      sleep: command.sleep,
+      verificationFloor: command.verificationFloor ?? null,
+      loopHealthSnapshot: loopHealth.snapshot,
+    })
+
+    // 3. Append to Ledger
+    for (const event of session.pullDomainEvents()) {
+      await this.appendEvent.append(command.studentId, event)
+    }
+
+    return { sessionIntent: session.sessionIntent! }
+  }
+}
+```
+
+Same pattern for `RunP2GateHandler` and `RunP3GateHandler`. P3 handler additionally reads last `SessionIntentIssued` event to populate `P3GateContext.p1VerificationFloor`:
+
+```typescript
+// P3GateContext construction — intentSource-aware
+const lastIntent = await ledger.queryLastEvent(studentId, 'SessionIntentIssued')
+const p1VerificationFloor =
+  lastIntent?.intentSource === 'negotiated' ? lastIntent.verificationFloor : null
+```
 
 ---
 
@@ -588,7 +771,8 @@ src/ei/
 │       ├── value-objects/
 │       │   ├── play-selection.ts    # PlaySelection VO
 │       │   ├── gate-context.ts      # P1/P2/P3GateContext VOs
-│       │   ├── negotiated-intent.ts # NegotiatedIntent VO
+│       │   ├── negotiated-intent.ts # NegotiatedIntent VO (ELI-driven; §7c)
+│       │   ├── declared-intent.ts   # DeclaredIntent VO (student-driven; §7f) ← NEW
 │       │   ├── activation-plan.ts   # ActivationPlan VO
 │       │   └── verification-decision.ts # VerificationDecision VO
 │       ├── protocol-engine.ts       # ProtocolEngine domain service
@@ -608,8 +792,12 @@ src/ei/
 ├── application/
 │   ├── run-p1-gate/
 │   │   ├── command.ts               # RunP1GateCommand
-│   │   ├── handler.ts               # RunP1GateHandler
+│   │   ├── handler.ts               # RunP1GateHandler (ELI-driven)
 │   │   └── port.ts                  # IRunP1GateUseCase (driver port)
+│   ├── run-declared-intent/         # ← NEW: student-driven path
+│   │   ├── command.ts               # RunDeclaredIntentCommand
+│   │   ├── handler.ts               # RunDeclaredIntentHandler
+│   │   └── port.ts                  # IRunDeclaredIntentUseCase (driver port)
 │   ├── run-p2-gate/
 │   │   ├── command.ts
 │   │   ├── handler.ts
@@ -661,10 +849,21 @@ Per `01-ei-tactical-conventions.md` §13: domain unit tests use no mocks; applic
 | P1GateContext energy=0 → throws DomainError | Domain | Unit — DomainError thrown |
 | VerificationDecision: p1Floor=3, play gives 1Q → raised to 3 | Domain | Unit — verifyNow.minQuestions === 3 |
 | VerificationDecision: p2WatchOnly + Skip → VerifyNow | Domain | Unit — decision === 'VerifyNow' |
-| Full S2: energy=4 pressure=5 → Rescue play P1-R3 | Domain | Unit — issueNegotiatedIntent succeeds |
+| Full S2: energy=4 highPressureDetected=true → Rescue play P1-R3 | Domain | Unit — issueNegotiatedIntent succeeds |
 | Full S7: energy=5 openLoops=4 → RiskOverride, closeLoopFirst | Domain | Unit — NegotiatedIntent.closeLoopFirst() === true |
 | RunP1GateHandler: happy path with fake ports | Application | Unit — events appended, output returned |
 | RunP3GateHandler: P1 floor threading via P3GateContext | Application | Unit — VerificationDecision respects floor |
+| **Declared entry — DeclaredIntent invariants** | | |
+| `DeclaredIntent.create()`: timebox=0 → throws DomainError | Domain | Unit — data integrity enforced |
+| `DeclaredIntent.create()`: invalid taskType → throws DomainError | Domain | Unit — data integrity enforced |
+| `DeclaredIntent.create()`: energy=6 → throws DomainError | Domain | Unit — data integrity enforced |
+| `DeclaredIntent.create()`: verificationFloor=null → succeeds (no ELI floor) | Domain | Unit — ELI floor not enforced |
+| `DeclaredIntent.create()`: mode is always null | Domain | Unit — `declaredIntent.mode === null` |
+| `issueDeclaredIntent()` when status='activating' → throws SessionLifecycleError | Domain | Unit — lifecycle guard enforced |
+| `issueVerificationDecision()` with DeclaredIntent sessionIntent, minQ=0 → passes (no floor) | Domain | Unit — floor not applied for declared |
+| `issueVerificationDecision()` with NegotiatedIntent sessionIntent, floor=3, minQ=1 → raised to 3 | Domain | Unit — floor applied for negotiated |
+| RunDeclaredIntentHandler: happy path → SessionIntentIssued(intentSource='declared') appended | Application | Unit — events appended, intentSource correct |
+| Full declared flow: AppOpen(declaredEntry=true) → SessionIntentIssued → ActivationPlanIssued → SessionEnd → VerificationDecisionIssued (no floor) | Application | Integration |
 
 ---
 
@@ -689,7 +888,7 @@ The **ViewComposer** (`src/ei/sdui/view-composer.ts`) is the "gateway context" r
 | `SduiResponse` | `sdui/types/sdui-contract.ts` | Top-level contract returned by each protocol workflow |
 | `SduiViewTree` | same | Slot-based layout: `header`, `body`, `actions`, `footer` arrays |
 | `SduiComponent` | `sdui/types/components.ts` | Discriminated union of 16 component types (message, scale-input, scope-card, deal-card, etc.) |
-| `PresentationContext` | `sdui/presentation-context.ts` | Derived VO: mode, playId, pendingChecks, silenceDays, isFirstOfDay, etc. |
+| `PresentationContext` | `sdui/presentation-context.ts` | Derived VO: mode, playId, pendingChecks, silenceDays, isFirstOfDay, dropoutSignalActive, nextPendingTopic, etc. |
 | `MicrocopyKey` | `sdui/microcopy/resolver.ts` | `{ gate, slot, mode, playId }` — lookup key for microcopy |
 
 ### Microcopy resolution
@@ -707,7 +906,7 @@ The compose step receives the gate handler output merged with original workflow 
 
 ```
 .then(runP1Gate)           ← AdaptiveCoaching: domain decisions
-.map(mergeWithInitData)    ← merge NegotiatedIntentIssued + energy/pressure
+.map(mergeWithInitData)    ← merge SessionIntentIssued + energy/context
 .then(composeP1ViewStep)   ← StudySessionOrchestration: SduiResponse
 ```
 
@@ -721,6 +920,26 @@ Workflow `outputSchema` is `SduiResponseSchema` (not the raw VO schema). The `do
 | `ctx.closeOpenLoopFirst === true` | `deal-card` with pending check count (S7 archetype) |
 | `ctx.pendingChecks > 0` | `pending-checks` indicator in footer |
 | `ctx.isFirstOfDay === true` | Sleep + backlog scales in checkin view |
+| `shouldShowTimeAndTaskInputs(variant) === true` | Time commitment chips (10/20/45/60) + task type chips (Learn/Practice/Revise) in checkin view; hidden for V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING |
+| P1 view (all variants) | **ConfirmationStrip** (replaces scope-card): displays `topic . taskType . ~timeboxMin min`; reflects student's own choices, not ELI's prescription. Single "Let's go" CTA (`accept_intent`). `taskType`/`difficultyTier` scale inputs removed from P1 view. |
+| `ctx.dropoutSignalActive === true` | `verification-ask-card` in Shrunk Card mode: binary "Got it / Not yet" chips; "Remind me tomorrow" and "Can't right now" demoted to text links. See [05-cross-cutting-concerns.md § Dropout Signal](../05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
+| `ctx.nextPendingTopic !== null` && scenario in `['verified', 'milestone', 'first_ever']` | `dynamic-footer-seed` in Phase 3 close view: "Next: [topicName] waiting since [Day X]" |
+| Phase 1 view with progressive disclosure | ViewComposer returns state-specific component trees (1A/1B/1C). Client morphs via vertical stack (accordion expansion). Each state's tree includes breadcrumb grounding (prior selections stay visible at top). See §Progressive Disclosure pattern below. |
+
+### Progressive Disclosure pattern
+
+ViewComposer builds **state-specific component trees** for phases with progressive disclosure. The morphing transition (vertical stack expansion, state replacement) is client-side behavior — ViewComposer does not track or control transition animations.
+
+**Phase 1 (Vertical Stack — Accordion Expansion):**
+- **1A (Anchor):** `composeCheckinView()` — greeting + energy selector only
+- **1B (Unlock):** Energy selected → client reveals hero card (oldest pending topic), backlog list, search. ViewComposer pre-builds 1B components in the initial response; client unhides them.
+- **1C (Focus):** Topic selected → client reveals task type + scope picker + Start button; pending list collapses. ViewComposer pre-builds 1C components; client unhides them.
+
+**Phase 3 (State Replacement):**
+- **3A (Ask):** `composePhase3View()` with `scenario = 'ask'` — session summary + "Does it feel solid?" + verification chips
+- **3B (Closure):** Verification answered → client replaces 3A with counter animation + reassurance + Done/Clear one more
+
+**DDD boundary:** All morphing is client-driven. ViewComposer is still a pure function that returns a single `SduiResponse` containing all state components with visibility flags. No additional server round-trip needed for state transitions within a phase.
 
 ### Boundary compliance
 
@@ -737,7 +956,7 @@ Workflow `outputSchema` is `SduiResponseSchema` (not the raw VO schema). The `do
 ## 17) Open Questions
 
 - **sessionId sourcing:** Should it match the AppOpen event idempotency key (linking events to session) or be independently generated? Deferred — for MVP, sessionId is passed in command from the API layer.
-- **StudySession persistence:** `ei_study_sessions` table deferred post-MVP. Cross-protocol state threaded via P3GateContext.
+- **StudySession persistence:** Canonical approach documented in [ADR-004](../decisions/adr-004-session-lifecycle-persistence.md). Event-sourced repository (write side) + TopicLoop projection columns (read side, [ADR-003](../decisions/adr-003-projection-schema-evolution.md)). Implementation deferred; design is settled.
 - **Replan flow:** `C/Replan` triggers P2 re-run with incremented `replanCount` — handled by `RunP2GateHandler` with `replanCount` in command; session transitions back to `activating` if needed.
 - **ScheduleMissed derivation:** Outside StudySession; handled by TopicLoop cron / projector.
 

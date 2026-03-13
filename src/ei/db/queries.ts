@@ -32,35 +32,44 @@ export async function insertEvent(
   occurredAt?: Date,
   idempotencyKey?: string,
 ): Promise<StoredEventRow> {
-  if (idempotencyKey) {
-    const existing = await db.oneOrNone<{ event_id: string }>(
-      'SELECT event_id FROM ei_idempotency_keys WHERE key = $1',
-      [idempotencyKey],
+  const ts = occurredAt ?? new Date();
+  const jsonPayload = JSON.stringify(payload);
+
+  // Without idempotency key: single INSERT (1 round-trip)
+  if (!idempotencyKey) {
+    return db.one<StoredEventRow>(
+      `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [studentId, eventType, topicId, jsonPayload, ts],
     );
-    if (existing) {
-      const row = await db.oneOrNone<StoredEventRow>(
-        'SELECT * FROM ei_events WHERE id = $1',
-        [existing.event_id],
-      );
-      if (row) return row;
-    }
   }
 
-  const row = await db.one(
-    `INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-    [studentId, eventType, topicId, JSON.stringify(payload), occurredAt ?? new Date()],
+  // With idempotency key: single CTE (1 round-trip instead of 3)
+  // Checks existing key, conditionally inserts event + key, returns result.
+  // Cast $5::jsonb needed: INSERT...SELECT doesn't infer column types like VALUES does.
+  // Cast ex.event_id::uuid needed: ei_idempotency_keys.event_id is TEXT, ei_events.id is UUID.
+  return db.one<StoredEventRow>(
+    `WITH existing AS (
+       SELECT event_id FROM ei_idempotency_keys WHERE key = $1
+     ),
+     inserted AS (
+       INSERT INTO ei_events (student_id, event_type, topic_id, payload, occurred_at)
+       SELECT $2, $3, $4, $5::jsonb, $6::timestamptz
+       WHERE NOT EXISTS (SELECT 1 FROM existing)
+       RETURNING *
+     ),
+     key_insert AS (
+       INSERT INTO ei_idempotency_keys (key, event_id)
+       SELECT $1, id::text FROM inserted
+       ON CONFLICT (key) DO NOTHING
+     )
+     SELECT * FROM inserted
+     UNION ALL
+     SELECT e.* FROM ei_events e
+     JOIN existing ex ON e.id = ex.event_id::uuid`,
+    [idempotencyKey, studentId, eventType, topicId, jsonPayload, ts],
   );
-
-  if (idempotencyKey) {
-    await db.none(
-      'INSERT INTO ei_idempotency_keys (key, event_id) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
-      [idempotencyKey, row.id],
-    );
-  }
-
-  return row;
 }
 
 export interface EventQueryFilters {
@@ -111,103 +120,6 @@ export async function queryEvents(
 }
 
 // ============================================================================
-// ei_study_sessions queries
-// ============================================================================
-
-export interface StudySessionRow {
-  id: string;
-  student_id: string;
-  topic_id: string;
-  status: string;
-  negotiated_intent_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export async function getStudySession(
-  db: DbClient,
-  sessionId: string,
-): Promise<StudySessionRow | null> {
-  return db.oneOrNone('SELECT * FROM ei_study_sessions WHERE id = $1', [sessionId]);
-}
-
-export async function upsertStudySession(
-  db: DbClient,
-  id: string,
-  studentId: string,
-  topicId: string,
-  status: string,
-  negotiatedIntentId?: string | null,
-): Promise<StudySessionRow> {
-  const now = new Date();
-  return db.one(
-    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, negotiated_intent_id, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (id) DO UPDATE SET status = $4, negotiated_intent_id = COALESCE($5, ei_study_sessions.negotiated_intent_id), updated_at = $6
-     RETURNING *`,
-    [id, studentId, topicId, status, negotiatedIntentId ?? null, now],
-  );
-}
-
-/**
- * Find the active session for (studentId, topicId) — status in the partial-index set.
- */
-export async function findActiveStudySession(
-  db: DbClient,
-  studentId: string,
-  topicId: string,
-): Promise<StudySessionRow | null> {
-  return db.oneOrNone(
-    `SELECT * FROM ei_study_sessions
-     WHERE student_id = $1
-       AND topic_id   = $2
-       AND status IN ('negotiating', 'activating', 'active', 'verifying')
-     LIMIT 1`,
-    [studentId, topicId],
-  );
-}
-
-/**
- * Insert a new session row. Callers must handle the unique-violation from the
- * partial index on (student_id, topic_id) for active-set statuses.
- */
-export async function insertStudySession(
-  db: DbClient,
-  id: string,
-  studentId: string,
-  topicId: string,
-  status: string,
-): Promise<StudySessionRow> {
-  const now = new Date();
-  return db.one(
-    `INSERT INTO ei_study_sessions (id, student_id, topic_id, status, updated_at)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-    [id, studentId, topicId, status, now],
-  );
-}
-
-/**
- * Update session status (and optionally negotiated_intent_id) by primary key.
- */
-export async function updateStudySessionStatus(
-  db: DbClient,
-  id: string,
-  status: string,
-  negotiatedIntentId?: string | null,
-): Promise<void> {
-  const now = new Date();
-  await db.none(
-    `UPDATE ei_study_sessions
-        SET status = $2,
-            negotiated_intent_id = COALESCE($3, negotiated_intent_id),
-            updated_at = $4
-      WHERE id = $1`,
-    [id, status, negotiatedIntentId ?? null, now],
-  );
-}
-
-// ============================================================================
 // ei_events (continued)
 // ============================================================================
 
@@ -242,6 +154,20 @@ export async function getTopicEventCounts7d(
   }));
 }
 
+/** Count total SessionEnd events per topic (all time) for Learn chip hiding. */
+export async function getTopicEffortCountTotal(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<number> {
+  const row = await db.one<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ei_events
+     WHERE student_id = $1 AND topic_id = $2 AND event_type = 'SessionEnd'`,
+    [studentId, topicId],
+  );
+  return parseInt(row.count, 10);
+}
+
 // ============================================================================
 // ei_topic_state queries
 // ============================================================================
@@ -250,6 +176,7 @@ export interface TopicStateRow {
   student_id: string;
   topic_id: string;
   topic_step: string | null;
+  topic_name: string | null;
   last_effort_at: Date | null;
   last_retrieval_at: Date | null;
   last_scheduled_due_at: Date | null;
@@ -257,6 +184,16 @@ export interface TopicStateRow {
   delta_decay: number;
   effort_count_7d: number;
   retrieval_count_7d: number;
+  consecutive_deferrals: number;
+  effort_count_total: number;
+  last_task_type: string | null;
+  // ADR-003: Session lifecycle projection columns
+  session_phase: string | null;
+  current_session_id: string | null;
+  verification_floor: number | null;
+  watch_only_flag: boolean;
+  intent_source: string | null;
+  last_session_started_at: Date | null;
   updated_at: Date;
 }
 
@@ -271,6 +208,18 @@ export async function getTopicState(
   );
 }
 
+export async function getTopicName(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<string | null> {
+  const row = await db.oneOrNone<{ topic_name: string | null }>(
+    'SELECT topic_name FROM ei_topic_state WHERE student_id = $1 AND topic_id = $2',
+    [studentId, topicId],
+  );
+  return row?.topic_name ?? null;
+}
+
 export async function getAllTopicStates(
   db: DbClient,
   studentId: string,
@@ -278,6 +227,67 @@ export async function getAllTopicStates(
   return db.any(
     'SELECT * FROM ei_topic_state WHERE student_id = $1 ORDER BY updated_at DESC',
     [studentId],
+  );
+}
+
+/**
+ * Find the student's currently active session (any topic) by reading the
+ * `session_phase` projection column. Returns null if no session is in progress.
+ * ADR-004 Step 19: replaces the 50-event scan in ei-app-open.ts.
+ */
+export async function getActiveSessionForStudent(
+  db: DbClient,
+  studentId: string,
+): Promise<{
+  topic_id: string;
+  topic_name: string | null;
+  session_phase: string;
+  current_session_id: string | null;
+  last_session_started_at: Date | null;
+} | null> {
+  return db.oneOrNone(
+    `SELECT topic_id, topic_name, session_phase, current_session_id, last_session_started_at
+     FROM ei_topic_state
+     WHERE student_id = $1
+       AND session_phase IS NOT NULL
+       AND session_phase NOT IN ('closed')
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [studentId],
+  );
+}
+
+/**
+ * Load a single event by sessionId (carried in payload) and event type.
+ * Uses the JSONB functional index `idx_ei_events_session_id` — only efficient
+ * for SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued.
+ */
+export async function getEventBySessionId(
+  db: DbClient,
+  sessionId: string,
+  eventType: string,
+): Promise<StoredEventRow | null> {
+  return db.oneOrNone(
+    `SELECT * FROM ei_events
+     WHERE payload->>'sessionId' = $1
+       AND event_type = $2
+     ORDER BY occurred_at DESC
+     LIMIT 1`,
+    [sessionId, eventType],
+  );
+}
+
+export async function getRecentTopics(
+  db: DbClient,
+  studentId: string,
+  limit = 5,
+): Promise<Array<{ topic_id: string; topic_name: string | null }>> {
+  return db.any(
+    `SELECT topic_id, topic_name FROM ei_topic_state
+     WHERE student_id = $1
+     ORDER BY updated_at DESC
+     LIMIT $2`,
+    [studentId, limit],
   );
 }
 
@@ -299,7 +309,7 @@ export async function upsertTopicState(
   db: DbClient,
   studentId: string,
   topicId: string,
-  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d'>>,
+  updates: Partial<Pick<TopicStateRow, 'last_effort_at' | 'last_retrieval_at' | 'last_scheduled_due_at' | 'tms' | 'delta_decay' | 'topic_step' | 'effort_count_7d' | 'retrieval_count_7d' | 'topic_name' | 'consecutive_deferrals' | 'effort_count_total' | 'last_task_type' | 'session_phase' | 'current_session_id' | 'verification_floor' | 'watch_only_flag' | 'intent_source' | 'last_session_started_at'>>,
 ): Promise<TopicStateRow> {
   const setClauses: string[] = [];
   const params: unknown[] = [studentId, topicId];
@@ -352,6 +362,12 @@ export interface AggregatesRow {
   replan_loop_count_7d: number;
   state_trend_7d: string;
   loop_latency_trend: string | null;
+  // ADR-003: New aggregate columns
+  sessions_last_7d: number;
+  loops_closed_last_7d: number;
+  has_prior_app_open: boolean;
+  last_identity_shown_at: Date | null;
+  active_days_7d: number;
   updated_at: Date;
 }
 
@@ -375,14 +391,18 @@ export async function upsertAggregates(
        student_id, pending_checks, open_loops, verification_rate_7d,
        schedule_misses_7d, avoidant_exits_7d, skip_count_7d, silence_days,
        start_latency_min_median_7d, intent_acceptance_rate_7d, replan_loop_count_7d,
-       state_trend_7d, loop_latency_trend
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       state_trend_7d, loop_latency_trend,
+       sessions_last_7d, loops_closed_last_7d, has_prior_app_open,
+       last_identity_shown_at, active_days_7d
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      ON CONFLICT (student_id) DO UPDATE SET
        pending_checks = $2, open_loops = $3, verification_rate_7d = $4,
        schedule_misses_7d = $5, avoidant_exits_7d = $6, skip_count_7d = $7,
        silence_days = $8, start_latency_min_median_7d = $9,
        intent_acceptance_rate_7d = $10, replan_loop_count_7d = $11,
-       state_trend_7d = $12, loop_latency_trend = $13, updated_at = NOW()
+       state_trend_7d = $12, loop_latency_trend = $13,
+       sessions_last_7d = $14, loops_closed_last_7d = $15, has_prior_app_open = $16,
+       last_identity_shown_at = $17, active_days_7d = $18, updated_at = NOW()
      RETURNING *`,
     [
       studentId, data.pending_checks, data.open_loops, data.verification_rate_7d,
@@ -390,6 +410,8 @@ export async function upsertAggregates(
       data.silence_days, data.start_latency_min_median_7d,
       data.intent_acceptance_rate_7d, data.replan_loop_count_7d,
       data.state_trend_7d, data.loop_latency_trend,
+      data.sessions_last_7d, data.loops_closed_last_7d, data.has_prior_app_open,
+      data.last_identity_shown_at, data.active_days_7d,
     ],
   );
 }
@@ -600,6 +622,19 @@ export async function countStudentEventsLast7d(
   };
 }
 
+/** Count total SessionEnd events (all time) for formation-period gating. */
+export async function countStudentSessionsTotal(
+  db: DbClient,
+  studentId: string,
+): Promise<number> {
+  const row = await db.one<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ei_events
+     WHERE student_id = $1 AND event_type = 'SessionEnd'`,
+    [studentId],
+  );
+  return parseInt(row.count, 10);
+}
+
 /** Get the timestamp of the most recent IdentityMomentShown event for rate-limiting. */
 export async function getLastIdentityShownAt(
   db: DbClient,
@@ -634,7 +669,7 @@ export interface HistoricalIdentityIndicators {
 
 /**
  * hadSilenceInLast14d: true if there was a 3+ day stretch with no SessionEnd in last 14 days.
- * hadHighPressureInLast14d: true if any AppOpen in last 14 days had pressure >= 4.
+ * hadHighPressureInLast14d: true if any AppOpen in last 14 days had highPressureDetected = true (or legacy pressure >= 4).
  */
 export async function getHistoricalIdentityIndicators(
   db: DbClient,
@@ -657,7 +692,7 @@ export async function getHistoricalIdentityIndicators(
     db.oneOrNone<{ count: string }>(
       `SELECT COUNT(*) AS count FROM ei_events
        WHERE student_id = $1 AND event_type = 'AppOpen' AND occurred_at >= $2
-         AND (payload->>'pressure')::int >= 4`,
+         AND ((payload->>'highPressureDetected')::boolean = true OR (payload->>'pressure')::int >= 4)`,
       [studentId, since],
     ),
   ]);
@@ -681,11 +716,11 @@ export async function getHistoricalIdentityIndicators(
   };
 }
 
-/** Get energy and pressure from the most recent AppOpen event for P3 context. */
-export async function getLastAppOpenEnergyPressure(
+/** Get energy from the most recent AppOpen event for P3 context. */
+export async function getLastAppOpenEnergy(
   db: DbClient,
   studentId: string,
-): Promise<{ energy: number; pressure: number }> {
+): Promise<{ energy: number }> {
   const row = await db.oneOrNone<{ payload: Record<string, unknown> }>(
     `SELECT payload FROM ei_events
      WHERE student_id = $1 AND event_type = 'AppOpen'
@@ -695,6 +730,117 @@ export async function getLastAppOpenEnergyPressure(
   const payload = row?.payload ?? {};
   return {
     energy: (payload.energy as number) ?? 3,
-    pressure: (payload.pressure as number) ?? 1,
   };
+}
+
+// ============================================================================
+// Dropout Signal + Dynamic Footer Seed queries
+// ============================================================================
+
+/** Get session duration in seconds from FirstActionStarted.startedAt to SessionEnd.endedAt. */
+export async function getSessionDurationSec(
+  db: DbClient,
+  studentId: string,
+  topicId: string,
+): Promise<number | undefined> {
+  const row = await db.oneOrNone<{ duration_sec: number }>(
+    `SELECT EXTRACT(EPOCH FROM (
+       (SELECT (payload->>'endedAt')::timestamptz FROM ei_events
+        WHERE student_id = $1 AND topic_id = $2 AND event_type = 'SessionEnd'
+        ORDER BY occurred_at DESC LIMIT 1)
+       -
+       (SELECT (payload->>'startedAt')::timestamptz FROM ei_events
+        WHERE student_id = $1 AND topic_id = $2 AND event_type = 'FirstActionStarted'
+        ORDER BY occurred_at DESC LIMIT 1)
+     ))::int AS duration_sec`,
+    [studentId, topicId],
+  );
+  return row?.duration_sec != null && row.duration_sec >= 0 ? row.duration_sec : undefined;
+}
+
+/** Get the oldest pending topic (effort done, no retrieval after) for Dynamic Footer Seed. */
+export async function getOldestPendingTopic(
+  db: DbClient,
+  studentId: string,
+  excludeTopicId?: string,
+): Promise<{ topicName: string; waitingSinceDays: number } | null> {
+  const row = await db.oneOrNone<{ topic_name: string; last_effort_at: Date }>(
+    `SELECT topic_name, last_effort_at FROM ei_topic_state
+     WHERE student_id = $1
+       AND last_effort_at IS NOT NULL
+       AND (last_retrieval_at IS NULL OR last_retrieval_at < last_effort_at)
+       AND topic_name IS NOT NULL
+       AND ($2::text IS NULL OR topic_id != $2)
+     ORDER BY last_effort_at ASC
+     LIMIT 1`,
+    [studentId, excludeTopicId ?? null],
+  );
+  if (!row) return null;
+  const waitingSinceDays = Math.max(
+    1,
+    Math.floor((Date.now() - row.last_effort_at.getTime()) / (24 * 60 * 60 * 1000)),
+  );
+  return { topicName: row.topic_name, waitingSinceDays };
+}
+
+// ============================================================================
+// Consolidated checkin event context (replaces 5 separate queries)
+// ============================================================================
+
+/** All event-derived data needed for checkin view in a single round-trip. */
+export interface CheckinEventContext {
+  sessionsLast7d: number;
+  loopsClosedLast7d: number;
+  sessionsTotal: number;
+  hasPriorOpen: boolean;
+  latestEventTs: Date | null;
+  lastIdentityShownAt: Date | null;
+}
+
+export async function getCheckinEventContext(
+  db: DbClient,
+  studentId: string,
+): Promise<CheckinEventContext> {
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const row = await db.one<{
+    sessions_7d: string;
+    loops_closed_7d: string;
+    sessions_total: string;
+    has_prior_open: boolean;
+    latest_event_ts: Date | null;
+    last_identity_shown_at: Date | null;
+  }>(
+    `SELECT
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type = 'SessionEnd' AND occurred_at >= $2) AS sessions_7d,
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type IN ('RetrievalVerified', 'VerificationCompleted') AND occurred_at >= $2) AS loops_closed_7d,
+       (SELECT COUNT(*) FROM ei_events WHERE student_id = $1 AND event_type = 'SessionEnd') AS sessions_total,
+       (SELECT EXISTS(SELECT 1 FROM ei_events WHERE student_id = $1 AND event_type = 'AppOpen')) AS has_prior_open,
+       (SELECT MAX(occurred_at) FROM ei_events WHERE student_id = $1) AS latest_event_ts,
+       (SELECT occurred_at FROM ei_events WHERE student_id = $1 AND event_type = 'IdentityMomentShown' ORDER BY occurred_at DESC LIMIT 1) AS last_identity_shown_at`,
+    [studentId, since7d],
+  );
+  return {
+    sessionsLast7d: parseInt(row.sessions_7d, 10),
+    loopsClosedLast7d: parseInt(row.loops_closed_7d, 10),
+    sessionsTotal: parseInt(row.sessions_total, 10),
+    hasPriorOpen: row.has_prior_open,
+    latestEventTs: row.latest_event_ts,
+    lastIdentityShownAt: row.last_identity_shown_at,
+  };
+}
+
+// ============================================================================
+// Projection freshness queries
+// ============================================================================
+
+/** Latest event timestamp for a student (used for projection staleness check at AppOpen). */
+export async function getLatestEventTimestamp(
+  db: DbClient,
+  studentId: string,
+): Promise<Date | null> {
+  const row = await db.oneOrNone<{ latest: Date }>(
+    'SELECT MAX(occurred_at) AS latest FROM ei_events WHERE student_id = $1',
+    [studentId],
+  );
+  return row?.latest ?? null;
 }

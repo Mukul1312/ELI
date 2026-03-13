@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiModeBadge } from '@/ei/sdui/types/components';
+import type { SduiModeBadge } from '@/ei/study-session-orchestration/domain/types/components';
 
 const badgeStyles: Record<string, React.CSSProperties> = {
   Rescue: { background: '#FEE2E2', color: '#B91C1C' },

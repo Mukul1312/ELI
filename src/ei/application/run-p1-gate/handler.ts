@@ -9,14 +9,12 @@
 
 import type { RunP1GateCommand } from './command';
 import type { IRunP1GateUseCase } from './port';
-import type { NegotiatedIntentIssuedOutput } from '../../schemas/outputs';
+import type { SessionIntentIssuedOutput } from '../../schemas/outputs';
 import type { IGetStudentSignalsPort } from '../assess-loop-health/port';
 import type { IAssessLoopHealthUseCase } from '../assess-loop-health/port';
 import type { IAppendEventPort } from '../shared/port-append-event';
 import type { IProtocolEngine } from '../../domain/study-session/protocol-engine';
 import type { StudentAggregates } from '../../domain/loop-health/assess-loop-health';
-import type { IStudySessionRepository } from '../../domain/study-session/repository';
-
 import { StudySession } from '../../domain/study-session/study-session';
 import { P1GateContext } from '../../domain/study-session/value-objects/gate-context';
 import { computeStateScore } from '../../engine/score';
@@ -34,14 +32,12 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     private readonly assessLoopHealth: IAssessLoopHealthUseCase,
     private readonly appendEvent: IAppendEventPort,
     private readonly protocolEngine: IProtocolEngine,
-    private readonly sessionRepo?: IStudySessionRepository,
   ) {}
 
-  async execute(command: RunP1GateCommand): Promise<NegotiatedIntentIssuedOutput> {
+  async execute(command: RunP1GateCommand): Promise<SessionIntentIssuedOutput> {
     const { studentId, topicId, sessionId, energy } = command;
     const sleepBucket = (command.sleepBucket ?? '7-8') as SleepBucket;
-    const pressure = command.pressure ?? 3;
-    const backlogPressure = command.backlogPressure ?? 3;
+    const highPressureDetected = command.highPressureDetected ?? false;
 
     // ── 1. Load student signals (aggregates + policy) ────────────────────────
     const signals = await this.signalsPort.getSignals(studentId);
@@ -59,10 +55,10 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     const policy = signals?.policy ?? {};
 
     // ── 2. Compute state score ───────────────────────────────────────────────
-    const stateScore = computeStateScore({ energy, sleepBucket, pressure, backlogPressure });
+    const stateScore = computeStateScore({ energy, sleepBucket });
 
     // ── 3. Assess loop health (mode) ─────────────────────────────────────────
-    const p1LhaContext = { energy, sleepBucket, pressure, backlogPressure };
+    const p1LhaContext = { energy, sleepBucket, highPressureDetected };
     const snapshot = await this.assessLoopHealth.execute({
       studentId,
       gatePhase: 'P1',
@@ -73,11 +69,11 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
 
     // ── 4. Apply DoNoHarm guardrail ──────────────────────────────────────────
     let mode = snapshot.mode;
-    mode = applyDoNoHarmGuardrail(mode, aggregates, energy, pressure, sleepBucket);
+    mode = applyDoNoHarmGuardrail(mode, aggregates, energy, highPressureDetected, sleepBucket);
 
     // ── 5. Compute escalation context ────────────────────────────────────────
     const escalation = computeEscalationContext(
-      aggregates, energy, pressure, backlogPressure, sleepBucket,
+      aggregates, energy, highPressureDetected, sleepBucket,
     );
     const tightnessLevel = escalation.tightnessLevel;
 
@@ -89,8 +85,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
       tightnessLevel,
       p1FailurePatterns: escalation.p1FailurePatterns,
       currentEnergy: energy,
-      currentPressure: pressure,
-      currentBacklogPressure: backlogPressure,
+      highPressureDetected,
       loopLatencyTrend: aggregates.loopLatencyTrend,
     };
     const play = this.protocolEngine.selectPlay(1, mode, playContext);
@@ -99,8 +94,7 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     const gateCtx = P1GateContext.create({
       studentId,
       energy,
-      pressure,
-      backlogPressure,
+      highPressureDetected,
       sleepDebt: sleepBucket === '<6',
       openLoops: aggregates.openLoops,
       verificationRate7d: aggregates.verificationRate7d,
@@ -115,24 +109,34 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
     // ── 8. Drive StudySession aggregate ─────────────────────────────────────
     const negotiatedIntentId = crypto.randomUUID();
     const session = StudySession.open(studentId, topicId, sessionId);
-    session.issueNegotiatedIntent(play, gateCtx, policy, stateScore, negotiatedIntentId);
+    session.issueNegotiatedIntent(play, gateCtx, policy, stateScore, negotiatedIntentId, sleepBucket);
 
     // ── 9. Pull domain events + build output ─────────────────────────────────
     const domainEvents = session.pullDomainEvents();
     const negotiatedIntent = session.negotiatedIntent!;
     const issuedAt = new Date().toISOString();
 
-    const output: NegotiatedIntentIssuedOutput = {
-      negotiatedIntentId,
+    const output: SessionIntentIssuedOutput = {
       studentId,
+      topicId,
+      intentSource: 'negotiated',
+      timebox: negotiatedIntent.scope.timeboxMin,
+      taskType: play.playId.startsWith('P1-B') ? 'Test' : 'Practice',
+      energy,
+      sleepBucket,
+      issuedAt,
+      topic: topicId,
       mode: negotiatedIntent.mode,
       playId: negotiatedIntent.playId,
-      topic: topicId,
-      scope: negotiatedIntent.scope,
-      verificationPlan: negotiatedIntent.verificationPlan,
-      constraints: negotiatedIntent.constraints,
+      verificationFloor: {
+        minQuestions: negotiatedIntent.verificationPlan.minQuestions,
+        preferVerifyNow: negotiatedIntent.verificationPlan.preferVerifyNow,
+      },
+      constraints: negotiatedIntent.constraints ?? null,
       stateScore: negotiatedIntent.stateScore,
-      issuedAt,
+      questionCount: negotiatedIntent.scope.questionCount,
+      difficultyTier: negotiatedIntent.scope.difficultyTier,
+      sessionIntentId: negotiatedIntentId,
     };
 
     // ── 10. Persist to Ledger ─────────────────────────────────────────────────
@@ -143,11 +147,6 @@ export class RunP1GateHandler implements IRunP1GateUseCase {
         topicId,
         payload: event.payload as Record<string, unknown>,
       });
-    }
-
-    // ── 11. Persist session status transition (negotiating → activating) ──────
-    if (this.sessionRepo) {
-      await this.sessionRepo.save(session);
     }
 
     return output;

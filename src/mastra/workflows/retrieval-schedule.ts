@@ -5,17 +5,19 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
+import { getDb } from '../../ei/runtime/db';
 import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
-import { StudySessionRepositoryPg } from '../../ei/infrastructure/persistence/study-session-repository.pg';
 import { validateEventPayload } from '../../ei/schemas/validate-event-payload';
-import { composePhase3View } from '../../ei/sdui/view-composer';
-import { buildP3PresentationContext } from '../../ei/sdui/presentation-context';
+import { composePhase3View } from '../../ei/study-session-orchestration/domain/services/view-composer';
+import { buildP3PresentationContext } from '../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { recomputeTopicLoop } from '../../ei/infrastructure/projector/topic-loop-projector';
+import { recomputeStudentAggregates } from '../../ei/infrastructure/projector/student-aggregates-projector';
 import * as Q from '../../ei/db/queries';
 
 const RetrievalScheduleInput = z.object({
   studentId: z.string(),
   topic: z.string(),
+  topicName: z.string().optional(),
   mode: z.enum(['Rescue', 'Neutral', 'Boost']).optional(),
   dueInHours: z.number(),
   minQuestions: z.number().int(),
@@ -28,7 +30,7 @@ const appendAndComposeStep = createStep({
   inputSchema: RetrievalScheduleInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, mode = 'Neutral', dueInHours, minQuestions, idempotencyKey } = inputData;
+    const { studentId, topic, topicName: topicNameFromInput, mode = 'Neutral', dueInHours, minQuestions, idempotencyKey, correlationId } = inputData;
     const now = new Date();
     const dueAt = new Date(now.getTime() + dueInHours * 60 * 60 * 1000).toISOString();
     const scheduledAt = now.toISOString();
@@ -36,6 +38,7 @@ const appendAndComposeStep = createStep({
     const payload = validateEventPayload('RetrievalScheduled', {
       studentId,
       topic,
+      ...(topicNameFromInput && { topicName: topicNameFromInput }),
       dueAt,
       questionsPlanned: minQuestions,
       tier: 'med',
@@ -43,13 +46,20 @@ const appendAndComposeStep = createStep({
       scheduledAt,
     });
 
-    const db = eiStore.db;
+    const db = getDb();
 
-    const [aggregates, eventCounts, energyPressure] = await Promise.all([
+    // topicName: input is primary source; DB is safety-net fallback for old cached SDUI payloads.
+    const [aggregates, eventCounts, lastEnergy, topicNameFromDb, nextPendingTopic, topicState, sessionDurationSec] = await Promise.all([
       Q.getAggregates(db, studentId),
       Q.countStudentEventsLast7d(db, studentId),
-      Q.getLastAppOpenEnergyPressure(db, studentId),
+      Q.getLastAppOpenEnergy(db, studentId),
+      topicNameFromInput ? Promise.resolve(null) : Q.getTopicName(db, studentId, topic),
+      Q.getOldestPendingTopic(db, studentId, topic),
+      Q.getTopicState(db, studentId, topic),
+      Q.getSessionDurationSec(db, studentId, topic),
     ]);
+    const resolvedTopicName = topicNameFromInput ?? topicNameFromDb ?? undefined;
+    const taskType = topicState?.last_task_type ?? undefined;
 
     const appendEvent = new PostgresAppendEventAdapter(db);
     await appendEvent.append({
@@ -59,14 +69,6 @@ const appendAndComposeStep = createStep({
       payload,
       idempotencyKey: idempotencyKey ? `${idempotencyKey}:RetrievalScheduled` : undefined,
     });
-
-    // Close the active session for this topic — terminal outcome.
-    const sessionRepo = new StudySessionRepositoryPg(db);
-    const activeSession = await sessionRepo.findActiveByStudentTopic(studentId, topic);
-    if (activeSession) {
-      activeSession.close();
-      await sessionRepo.save(activeSession);
-    }
 
     const aggregatesForPresentation = aggregates
       ? {
@@ -78,12 +80,20 @@ const appendAndComposeStep = createStep({
       : null;
     const ctx = buildP3PresentationContext(
       { studentId, mode, playId: 'P3-N1', topic },
-      energyPressure,
+      lastEnergy,
       aggregatesForPresentation,
       eventCounts,
+      nextPendingTopic,
     );
 
-    const sdui = composePhase3View(topic, mode, 'reminded', ctx);
+    const sdui = composePhase3View(topic, mode, 'reminded', ctx, resolvedTopicName, taskType, sessionDurationSec);
+
+    // Fire-and-forget: keep projections fresh for next AppOpen.
+    Promise.all([
+      recomputeTopicLoop(db, studentId, topic, correlationId),
+      recomputeStudentAggregates(db, studentId, undefined, correlationId),
+    ]).catch(err => console.error('[projection-recompute] background sync failed', { studentId, topic }, err));
+
     return sdui;
   },
 });

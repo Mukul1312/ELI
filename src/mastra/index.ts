@@ -15,6 +15,8 @@ import { recomputeStudentPolicyTool } from './tools/recompute-student-policy';
 import { getTopicStateTool, getAllTopicStatesTool, updateTMSTool } from './tools/tms-store';
 import { getPolicyTool, setPolicyTool } from './tools/policy-store';
 import { upsertRadarAlertTool, getRadarAlertsTool } from './tools/radar-store';
+import { backfillTopicNamesTool } from './tools/backfill-topic-names';
+import { declareIntentTool } from './tools/declare-intent';
 
 // Workflows
 import { protocol1IgnitionWorkflow } from './workflows/protocol1-ignition';
@@ -33,6 +35,8 @@ import { retrievalSkipWorkflow } from './workflows/retrieval-skip';
 const storage = new PostgresStore({
   id: 'ei-storage',
   connectionString: process.env.DATABASE_URL!,
+  max: 15,
+  idleTimeoutMillis: 5000,
 });
 
 export const mastra = new Mastra({
@@ -81,5 +85,7 @@ export const mastra = new Mastra({
     setPolicyTool,
     upsertRadarAlertTool,
     getRadarAlertsTool,
+    backfillTopicNamesTool,
+    declareIntentTool,
   },
 });

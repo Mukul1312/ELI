@@ -2,10 +2,11 @@
 
 > **How to use:** Duplicate this file per bounded context from [03-context-map.md](03-context-map.md). Fill after Context Map and Domain Message Flow. See [../bounded-context.md](../bounded-context.md) for section definitions.
 
-**Subdomain(s):** AdaptiveCoaching, StudySessionOrchestration  
-**Context Map reference:** [03-context-map.md](03-context-map.md)  
+**Subdomain(s):** AdaptiveCoaching
+**Context Map reference:** [03-context-map.md](03-context-map.md)
 **Sources:** [02-subdomains.md](02-subdomains.md), [05-domain-message-flows-storyboards.md](05-domain-message-flows-storyboards.md)
 **See also (cross-cutting):** [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md) — invariants, event catalog, data ownership, ACLs
+**SSO extracted:** StudySessionOrchestration is now its own bounded context — see [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md) and [ADR-005](decisions/adr-005-flow-level-adaptation.md).
 
 ---
 
@@ -17,7 +18,7 @@ EI Runtime
 
 ## Purpose
 
-At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or suggests the next step so the student's loop keeps moving with the right bar (Rescue vs Boost). It orchestrates the end-to-end study-session journey across gates: check-in → intent → activation → session → verification → done, with progressive disclosure and trust-preserving friction. Key actors: students (primary), coaching flows (via protocol outputs).
+At each decision gate (P1/P2/P3), EI Runtime decides **what coaching move** to make so the student's loop keeps moving with the right bar (Rescue vs Boost). It operates **"at"** each gate as a point function: receives a command, runs gate logic (ProtocolEngine + aggregate invariants), emits protocol outputs (NegotiatedIntent, ActivationPlan, VerificationDecision). EI Runtime does NOT decide which screens to show or in what order — that responsibility belongs to [StudySessionOrchestration](canvas-study-session-orchestration.md), which operates **"across"** gates. Key actors: gate handlers consume student commands and produce protocol output VOs (Published Language consumed by SSO).
 
 ---
 
@@ -26,7 +27,7 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 | Dimension               | Choice       | Notes                                                                                              |
 | ----------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
-| **Domain**              | core         | AdaptiveCoaching is EI's differentiation; StudySessionOrchestration is supporting but bundled here |
+| **Domain**              | core         | AdaptiveCoaching is EI's differentiation                                                           |
 | **Business model role** | engagement   | Drives student value and retention via adaptive coaching                                           |
 | **Evolution**           | custom built | EI-specific protocol and gate logic; no off-the-shelf equivalent                                   |
 
@@ -35,47 +36,60 @@ At each decision gate (AppOpen, IntentSet, SessionEnd), EI Runtime negotiates or
 
 ## Domain Roles
 
-- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs. Code: `src/ei/domain/study-session/`, `src/ei/application/run-p{1,2,3}-gate/`
-- **Gateway context:** Student-facing orchestration; maps protocol outputs to UI steps and collects taps/inputs. Implemented as the **ViewComposer** (`src/ei/sdui/`) — a pure presenter chained as a Mastra workflow step after each gate handler. Returns `SduiResponse` (slot-based component tree + microcopy + action registry). Zero DB calls; derives `PresentationContext` entirely from domain output fields already resolved by the gate handler.
+- **Execution context:** Gate decisions, protocol play selection (Rescue/Neutral/Boost), emits protocol outputs. Code: `src/ei/domain/study-session/`, `src/ei/application/run-p{1,2,3}-gate/`, `src/ei/engine/`
+
+> **Removed:** Gateway context (ViewComposer, PresentationContext, microcopy, progressive disclosure) is now owned by [StudySessionOrchestration](canvas-study-session-orchestration.md). EI Runtime exposes gate output VOs as **Published Language** consumed by SSO.
 
 ---
 
 ## Ubiquitous Language (in this context)
 
 
-| Term                     | Definition (in this context)                                                                   |
-| ------------------------ | ---------------------------------------------------------------------------------------------- |
-| Gate                     | A decision point in the study session (P1 State→Intent, P2 Intent→Effort, P3 Effort→Retrieval) |
-| Protocol                 | Named gate logic (P1 Ignition, P2 Activation, P3 Verification)                                 |
-| StudySession             | **Aggregate Root:** one student study session — from AppOpen to retrieval decision. Lifecycle: `negotiating → activating → active → verifying → closed`. Owns NegotiatedIntent, ActivationPlan, VerificationDecision as child Value Objects. Identity: `sessionId`. Code: `src/ei/domain/study-session/study-session.ts` |
-| ProtocolEngine           | **Domain Service:** stateless play selection from the 24-play catalog (`engine/plays.ts`) given protocol (1/2/3), mode (Rescue/Neutral/Boost), and PlayContext. Code: `src/ei/domain/study-session/protocol-engine.ts` |
-| NegotiatedIntent         | **Value Object (P1 output):** immutable — scope, verification plan, constraints. Created by `StudySession.issueNegotiatedIntent()`. |
-| ActivationPlan           | **Value Object (P2 output):** immutable — firstAction, replanCap, constraints. Created by `StudySession.issueActivationPlan()`. |
-| VerificationDecision     | **Value Object (P3 output):** immutable — decision type (VerifyNow/ScheduleVerify/Skip) + parameters. Enforces P1 floor + watch-only overrides. Created by `StudySession.issueVerificationDecision()`. |
-| Rescue                   | **Mode: Enum VO value** (`Rescue \| Neutral \| Boost`). Coaching posture when student needs friction reduction or scope negotiation. |
-| Neutral                  | **Mode: Enum VO value.** Coaching posture when neither Rescue nor Boost conditions apply. |
-| Boost                    | **Mode: Enum VO value.** Coaching posture when student can stretch (requires adherence evidence). |
-| play                     | **Domain concept backed by PlaySelection Value Object:** named coaching move selected by `ProtocolEngine` from the 24-play catalog (`engine/plays.ts`). |
-| LOW_ENERGY / HIGH_ENERGY | **Enum Value Object values (P1Label):** assigned by LoopHealthAssessment; consumed by P1 gate handler via LoopHealthSnapshot. |
-| STALLED / FLOWING        | **Enum Value Object values (P2Label):** assigned by LoopHealthAssessment; consumed by P2 gate handler via LoopHealthSnapshot. |
-| AVOIDANT / CONFIDENT     | **Enum Value Object values (P3Label):** assigned by LoopHealthAssessment; consumed by P3 gate handler via LoopHealthSnapshot. |
-| TightnessLevel           | **Enum Value Object:** `Loose \| Normal \| Tight` — from SA policy; influences escalation context passed to gate handlers. |
-| VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in Ledger event; read back in P3 via `IStudentEventStreamReader` and passed through `P3GateContext`. |
-| WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; read back in P3 via `P3GateContext.p2WatchOnlyFlag`; enforced in `VerificationDecision.create()`. |
+| Term                     | Definition (in this context)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate                     | A decision point in the study session (P1 State→Intent, P2 Intent→Effort, P3 Effort→Retrieval)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Protocol                 | Named gate logic (P1 Ignition, P2 Activation, P3 Verification)                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| StudySession             | **Aggregate Root:** one student study session — from AppOpen to retrieval decision. Lifecycle: `negotiating → activating → active → verifying → closed`. Owns `sessionIntent` (NegotiatedIntent or DeclaredIntent), ActivationPlan, VerificationDecision as child Value Objects. Identity: `sessionId`. Code: `src/ei/domain/study-session/study-session.ts`                                                                                                                                                            |
+| ProtocolEngine           | **Domain Service:** stateless play selection from the 24-play catalog (`engine/plays.ts`) given protocol (1/2/3), mode (Rescue/Neutral/Boost), and PlayContext. Code: `src/ei/domain/study-session/protocol-engine.ts`                                                                                                                                                                                                                                                                                                  |
+| NegotiatedIntent         | **Value Object (P1 output, ELI-driven):** immutable — scope, verification plan, constraints. ELI enforces all P1 business invariants (verificationFloor >= 1, rescue scope floor, etc.). `intentSource = 'negotiated'`. Created by `StudySession.issueNegotiatedIntent()`. See [ADR-001](decisions/adr-001-declared-intent-design.md).                                                                                                                                                                                  |
+| DeclaredIntent           | **Value Object (P1 output, student-driven):** immutable — timebox, taskType, energy, sleep (all real student inputs). ELI imposes no business invariants. `mode = null`. `verificationFloor` student-set or absent. `intentSource = 'declared'`. Created by `StudySession.issueDeclaredIntent()`. Primary case for Sessions 1–8. See [ADR-001](decisions/adr-001-declared-intent-design.md).                                                                                                                            |
+| ActivationPlan           | **Value Object (P2 output):** immutable — firstAction, replanCap, constraints. Created by `StudySession.issueActivationPlan()`.                                                                                                                                                                                                                                                                                                                                                                                         |
+| VerificationDecision     | **Value Object (P3 output):** immutable — decision type (VerifyNow/ScheduleVerify/Skip) + parameters. Enforces P1 floor + watch-only overrides. Created by `StudySession.issueVerificationDecision()`.                                                                                                                                                                                                                                                                                                                  |
+| Rescue                   | **Mode: Enum VO value** (`Rescue | Neutral | Boost`). Coaching posture when student needs friction reduction or scope negotiation.                                                                                                                                                                                                                                                                                                                                                                                      |
+| Neutral                  | **Mode: Enum VO value.** Coaching posture when neither Rescue nor Boost conditions apply.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Boost                    | **Mode: Enum VO value.** Coaching posture when student can stretch (requires adherence evidence).                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| play                     | **Domain concept backed by PlaySelection Value Object:** named coaching move selected by `ProtocolEngine` from the 24-play catalog (`engine/plays.ts`).                                                                                                                                                                                                                                                                                                                                                                 |
+| LOW_ENERGY / HIGH_ENERGY | **Enum Value Object values (P1Label):** assigned by LoopHealthAssessment; consumed by P1 gate handler via LoopHealthSnapshot.                                                                                                                                                                                                                                                                                                                                                                                           |
+| STALLED / FLOWING        | **Enum Value Object values (P2Label):** assigned by LoopHealthAssessment; consumed by P2 gate handler via LoopHealthSnapshot.                                                                                                                                                                                                                                                                                                                                                                                           |
+| AVOIDANT / CONFIDENT     | **Enum Value Object values (P3Label):** assigned by LoopHealthAssessment; consumed by P3 gate handler via LoopHealthSnapshot.                                                                                                                                                                                                                                                                                                                                                                                           |
+| TightnessLevel           | **Enum Value Object:** `Loose | Normal | Tight` — from SA policy; influences escalation context passed to gate handlers.                                                                                                                                                                                                                                                                                                                                                                                                |
+| TimeCommitment           | **Value Object (student input):** student-declared study duration in minutes. Valid values: 10, 20, 45, 60. Feeds `NegotiatedIntent.scope.timeboxMin` when present; mode-based range midpoint is the fallback for variants that hide time chips (V1 SILENCE_RE_ENTRY, V3 HIGH_PRESSURE, V9 IDENTITY_MOMENT, V10 ONBOARDING).                                                                                                                                                                                            |
+| DropoutSignal            | **Derived signal (Projections):** true when a topic has 3+ consecutive deferrals/skips. Passed to P3 gate handler; does not affect gate routing (AVOIDANT label handles that). SSO consumes it for presentation (ShrunkCard). See [05-cross-cutting-concerns.md § Dropout Signal](05-cross-cutting-concerns.md#dropout-signal-per-topic-verification-avoidance-detection). |
+
+> **Moved to SSO:** ConfirmationStrip, ProgressiveDisclosure, ShrunkCard, DynamicFooterSeed — these are presentation elements now owned by [StudySessionOrchestration](canvas-study-session-orchestration.md).
+| VerificationFloor        | Invariant (not a building block): P1 `NegotiatedIntent.verificationPlan.minQuestions` persisted in `SessionIntentIssued` event; sourced in P3 from reconstituted `StudySession` aggregate via `session.negotiatedIntent.verificationPlan` ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)) — applied only when `intentSource = 'negotiated'`; absent for declared sessions. Also projected into `ei_topic_state.verification_floor` ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). |
+| WatchOnlyConstraint      | Invariant (not a building block): `ActivationPlan.constraints.enforceWatchOnlyVerification` flag; sourced in P3 from reconstituted aggregate via `session.activationPlan?.constraints?.enforceWatchOnlyVerification` ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)). Also projected into `ei_topic_state.watch_only_flag` ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). Enforced in `VerificationDecision.create()`. |
 
 
-> **Building block note:** `StudySession` is the **Aggregate Root** that enforces gate lifecycle ordering and cross-protocol invariants (P1 verification floor → P3, P2 watch-only → P3 override). `NegotiatedIntent`, `ActivationPlan`, `VerificationDecision`, and `PlaySelection` are **class-based Value Objects** (private constructor, `static create()`, validation on construction). `ProtocolEngine` is a **Domain Service** (stateless, spans 24 plays across 3 protocols). `LoopHealthSnapshot` is a **Published Language Value Object** consumed from LoopHealthAssessment. Tactical spec: [`ei-runtime-tactical-spec.md`](tactical/ei-runtime-tactical-spec.md).
+> **Building block note:** `StudySession` is the **Aggregate Root** that enforces gate lifecycle ordering and cross-protocol invariants (P1 verification floor → P3 when `intentSource='negotiated'`; P2 watch-only → P3 override). `NegotiatedIntent` and `DeclaredIntent` are two sibling **P1 output Value Objects** with asymmetric invariants (ELI-imposed vs data-integrity-only); both emit `SessionIntentIssued`. `ActivationPlan`, `VerificationDecision`, and `PlaySelection` are also **class-based Value Objects**. `ProtocolEngine` is a **Domain Service** (stateless, spans 24 plays across 3 protocols). `LoopHealthSnapshot` is a **Published Language Value Object** consumed from LoopHealthAssessment. Tactical spec: `[ei-runtime-tactical-spec.md](tactical/ei-runtime-tactical-spec.md)`. Design decision: [ADR-001](decisions/adr-001-declared-intent-design.md).
+>
+> **Persistence strategy ([ADR-004](decisions/adr-004-session-lifecycle-persistence.md)):**
+>
+> **Write-side (aggregate reconstitution):** `IStudySessionRepository.findById()` folds Ledger events into the aggregate (reconstituting correct VO types via `intentSource` discriminator from ADR-001); `save()` is a no-op (events already appended to Ledger by handlers). P2/P3 handlers inject `sessionRepo`; fallback to `reconstitute(null)` for pre-migration sessions.
+>
+> **Read-side (projection queries):** SessionLifecycleState projected into `ei_topic_state` per [ADR-003](decisions/adr-003-projection-schema-evolution.md): `session_phase`, `current_session_id`, `intent_source`, `verification_floor`, `watch_only_flag`, `last_session_started_at`. Used for AppOpen routing (replaces 50-event scan) and `sessionId` derivation (replaces `getSessionIdFromLastIntent`).
 
 ### Student-facing scales
 
 Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
-| Scale           | Values            | Labels (student sees)                                     |
-| --------------- | ----------------- | --------------------------------------------------------- |
-| Energy          | 1–5               | Exhausted, Low, Okay, Good, Sharp                         |
-| Pressure        | 1–5               | Calm, Slightly tense, Uneasy, Very stressed, Panicky      |
-| BacklogPressure | 1–5               | On track, Mostly on track, Some pending, Behind, Drowning   |
-| SleepBucket     | <6, 6-7, 7-8, >=8 | Sleep-debt, Low sleep, Okay sleep, Fully slept            |
+
+| Scale          | Values                  | Labels (student sees)                                                                                                                      |
+| -------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Energy         | 1–5                     | Exhausted, Low, Okay, Good, Sharp                                                                                                          |
+| SleepBucket    | <6, 6-7, 7-8, >=8       | Sleep-debt, Low sleep, Okay sleep, Fully slept                                                                                             |
+| TimeCommitment | 10, 20, 45, 60          | 10 min, 20 min, 45 min, 1h+ — collected on checkin screen (hidden for V1/V3/V9/V10 variants; system uses mode-based fallback)              |
+| TaskType       | Learn, Practice, Revise | Learn, Practice, Revise — collected on checkin screen (moved from P1 screen in scope redesign; hidden for same variants as TimeCommitment) |
 
 
 ---
@@ -83,15 +97,15 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 ## Inbound Communication
 
 
-| Collaborator         | Message type   | Message name                              | Key data                                                              | Integration style  | Relationship (from context map) |
-| -------------------- | -------------- | ----------------------------------------- | --------------------------------------------------------------------- | ------------------ | ------------------------------- |
-| CohortAccess         | Command        | Auth session / user claims                | studentId, role, cohort scope                                         | Sync (per request) | ACL                             |
-| EI Projections       | Query response | GetStudentSignals → R/Signals             | aggregates, topic state, policy (openLoops, verificationRate7d, etc.) | Sync query         | Customer-Supplier               |
-| LoopHealthAssessment | Query response | AssessLoopHealth → R/LoopHealthSnapshot   | labels (p1, p2, p3) + key evidence                                    | Sync call          | Published Language              |
-| Student              | Command        | AppOpen                                   | energy, pressure, sleep, backlogPressure                              | —                  | Direct user                     |
-| Student              | Command        | IntentSet                                 | topic, taskType, difficultyTier                                       | —                  | Direct user                     |
-| Student              | Command        | SessionEnd                                | topic, effortSummary                                                  | —                  | Direct user                     |
-| Student              | Command        | VerifyNow, ScheduleVerify, SkipWithReason | minQuestions, dueInHours, reason                                      | —                  | Direct user                     |
+| Collaborator         | Message type   | Message name                              | Key data                                                                                                                                                   | Integration style  | Relationship (from context map) |
+| -------------------- | -------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------- |
+| CohortAccess         | Command        | Auth session / user claims                | studentId, role, cohort scope                                                                                                                              | Sync (per request) | ACL                             |
+| EI Projections       | Query response | GetStudentSignals → R/Signals             | aggregates, topic state, policy (openLoops, verificationRate7d, etc.)                                                                                      | Sync query         | Customer-Supplier               |
+| LoopHealthAssessment | Query response | AssessLoopHealth → R/LoopHealthSnapshot   | labels (p1, p2, p3) + key evidence                                                                                                                         | Sync call          | Published Language              |
+| SSO                  | Command        | Gate commands (routed from student)       | AppOpen (with topic), IntentSet, SessionEnd — SSO routes these to the appropriate gate handler                                                              | Sync               | Published Language (consumer)   |
+| CurriculumCatalog    | Query response | ResolveTopic → R/TopicReference           | topicId: UUID, topicName: string                                                                                                                           | Sync query         | Published Language              |
+
+> **Moved to SSO:** Student commands (AppOpen, IntentSet, SessionEnd, VerifyNow, ScheduleVerify, SkipWithReason) are now received by SSO, which routes them to EI Runtime gate handlers. Projection queries for presentation (GetTopicDeferralCount, GetOldestPendingTopic) are now SSO-owned.
 
 
 ---
@@ -99,12 +113,12 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 ## Outbound Communication
 
 
-| Message type | Message name                                                                                   | Collaborator    | Key data                                | Integration style | Relationship      |
-| ------------ | ---------------------------------------------------------------------------------------------- | --------------- | --------------------------------------- | ----------------- | ----------------- |
-| Event        | AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse                     | EI Event Ledger | event payload per schema                | Sync append       | Customer-Supplier |
-| Event        | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                       | EI Event Ledger | scope, mode, verificationDecision, etc. | Sync append       | Customer-Supplier |
-| Event        | RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted, ScheduleMissed | EI Event Ledger | questions, dueAt, reason                | Sync append       | Customer-Supplier |
-| Command      | NegotiatedIntentIssued, ActivationPlanIssued, VerificationDecisionIssued                       | Student         | scope, firstAction, verify options      | —                 | Direct user       |
+| Message type | Message name                                                                                   | Collaborator    | Key data                                                                                         | Integration style | Relationship      |
+| ------------ | ---------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ | ----------------- | ----------------- |
+| Event        | SessionIntentIssued, ActivationPlanIssued, VerificationDecisionIssued, ScheduleMissed          | EI Event Ledger | intentSource, scope/timebox, mode, verificationFloor, watchOnlyFlag                              | Sync append       | Customer-Supplier |
+| Gate output  | SessionIntentIssuedOutput, ActivationPlanIssuedOutput, VerificationDecisionIssuedOutput        | SSO             | Protocol output VOs consumed by ViewComposer                                                     | Sync return       | Published Language |
+
+> **Moved to SSO:** UI-produced events (AppOpen, IntentSet, SessionEnd, FirstActionStarted, Replan, IntentResponse, RetrievalVerified, RetrievalScheduled, RetrievalSkipped, VerificationCompleted) are now SSO-owned. See [canvas-study-session-orchestration.md §Outbound](canvas-study-session-orchestration.md).
 
 
 ---
@@ -137,5 +151,5 @@ Source: [EI_UX_Scales.md](../ei/EI_UX_Scales.md)
 
 ## Open Questions
 
-- When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic. **Note:** The ViewComposer (`src/ei/sdui/`) is the first concrete instance of this divergence — it is module-separated but still co-located in EI Runtime. If UX experimentation velocity outpaces gate logic changes, extract to a separate context with an ACL consuming Published Language events from EI Runtime.
+- ~~When to split StudySessionOrchestration into a separate context if UX iteration cadence diverges from gate logic.~~ **Resolved in [ADR-005](decisions/adr-005-flow-level-adaptation.md).** SSO is now its own bounded context. Canvas: [canvas-study-session-orchestration.md](canvas-study-session-orchestration.md). The trigger was: iteration cadence diverged, event ownership splits cleanly, dependency direction is one-way, and the subdomain definition already anticipated the split.
 

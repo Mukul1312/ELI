@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiGuardrailsCard } from '@/ei/sdui/types/components';
+import type { SduiGuardrailsCard } from '@/ei/study-session-orchestration/domain/types/components';
 
 export function SduiGuardrailsCard({ node }: { node: SduiGuardrailsCard }) {
   const { title, rules } = node.props;

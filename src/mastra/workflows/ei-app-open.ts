@@ -2,33 +2,59 @@
  * EI AppOpen workflow — branches on payload.initial.
  *
  * If initial: true → returns checkin view (no P1).
- * Else → runs router, then P1 or P2 workflow.
+ * Else → SelectFlow → FlowExecutor → route result to view/workflow.
  *
- * Per composed-churning-orbit: all branching inside Mastra; route stays thin.
+ * Per ADR-005 §M4: old branches removed. FlowExecutor is the only path.
+ * Per ADR-005 §C11: resume detection runs before flow selection (cross-topic).
  */
 
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { eiStore } from '../../ei/runtime/db';
-import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
-import { ProtocolRouter } from '../../ei/application/ei-protocol-router';
+import { getDb } from '../../ei/runtime/db';
+import type { EiDb } from '../../ei/runtime/db';
 import {
-  type EiCommandWithStudent,
   type AppOpenPayload,
   isAppOpenFirstTouch,
   isAppOpenOnboarding,
   isAppOpenMicro,
 } from '../../ei/application/ei-protocol-router';
-import { SduiResponseSchema } from '../../ei/sdui/types/sdui-contract';
+import { SduiResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { protocol1IgnitionWorkflow } from './protocol1-ignition';
-import { protocol2ActivationWorkflow } from './protocol2-activation';
 import { checkinViewWorkflow } from './checkin-view';
-import { composeOnboardingResponseView, composeSessionView, composeP1View } from '../../ei/sdui/view-composer';
-import { buildP1PresentationContext } from '../../ei/sdui/presentation-context';
-import type { NegotiatedIntentIssuedOutput } from '../../ei/schemas/outputs';
-import type { StateTrend } from '../../ei/domain/student-aggregates/student-aggregates';
+import { sessionStartWorkflow } from './session-start';
+import { composeOnboardingResponseView } from '../../ei/study-session-orchestration/domain/services/view-composer';
 import * as Q from '../../ei/db/queries';
+import { createResolveTopicUseCase } from '../../lib/curriculum-catalog';
+import { getTopicDisplayName } from '../../ei/study-session-orchestration/domain/services/topic-display-name';
+import { DetectResumeHandler } from '../../ei/study-session-orchestration/application/detect-resume/handler';
+import { PostgresActiveSessionQueryAdapter } from '../../ei/infrastructure/persistence/active-session-query.pg';
+import { PostgresQueryEventsAdapter } from '../../ei/infrastructure/persistence/query-events.pg';
+import { PostgresGetStudentSignalsAdapter } from '../../ei/infrastructure/persistence/get-student-signals.pg';
+import { SelectFlowHandler } from '../../ei/study-session-orchestration/application/select-flow/handler';
+import { FlowExecutor } from '../../ei/study-session-orchestration/application/execute-flow/handler';
+import { PostgresStudentAggregatesQueryAdapter } from '../../ei/infrastructure/persistence/student-aggregates-query.pg';
+import { PostgresStudentPolicyQueryAdapter } from '../../ei/infrastructure/persistence/student-policy-query.pg';
+import { PostgresSsoEventAppenderAdapter } from '../../ei/infrastructure/persistence/sso-event-appender.pg';
+import {
+  createDeclaredIntentHandler,
+  createP1GateHandler,
+  createP2GateHandler,
+} from '../../ei/infrastructure/handler-factories';
+
+/** Resolve raw topic text via CurriculumCatalog. Never blocks — falls back to raw string on error. */
+async function resolveTopicSafe(
+  db: EiDb,
+  rawText: string,
+  studentId: string,
+): Promise<{ topicId: string; topicName: string }> {
+  try {
+    const ref = await createResolveTopicUseCase(db).execute({ rawText, studentId });
+    return { topicId: ref.topicId, topicName: ref.topicName };
+  } catch {
+    return { topicId: rawText, topicName: getTopicDisplayName(rawText) };
+  }
+}
 
 const AppOpenWorkflowInput = z.object({
   command: z.object({
@@ -54,111 +80,16 @@ const appOpenBranchStep = createStep({
     const { command, studentId, idempotencyKey, correlationId } = inputData;
     const payload = command.payload;
 
+    // ── 0. First touch: resume detection → checkin view ──
     if (isAppOpenFirstTouch(payload as AppOpenPayload)) {
-      // Detect active session via Ledger (per spec §10: phase derivation is Ledger-driven).
-      // A session is "active" if FirstActionStarted exists with no subsequent SessionEnd or
-      // VerificationDecisionIssued for the same topic within the last 7 days.
-      const db = eiStore.db;
-      const queryEventsAdapter = new PostgresQueryEventsAdapter(db);
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      // Per §10.2: derive session phase from Ledger evidence flags.
-      // Query all protocol output events + terminal events for phase derivation.
-      const recentEvents = await queryEventsAdapter.queryEvents(studentId, {
-        eventTypes: [
-          'NegotiatedIntentIssued', 'IntentResponse',
-          'ActivationPlanIssued', 'FirstActionStarted',
-          'SessionEnd', 'VerificationDecisionIssued', 'VerificationCompleted',
-        ],
-        since,
-        limit: 50,
-      });
-
-      // Results are DESC by occurred_at — find() gives the most recent.
-      const lastStarted = recentEvents.find(e => e.eventType === 'FirstActionStarted');
-      if (lastStarted?.topicId) {
-        const topicId = lastStarted.topicId;
-        const sessionClosed = recentEvents.some(
-          e =>
-            (e.eventType === 'SessionEnd' || e.eventType === 'VerificationDecisionIssued') &&
-            e.topicId === topicId &&
-            e.occurredAt > lastStarted.occurredAt,
-        );
-        if (!sessionClosed) {
-          const activationEvent = recentEvents.find(
-            e => e.eventType === 'ActivationPlanIssued' && e.topicId === topicId,
-          );
-          const mode = (activationEvent?.payload?.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral';
-          const playId = (activationEvent?.payload?.playId as string) ?? 'P2-N1';
-          return composeSessionView({ topic: topicId, mode, playId });
-        }
-      }
-
-      // ── Intent phase resume (§10.2: Intent but no plan → activating) ────
-      // Per routing matrix §10.3: AppOpen + Recent NegotiatedIntent → resume flow.
-      // If NegotiatedIntentIssued exists without a subsequent IntentResponse,
-      // ActivationPlanIssued, or SessionEnd → student was viewing "Your Plan" screen.
-      const lastIntent = recentEvents.find(e => e.eventType === 'NegotiatedIntentIssued');
-      if (lastIntent?.topicId) {
-        const intentTopicId = lastIntent.topicId;
-        const intentProgressed = recentEvents.some(
-          e =>
-            (e.eventType === 'IntentResponse' ||
-              e.eventType === 'ActivationPlanIssued' ||
-              e.eventType === 'SessionEnd') &&
-            e.topicId === intentTopicId &&
-            e.occurredAt > lastIntent.occurredAt,
-        );
-        if (!intentProgressed) {
-          // Resume: reconstruct P1 view from stored NegotiatedIntentIssued event payload.
-          // Event payload uses `topicId`; NegotiatedIntentIssuedOutput uses `topic`.
-          const p = lastIntent.payload;
-          const intentOutput: NegotiatedIntentIssuedOutput = {
-            negotiatedIntentId: (p.negotiatedIntentId as string) ?? lastIntent.id,
-            studentId,
-            mode: (p.mode as 'Rescue' | 'Neutral' | 'Boost') ?? 'Neutral',
-            playId: (p.playId as string) ?? 'P1-N1',
-            topic: intentTopicId,
-            scope: p.scope as NegotiatedIntentIssuedOutput['scope'],
-            verificationPlan: p.verificationPlan as NegotiatedIntentIssuedOutput['verificationPlan'],
-            constraints: p.constraints as NegotiatedIntentIssuedOutput['constraints'],
-            stateScore: (p.stateScore as number) ?? 0,
-            issuedAt: lastIntent.occurredAt.toISOString(),
-          };
-
-          // Load aggregates + event counts for PresentationContext (same pattern as protocol1-ignition .map() step).
-          const [aggregates, eventCounts, energyPressure] = await Promise.all([
-            Q.getAggregates(db, studentId),
-            Q.countStudentEventsLast7d(db, studentId),
-            Q.getLastAppOpenEnergyPressure(db, studentId),
-          ]);
-
-          const aggregatesForPresentation = aggregates
-            ? {
-                pendingChecks: aggregates.pending_checks,
-                silenceDays: aggregates.silence_days,
-                verificationRate7d: aggregates.verification_rate_7d,
-                stateTrend7d: aggregates.state_trend_7d as StateTrend,
-              }
-            : null;
-
-          const ctx = buildP1PresentationContext(
-            {
-              studentId,
-              topic: intentTopicId,
-              mode: intentOutput.mode,
-              playId: intentOutput.playId,
-              stateScore: intentOutput.stateScore,
-              constraints: intentOutput.constraints,
-            },
-            energyPressure,
-            aggregatesForPresentation,
-            undefined,
-            eventCounts,
-          );
-
-          return composeP1View(intentOutput, ctx);
-        }
-      }
+      const db = getDb();
+      const detectResumeHandler = new DetectResumeHandler(
+        new PostgresActiveSessionQueryAdapter(db),
+        new PostgresQueryEventsAdapter(db),
+        new PostgresGetStudentSignalsAdapter(db),
+      );
+      const resumeResult = await detectResumeHandler.execute({ studentId });
+      if (resumeResult.resumed) return resumeResult.response;
 
       const isFirstOfDay = (payload as { isFirstOfDay?: boolean }).isFirstOfDay ?? true;
       const checkinRun = await checkinViewWorkflow.createRun();
@@ -167,93 +98,112 @@ const appOpenBranchStep = createStep({
       });
     }
 
-    if (isAppOpenOnboarding(payload as AppOpenPayload)) {
-      const onboardingPayload = payload as { topic: string; taskType: string; subject?: string };
-      const p1InputData = {
-        studentId,
-        topic: onboardingPayload.topic,
-        energy: 3,
-        sleepBucket: '7-8' as const,
-        pressure: 1,
-        backlogPressure: 1,
-        idempotencyKey,
-        correlationId,
-      };
-      const run = await protocol1IgnitionWorkflow.createRun();
-      await run.start({ inputData: p1InputData });
-      return composeOnboardingResponseView(onboardingPayload.topic, onboardingPayload.taskType);
-    }
-
-    if (isAppOpenMicro(payload as AppOpenPayload)) {
-      const microPayload = payload as {
-        topic: string;
-        energy: number;
-        sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
-        pressure?: number;
-        backlogPressure?: number;
-        openedAt?: string;
-      };
-      const p2InputData = {
-        studentId,
-        topic: microPayload.topic,
-        setAt: new Date().toISOString(),
-        taskType: 'micro', // Treat as micro task
-        idempotencyKey,
-        correlationId,
-      };
-      const run = await protocol2ActivationWorkflow.createRun();
-      return run.start({ inputData: p2InputData });
-    }
-
+    // ── 1. Topic resolution (ADR-005 §C14: stays in Mastra) ──
+    const db = getDb();
     const fullPayload = payload as {
       topic: string;
+      topicId?: string;
+      topicName?: string;
       energy: number;
       sleepBucket?: '<6' | '6-7' | '7-8' | '>=8';
-      pressure?: number;
-      backlogPressure?: number;
       openedAt?: string;
+      taskType?: string;
+      timebox?: number;
     };
-    const commandWithStudent: EiCommandWithStudent = {
-      commandType: 'AppOpen',
-      payload: fullPayload,
+    const topicRef = fullPayload.topicId
+      ? { topicId: fullPayload.topicId, topicName: fullPayload.topicName ?? fullPayload.topic }
+      : await resolveTopicSafe(db, fullPayload.topic, studentId);
+
+    // ── 2. SelectFlow: SSO domain decides template ──
+    const selectFlowHandler = new SelectFlowHandler(
+      new PostgresStudentAggregatesQueryAdapter(db),
+      new PostgresStudentPolicyQueryAdapter(db),
+      new PostgresSsoEventAppenderAdapter(db),
+    );
+    const { template } = await selectFlowHandler.execute({
       studentId,
-    };
+      topicId: topicRef.topicId,
+      taskType: fullPayload.taskType,
+      isOnboarding: isAppOpenOnboarding(payload as AppOpenPayload),
+      isMicro: isAppOpenMicro(payload as AppOpenPayload),
+      idempotencyKey,
+    });
 
-    const db = eiStore.db;
-    const queryEvents = new PostgresQueryEventsAdapter(db);
-    const router = new ProtocolRouter(queryEvents);
-    const protocol = await router.decideProtocol(commandWithStudent);
+    // ── 3. FlowExecutor: walk template phases via gate handler ports ──
+    const sessionId = crypto.randomUUID();
+    const flowExecutor = new FlowExecutor(
+      createDeclaredIntentHandler(db, idempotencyKey),
+      createP1GateHandler(db, idempotencyKey),
+      createP2GateHandler(db, idempotencyKey),
+    );
+    const flowResult = await flowExecutor.execute(template, {
+      studentId,
+      topicId: topicRef.topicId,
+      topicName: topicRef.topicName,
+      sessionId,
+      timebox: fullPayload.timebox,
+      taskType: fullPayload.taskType,
+      energy: fullPayload.energy,
+      sleepBucket: fullPayload.sleepBucket,
+      idempotencyKey,
+      correlationId,
+    });
 
-    if (protocol === 1) {
-      const p1InputData = {
-        studentId,
-        topic: fullPayload.topic,
-        energy: fullPayload.energy,
-        sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
-        pressure: fullPayload.pressure ?? 1,
-        backlogPressure: fullPayload.backlogPressure ?? 1,
-        openedAt: fullPayload.openedAt,
-        idempotencyKey,
-        correlationId,
-      };
-      const run = await protocol1IgnitionWorkflow.createRun();
-      return run.start({ inputData: p1InputData });
+    // ── 4. Route result to view/workflow (ADR-005 §C14/C16: stays in Mastra) ──
+    switch (flowResult.kind) {
+      case 'declared':
+      case 'onboarding': {
+        if (fullPayload.taskType) {
+          await Q.upsertTopicState(db, studentId, topicRef.topicId, { last_task_type: fullPayload.taskType });
+        }
+        if (flowResult.kind === 'onboarding') {
+          return composeOnboardingResponseView(topicRef.topicId, fullPayload.taskType ?? 'Practice', topicRef.topicName);
+        }
+        const run = await sessionStartWorkflow.createRun();
+        return run.start({
+          inputData: {
+            studentId,
+            topic: topicRef.topicId,
+            topicName: topicRef.topicName,
+            mode: flowResult.p2Output.mode,
+            taskType: fullPayload.taskType,
+            timebox: fullPayload.timebox,
+            idempotencyKey,
+            correlationId,
+          },
+        });
+      }
+      case 'negotiated': {
+        const run = await protocol1IgnitionWorkflow.createRun();
+        return run.start({
+          inputData: {
+            studentId,
+            topic: topicRef.topicId,
+            topicName: topicRef.topicName,
+            energy: fullPayload.energy,
+            sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
+            openedAt: fullPayload.openedAt,
+            idempotencyKey,
+            correlationId,
+          },
+        });
+      }
+      case 'micro': {
+        const run = await sessionStartWorkflow.createRun();
+        return run.start({
+          inputData: {
+            studentId,
+            topic: topicRef.topicId,
+            topicName: topicRef.topicName,
+            mode: flowResult.p2Output.mode,
+            taskType: 'micro',
+            timebox: fullPayload.timebox,
+            idempotencyKey,
+            correlationId,
+          },
+        });
+      }
     }
-
-    if (protocol === 2) {
-      const p2InputData = {
-        studentId,
-        topic: fullPayload.topic,
-        setAt: new Date().toISOString(),
-        taskType: undefined,
-        idempotencyKey,
-        correlationId,
-      };
-      const run = await protocol2ActivationWorkflow.createRun();
-      return run.start({ inputData: p2InputData });
-    }
-
-    throw new Error(`AppOpen should not route to protocol ${protocol}`);
   },
 });
 

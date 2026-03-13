@@ -15,6 +15,9 @@
   - Policy semantics — lives in StudentPolicy.
   - Label computation or health assessment — lives in LoopHealthAssessment.
   - Protocol gate execution — lives in EI Runtime.
+  - Topic identity validation — happens at source (EI Runtime + CurriculumCatalog). StudentAggregates consumes validated topic references. No direct CC dependency.
+
+> **CurriculumCatalog note:** Events may carry `topic: string` (legacy) or `topicId: UUID` (post-CC). StudentAggregates reads from `ei_topic_state` which is projected by TopicLoop; CC reconciliation (alias lookup, dual-read) is handled there. StudentAggregates does not query CurriculumCatalog directly. See [05-cross-cutting-concerns.md § Topic ID evolution](../05-cross-cutting-concerns.md#topic-id-evolution-curriculumcatalog-integration).
 
 ---
 
@@ -32,7 +35,7 @@
 | SkipCount7d | Count of `RetrievalSkipped` events in last 7 days |
 | SilenceDays | Days since last meaningful event (`IntentSet`, `SessionEnd`, `RetrievalVerified`, `VerificationCompleted`) |
 | StartLatencyMinMedian7d | Median start latency (minutes from `IntentSet` to `FirstActionStarted`) over last 7 days |
-| IntentAcceptanceRate7d | Ratio of accepted/edited `IntentResponse` events over issued `NegotiatedIntentIssued` in last 7 days |
+| IntentAcceptanceRate7d | Ratio of accepted/edited `IntentResponse` events over issued `SessionIntentIssued` (intentSource='negotiated') in last 7 days |
 | ReplanLoopCount7d | Count of `Replan` events in last 7 days |
 | StateTrend7d | Coarse direction derived from AppOpen energy taps: `improving`, `flat`, `worsening` |
 | LoopLatencyTrend | Coarse trend of loop closure latency: derived |
@@ -58,6 +61,11 @@
 | replanLoopCount7d | integer | Replan count in 7d |
 | stateTrend7d | `improving` \| `flat` \| `worsening` | Coarse energy direction from AppOpen events |
 | loopLatencyTrend | string or null | Coarse loop latency direction |
+| sessionsLast7d | integer | Count of SessionEnd events in 7d window |
+| loopsClosedLast7d | integer | Count of RetrievalVerified + VerificationCompleted(result=confident) in 7d |
+| hasPriorAppOpen | boolean | Any AppOpen event exists for this student (all-time) |
+| lastIdentityShownAt | ISO datetime or null | Most recent IdentityMomentShown event (all-time) |
+| activeDays7d | integer | Distinct calendar days with any event in 7d window |
 | updatedAt | ISO datetime | When last recomputed |
 
 - **Lifecycle:** No explicit lifecycle states; state is replaced on each recompute.
@@ -97,7 +105,7 @@ StudentAggregates is a projection; it does not handle external commands. The "co
 | SessionEnd | studentId, topic, endedAt |
 | FirstActionStarted | studentId, topic, startedAt |
 | Replan | studentId, topic, replannedAt |
-| NegotiatedIntentIssued | studentId, issuedAt |
+| SessionIntentIssued | studentId, issuedAt, intentSource |
 | IntentResponse | studentId, decision, respondedAt |
 | RetrievalVerified | studentId, topic, verifiedAt |
 | RetrievalScheduled | studentId, topic, dueAt, scheduledAt |
@@ -118,7 +126,7 @@ StudentAggregates does not emit new domain events. It updates `ei_student_aggreg
 | Port | Role | Responsibility |
 |------|------|----------------|
 | **StudentAggregatesRepository** | Driven | Load by `studentId`; save/upsert computed metrics |
-| **EventStreamReader** | Driven | Read events from Ledger for a student within a time window |
+| **EventStreamReader** | Driven | Read events from Ledger for a student within a time window; `hasEventOfType(studentId, type)` — all-time boolean existence check; `readLatestEventOfType(studentId, type)` — all-time single event lookup |
 | **TopicStateReader** | Driven | Read all `ei_topic_state` rows for a student (to derive openLoops/pendingChecks) |
 | **Clock** | Driven | Provide consistent "now" for rolling window boundary |
 
@@ -175,7 +183,13 @@ StudentAggregates does not emit new domain events. It updates `ei_student_aggreg
 - Exact rolling-window semantics per metric (some may use different windows in future).
 - `loopLatencyTrend` derivation algorithm (currently null in implementation).
 - Snapshot strategy for long-lived student instances.
-- Trigger model: sync-on-append vs. scheduled batch vs. on-demand.
+- ~~Trigger model: sync-on-append vs. scheduled batch vs. on-demand.~~
+  **Decided:** Fire-and-forget after event append + on-demand safety net at AppOpen.
+  Terminal workflows (VerificationComplete, P3 gate, RetrievalSchedule, RetrievalSkip) fire
+  projector recomputes without awaiting — one writer per student per step execution.
+  AppOpen checks `ei_student_aggregates.updated_at` against `MAX(ei_events.occurred_at)`
+  and recomputes if stale. This keeps the hot path fast (~2-3s vs ~8s) while ensuring
+  eventual consistency. Full recompute remains the canonical repair/backfill path.
 
 ---
 

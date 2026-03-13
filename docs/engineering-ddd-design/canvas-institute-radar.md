@@ -46,7 +46,7 @@ Produce and expose a privacy-safe triage signal for institutes: at most one prim
 | Term            | Definition (in this context)                                                                         |
 | --------------- | ---------------------------------------------------------------------------------------------------- |
 | RadarAlert      | Privacy-safe alert per student; evidence summary + recommended intervention; one primary per student |
-| alertType       | Silence, IntegrityDebt, VerificationDrop, OpenLoopsSpike, BurnoutRunway, SubjectAvoidance            |
+| alertType       | Silence, IntegrityDebt, VerificationDrop, OpenLoopsSpike, BurnoutRunway, SubjectAvoidance. SubjectAvoidance requires CurriculumCatalog hierarchy to group topics by subject/exam for detection. |
 | severity        | Red, yellow; triage ordering                                                                         |
 | evidenceSummary | Aggregated metrics only; no raw events, no private text                                              |
 | primaryAlert    | Single alert chosen per student after dedupe; priority ordering                                      |
@@ -65,6 +65,7 @@ Produce and expose a privacy-safe triage signal for institutes: at most one prim
 | LoopHealthAssessment | Query response | LoopHealthSnapshot / labels + evidence | labels (p1, p2, p3), aggregated evidence   | Sync / feed      | Published Language              |
 | EI Projections       | Query response | Privacy-safe signals feed              | aggregated metrics, versioned alert schema | Sync / feed      | Published Language              |
 | CohortAccess         | Query response | Cohort scope, institute role           | cohortIds, role, accessScope               | Sync             | Customer-Supplier               |
+| CurriculumCatalog    | Query response | TopicReference + hierarchy             | topicId, topicName, examName, subjectName  | Sync query       | Published Language              |
 
 
 ---
@@ -109,4 +110,5 @@ Produce and expose a privacy-safe triage signal for institutes: at most one prim
 
 - Institute workflow actions (acknowledge, assign owner, trigger playbook) in future iterations.
 - Alert threshold tuning and recommended-action mapping cadence.
+- SubjectAvoidance alert: threshold for triggering (e.g. no effort in a subject for N days); depends on CurriculumCatalog subject grouping accuracy.
 

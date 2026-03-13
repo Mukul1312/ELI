@@ -1,6 +1,6 @@
 'use client';
 
-import type { SduiScopeCard } from '@/ei/sdui/types/components';
+import type { SduiScopeCard } from '@/ei/study-session-orchestration/domain/types/components';
 import { SduiModeBadge } from './mode-badge';
 
 export function SduiScopeCard({ node }: { node: SduiScopeCard }) {

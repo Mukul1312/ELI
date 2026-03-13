@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { SduiSlot, resolvePayload } from '@/app/sdui/renderer';
 import type { SduiResponse, SduiComponent } from '@/app/sdui/types';
-import { composeOnboardingTopicTaskView } from '@/ei/sdui/view-composer';
+import { unwrapSlotEntry } from '@/app/sdui/types';
+import { composeOnboardingTopicTaskView } from '@/ei/study-session-orchestration/domain/services/view-composer';
 
 // ============================================================================
 // Styles
@@ -65,6 +66,11 @@ export default function Home() {
   const [formValues, setFormValues] = useState<Record<string, string | number>>({});
   const [actionLoading, setActionLoading] = useState(false);
   const [bootstrapTrigger, setBootstrapTrigger] = useState(0);
+  // Progressive disclosure state
+  const [visibleGroups, setVisibleGroups] = useState<Set<string>>(new Set());
+  const [revealingGroups, setRevealingGroups] = useState<Set<string>>(new Set());
+  // Phase 3 state replacement morph
+  const [phaseTransition, setPhaseTransition] = useState<'idle' | 'exiting' | 'entering'>('idle');
 
   // POST helper — identity via Neon Auth session cookie (credentials: 'include')
   const api = useCallback(async (path: string, body: unknown, idempotencyKey?: string) => {
@@ -127,9 +133,9 @@ export default function Home() {
         const res = await api('/api/ei/command', { commandType: 'AppOpen', payload: { initial: true } }, idempotencyKey);
         if (!cancelled) {
           setCurrentSduiResponse(res);
-          const footerNodes = (res.view?.footer ?? []).filter(
-            (c) => c.type === 'session-summary-footer',
-          );
+          const footerNodes = (res.view?.footer ?? [])
+            .map(e => unwrapSlotEntry(e))
+            .filter(c => c.type === 'session-summary-footer');
           if (footerNodes.length > 0) setSessionFooter(footerNodes);
           setAuthState('authenticated');
         }
@@ -144,15 +150,66 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [bootstrapTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket)
+  // Check if AppOpen checkin payload has required fields (topic, energy, sleepBucket, taskType)
   const hasRequiredCheckinFields = useCallback(() => {
     const topic = formValues['topic'];
+    const topicId = formValues['topicId'];
+    const hasTopic = (typeof topicId === 'string' && topicId.trim() !== '')
+      || (typeof topic === 'string' && topic.trim() !== '');
     const energy = formValues['energy'];
-    const sleepBucket = formValues['sleepBucket'];
-    return typeof topic === 'string' && topic.trim() !== ''
+    const taskType = formValues['taskType'];
+    // sleepBucket is only shown when isFirstOfDay — not required for submission
+    return hasTopic
       && typeof energy === 'number' && energy >= 1 && energy <= 5
-      && typeof sleepBucket === 'string' && sleepBucket.length > 0;
+      && typeof taskType === 'string' && taskType.trim() !== '';
   }, [formValues]);
+
+  // Compute initially-visible groups whenever response changes
+  useEffect(() => {
+    if (!currentSduiResponse?.view) return;
+    const initial = new Set<string>();
+    const allSlots = [
+      ...(currentSduiResponse.view.header ?? []),
+      ...(currentSduiResponse.view.body ?? []),
+      ...(currentSduiResponse.view.actions ?? []),
+      ...(currentSduiResponse.view.footer ?? []),
+    ];
+    for (const entry of allSlots) {
+      if ('component' in entry && 'visibilityGroup' in entry) {
+        if ((entry as { initiallyVisible?: boolean }).initiallyVisible !== false) {
+          initial.add((entry as { visibilityGroup: string }).visibilityGroup);
+        }
+      }
+    }
+    setVisibleGroups(initial);
+    setRevealingGroups(new Set());
+  }, [currentSduiResponse]);
+
+  const revealGroup = useCallback((groupId: string) => {
+    setVisibleGroups(prev => {
+      if (prev.has(groupId)) return prev;
+      return new Set([...prev, groupId]);
+    });
+    setRevealingGroups(prev => new Set([...prev, groupId]));
+    setTimeout(() => {
+      setRevealingGroups(prev => {
+        const next = new Set(prev);
+        next.delete(groupId);
+        return next;
+      });
+    }, 250);
+  }, []);
+
+  const revertToGroup = useCallback((targetGroupId: string) => {
+    const ORDER = ['1A', '1B', '1C'];
+    const targetIdx = ORDER.indexOf(targetGroupId);
+    if (targetIdx < 0) return;
+    setVisibleGroups(prev => {
+      const next = new Set(prev);
+      for (let i = targetIdx + 1; i < ORDER.length; i++) next.delete(ORDER[i]);
+      return next;
+    });
+  }, []);
 
   // Generic action handler: resolve payload, POST to endpoint, update view
   const handleSduiAction = useCallback(
@@ -163,65 +220,102 @@ export default function Home() {
         return;
       }
 
+      if (actionId === 'edit_energy') {
+        revertToGroup('1A');
+        return;
+      }
+      if (actionId === 'edit_topic') {
+        revertToGroup('1B');
+        return;
+      }
+
+      // Pending topic tap: set topic in formValues and reveal 1C (client-only).
+      // Must run before AppOpen validation — these actions have commandType: 'AppOpen'
+      // in their payload but are client-only (no POST).
+      if (actionId.startsWith('intent_topic_')) {
+        const action = currentSduiResponse?.actions?.[actionId];
+        const topicAction = action;
+        const topicPayload = topicAction?.payload?.payload as Record<string, unknown> | undefined;
+        if (topicPayload) {
+          const updates: Record<string, string> = {};
+          if (topicPayload.topicId) updates.topicId = String(topicPayload.topicId);
+          if (topicPayload.topic) updates.topic = String(topicPayload.topic);
+          if (topicPayload.topicName) updates.topicName = String(topicPayload.topicName);
+          setFormValues(prev => ({ ...prev, ...updates }));
+        }
+        revealGroup('1C');
+        return;
+      }
+
       const action = currentSduiResponse?.actions?.[actionId];
       if (!action) return;
-      
+
       const isAppOpen = action.payload?.commandType === 'AppOpen';
       const isIntentSet = action.payload?.commandType === 'IntentSet';
       const isFirstTouch = isAppOpen && (action.payload.payload as any)?.initial === true;
       const isMicroStart = isAppOpen && (action.payload.payload as any)?.timeboxMin === 1;
       const isOnboardingSubmit = isAppOpen && (action.payload.payload as any)?.taskType !== undefined && (action.payload.payload as any)?.energy === undefined;
-      
+
       // Phase 1 greeting/checkin CTAs require form filled before posting AppOpen
       if (isAppOpen && !isFirstTouch && !isOnboardingSubmit && !isMicroStart) {
         if (!hasRequiredCheckinFields()) {
-          setErrorMessage('Please fill in topic, energy, and sleep to continue.');
+          setErrorMessage('Please fill in topic, energy, sleep, and task type to continue.');
           return;
         }
       }
-      
+
       // Onboarding submit: only topic + taskType required (no energy/sleep)
       if (isOnboardingSubmit || isIntentSet) {
         const topic = formValues['topic'] || (action.payload.payload as any)?.topic;
         const taskType = formValues['taskType'] || (action.payload.payload as any)?.taskType;
-        
-        // Only validate if these fields are expected to be filled from the form
+
         const needsTopic = (action.payload.payload as any)?.topic === '{{topic}}';
         const needsTaskType = (action.payload.payload as any)?.taskType === '{{taskType}}';
-        
-        if ((needsTopic && (!topic || typeof topic !== 'string' || !topic.trim())) || 
+
+        if ((needsTopic && (!topic || typeof topic !== 'string' || !topic.trim())) ||
             (needsTaskType && (!taskType || typeof taskType !== 'string' || !taskType))) {
           setErrorMessage('Please enter a topic and select a task type.');
           return;
         }
       }
-      
+
       const resolved = resolvePayload(action.payload, formValues);
       setErrorMessage(null);
       setActionLoading(true);
       const idempotencyKey = crypto.randomUUID();
+      // Phase 3 state replacement morph: start exit animation for verification phase
+      const isVerificationPhase = currentSduiResponse?.phase === 'verification';
+      if (isVerificationPhase) setPhaseTransition('exiting');
       try {
         const result = await api(action.endpoint.path, resolved, idempotencyKey);
         setCurrentSduiResponse(result);
+        if (isVerificationPhase) {
+          setPhaseTransition('entering');
+          setTimeout(() => setPhaseTransition('idle'), 250);
+        }
         // Persist footer across phase transitions (Phase 2 has no footer)
-        const footerNodes = (result.view?.footer ?? []).filter(
-          (c) => c.type === 'session-summary-footer',
-        );
+        const footerNodes = (result.view?.footer ?? [])
+          .map(e => unwrapSlotEntry(e))
+          .filter(c => c.type === 'session-summary-footer');
         if (footerNodes.length > 0) setSessionFooter(footerNodes);
         setFormValues({});
       } catch (err: unknown) {
         setAuthState('error');
         setErrorMessage(err instanceof Error ? err.message : 'Request failed');
+        if (isVerificationPhase) setPhaseTransition('idle');
       } finally {
         setActionLoading(false);
       }
     },
-    [currentSduiResponse, formValues, api, hasRequiredCheckinFields],
+    [currentSduiResponse, formValues, api, hasRequiredCheckinFields, revealGroup, revertToGroup],
   );
 
   const handleFormChange = useCallback((id: string, value: string | number) => {
     setFormValues(prev => ({ ...prev, [id]: value }));
-  }, []);
+    // Progressive disclosure triggers
+    if (id === 'energy') revealGroup('1B');
+    if (id === 'topic' || id === 'topicId' || id === 'topicName') revealGroup('1C');
+  }, [revealGroup]);
 
   const handleDismissError = useCallback(() => {
     setErrorMessage(null);
@@ -236,21 +330,19 @@ export default function Home() {
   const isInitialLoading = authState === 'initializing' || authState === 'loading';
   const view = currentSduiResponse?.view;
   const isSessionPhase = currentSduiResponse?.phase === 'session';
+  const isCheckinPhase = currentSduiResponse?.phase === 'checkin';
+  const isVerificationPhase = currentSduiResponse?.phase === 'verification';
+  const isDonePhase = currentSduiResponse?.phase === 'done';
   // Checkin: domain.mode; P1/P2: mode at top level
   const pageMode = (currentSduiResponse?.domain as { mode?: 'Rescue' | 'Neutral' | 'Boost' } | null)?.mode
     ?? (currentSduiResponse as { mode?: 'Rescue' | 'Neutral' | 'Boost' })?.mode;
   const pageStyles = isSessionPhase
     ? { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' } as const
     : pageLayoutStyles(pageMode);
-  const slotProps = { formValues, onFormChange: handleFormChange, onAction: handleSduiAction };
+  const slotProps = { formValues, onFormChange: handleFormChange, onAction: handleSduiAction, visibleGroups, revealingGroups };
 
   return (
     <div style={pageStyles}>
-      {!isSessionPhase && (
-        <div style={{ textAlign: 'center', marginBottom: 20, opacity: 0.6 }}>
-          <span style={{ fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' as const }}>ELI — Study Brother</span>
-        </div>
-      )}
 
       {authState === 'error' && errorMessage && (
         <div style={{ ...s.card, borderColor: '#7f1d1d' }}>
@@ -269,15 +361,42 @@ export default function Home() {
         <SduiSlot components={view.header} {...slotProps} />
       )}
 
-      {/* Body + actions: no card wrapper for active session (session-timer is full-height) */}
+      {/* Body + actions: no card wrapper for session/checkin; card wrapper for other phases */}
       {isSessionPhase ? (
         <>
           {view && <SduiSlot components={view.body} {...slotProps} />}
           {view && <SduiSlot components={view.actions} {...slotProps} />}
           {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
         </>
+      ) : isCheckinPhase ? (
+        <div className={
+          phaseTransition === 'exiting' ? 'phase-exit' :
+          phaseTransition === 'entering' ? 'phase-enter' :
+          undefined
+        }>
+          {isInitialLoading && <p style={s.muted}>Getting started…</p>}
+          {authState === 'unauthenticated' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ ...s.muted, margin: 0 }}>Sign in with Google to start your study session.</p>
+              <Link href="/auth/sign-in" style={{ ...s.btn('primary'), textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
+                Sign in
+              </Link>
+            </div>
+          )}
+          {authState === 'authenticated' && view && (
+            <>
+              <SduiSlot components={view.body} {...slotProps} />
+              <SduiSlot components={view.actions} {...slotProps} />
+            </>
+          )}
+          {actionLoading && <p style={{ ...s.muted, marginTop: 8 }}>Processing…</p>}
+        </div>
       ) : (
-        <div style={s.card}>
+        <div style={s.card} className={
+          phaseTransition === 'exiting' ? 'phase-exit' :
+          phaseTransition === 'entering' ? 'phase-enter' :
+          undefined
+        }>
           {isInitialLoading && <p style={s.muted}>Getting started…</p>}
           {authState === 'unauthenticated' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -297,8 +416,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Persisted footer — shown across all phases including active session */}
-      {authState === 'authenticated' && sessionFooter.length > 0 && (
+      {/* Persisted footer — hidden during Phase 2 (session) and Phase 3 (verification/done) per spec */}
+      {authState === 'authenticated' && sessionFooter.length > 0 && !isSessionPhase && !isVerificationPhase && !isDonePhase && (
         <SduiSlot components={sessionFooter} {...slotProps} />
       )}
     </div>

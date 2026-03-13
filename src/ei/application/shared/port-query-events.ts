@@ -21,4 +21,11 @@ export interface QueryEventsFilter {
 
 export interface IQueryEventsPort {
   queryEvents(studentId: string, filter: QueryEventsFilter): Promise<QueriedEvent[]>;
+
+  /**
+   * Targeted single-event lookup by sessionId + eventType.
+   * Uses JSONB index on ei_events.payload->>'sessionId' (ADR-004 C1).
+   * Returns the most recent matching event, or null.
+   */
+  queryBySessionId(sessionId: string, eventType: string): Promise<QueriedEvent | null>;
 }

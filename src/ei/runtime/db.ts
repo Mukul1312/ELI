@@ -15,9 +15,24 @@ if (!process.env.DATABASE_URL) {
 const store = new PostgresStore({
   id: 'ei-next-runtime',
   connectionString: process.env.DATABASE_URL,
+  max: 15,                 // up from default 10; handles 2-3 concurrent requests without queuing
+  idleTimeoutMillis: 5000, // evict idle connections before Neon scale-to-zero (5min)
 });
 
 /** Exported for use in migrate scripts, tests, tools, and workflows. */
 export { store as eiStore };
 
 export type EiDb = PostgresStore['db'];
+
+/**
+ * Returns the request-scoped traced DB if available, otherwise the raw store.db.
+ * Workflows and query code should prefer this over eiStore.db directly.
+ *
+ * Per ops-observability-tactical-spec.md §8 (Phase 3):
+ * tracing is transparent — callers don't import tracing, just call getDb().
+ */
+import { getRequestDb } from '@/ops/infrastructure/tracing/request-context';
+
+export function getDb(): EiDb {
+  return getRequestDb(store.db);
+}

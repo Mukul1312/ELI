@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import type { SduiComponent } from '@/ei/sdui/types/components';
+import type { SduiComponent } from '@/ei/study-session-orchestration/domain/types/components';
 
 import { SduiMessage } from './components/message';
 import { SduiModeBadge } from './components/mode-badge';
@@ -29,6 +29,10 @@ import { SduiIdentityMomentCard } from './components/identity-moment-card';
 import { SduiSessionContextBar } from './components/session-context-bar';
 import { SduiOnboardingWelcomeCard } from './components/onboarding-welcome-card';
 import { SduiOnboardingTopicTaskForm } from './components/onboarding-topic-task-form';
+import { SduiTopicInput } from './components/topic-input';
+import { SduiFieldBreadcrumb } from './components/field-breadcrumb';
+import { SduiPendingHeroCard } from './components/pending-hero-card';
+import { SduiDurationHeader } from './components/duration-header';
 
 export type SduiComponentProps = {
   node: SduiComponent;
@@ -65,6 +69,10 @@ const REGISTRY: Record<string, ComponentType<SduiComponentProps>> = {
   'session-context-bar': SduiSessionContextBar as ComponentType<SduiComponentProps>,
   'onboarding-welcome-card': SduiOnboardingWelcomeCard as ComponentType<SduiComponentProps>,
   'onboarding-topic-task-form': SduiOnboardingTopicTaskForm as ComponentType<SduiComponentProps>,
+  'topic-input': SduiTopicInput as ComponentType<SduiComponentProps>,
+  'field-breadcrumb': SduiFieldBreadcrumb as ComponentType<SduiComponentProps>,
+  'pending-hero-card': SduiPendingHeroCard as ComponentType<SduiComponentProps>,
+  'duration-header': SduiDurationHeader as ComponentType<SduiComponentProps>,
 };
 
 export function getSduiComponent(type: string): ComponentType<SduiComponentProps> | null {

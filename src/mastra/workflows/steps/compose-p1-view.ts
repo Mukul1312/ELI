@@ -12,11 +12,11 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
-import { NegotiatedIntentIssuedSchema } from '../../../ei/schemas/outputs';
-import { P1WrappedResponseSchema } from '../../../ei/sdui/types/sdui-contract';
-import { buildP1PresentationContext } from '../../../ei/sdui/presentation-context';
-import { composeP1View } from '../../../ei/sdui/view-composer';
-import type { AggregatesForPresentation } from '../../../ei/sdui/types/aggregates-for-presentation';
+import { SessionIntentIssuedSchema } from '../../../ei/schemas/outputs';
+import { P1WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
+import { buildP1PresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
+import { composeP1View } from '../../../ei/study-session-orchestration/domain/services/view-composer';
+import type { AggregatesForPresentation } from '../../../ei/study-session-orchestration/domain/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
 import type { StateTrend } from '../../../ei/domain/student-aggregates/student-aggregates';
 
@@ -31,9 +31,12 @@ const AggregatesSubsetSchema = z.object({
 
 const TopicStateSubsetSchema = z.object({
   topic_id: z.string(),
+  topic_name: z.string().nullable().optional(),
   last_effort_at: z.date().nullable(),
   last_retrieval_at: z.date().nullable(),
   last_scheduled_due_at: z.date().nullable(),
+  effort_count_total: z.number().optional(),
+  last_task_type: z.string().nullable().optional(),
 });
 
 function mapAggregatesForPresentation(row: z.infer<typeof AggregatesSubsetSchema>): AggregatesForPresentation | null {
@@ -50,9 +53,12 @@ function mapTopicSnapshots(rows: z.infer<typeof TopicStateSubsetSchema>[]): Topi
   return [...rows]
     .map((r) => ({
       topicId: r.topic_id,
+      topicName: r.topic_name ?? undefined,
       lastEffortAt: r.last_effort_at,
       lastRetrievalAt: r.last_retrieval_at,
       lastScheduledDueAt: r.last_scheduled_due_at,
+      effortCountTotal: r.effort_count_total ?? 0,
+      lastTaskType: r.last_task_type ?? null,
     }))
     .sort((a, b) => (a.lastScheduledDueAt?.getTime() ?? 0) - (b.lastScheduledDueAt?.getTime() ?? 0));
 }
@@ -62,15 +68,16 @@ function mapTopicSnapshots(rows: z.infer<typeof TopicStateSubsetSchema>[]): Topi
 // ============================================================================
 
 export const ComposeP1ViewInputSchema = z.object({
-  domainOutput: NegotiatedIntentIssuedSchema,
+  domainOutput: SessionIntentIssuedSchema,
   workflowInput: z.object({
     energy: z.number(),
-    pressure: z.number(),
   }),
   aggregates: AggregatesSubsetSchema,
   topicStates: z.array(TopicStateSubsetSchema),
   sessionsLast7d: z.number(),
   loopsClosedLast7d: z.number(),
+  sessionsTotal: z.number(),
+  hasPriorOpen: z.boolean(),
   lastIdentityShownAt: z.date().nullable(),
   historicalIndicators: z
     .object({ hadSilenceInLast14d: z.boolean(), hadHighPressureInLast14d: z.boolean() })
@@ -93,6 +100,8 @@ export const composeP1ViewStep = createStep({
       topicStates,
       sessionsLast7d,
       loopsClosedLast7d,
+      sessionsTotal,
+      hasPriorOpen,
       lastIdentityShownAt,
       historicalIndicators,
     } = inputData;
@@ -105,6 +114,8 @@ export const composeP1ViewStep = createStep({
       { sessionsLast7d, loopsClosedLast7d },
       lastIdentityShownAt,
       historicalIndicators,
+      hasPriorOpen,
+      sessionsTotal,
     );
     const sdui = composeP1View(domainOutput, ctx);
 

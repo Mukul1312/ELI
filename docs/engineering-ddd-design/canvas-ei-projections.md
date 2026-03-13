@@ -53,6 +53,7 @@ Compute and persist the student's derived state/metrics from the event ledger fo
 | ei_student_aggregates | Table/store for student-level aggregates                                                                 |
 | ei_topic_state        | Table/store for per-topic state                                                                          |
 | ei_student_policy     | Table/store for policy; persisted by Projections from StrategicAdjustmentDecision events in the Ledger  |
+| catalogTopicId        | UUID from CurriculumCatalog; projected into `ei_topic_state` for new events. Legacy events use raw `topic` string as `topic_id`; reconciled to CC UUID via alias lookup. See [05-cross-cutting-concerns.md § Topic ID evolution](05-cross-cutting-concerns.md). |
 
 
 ---
@@ -62,7 +63,8 @@ Compute and persist the student's derived state/metrics from the event ledger fo
 
 | Collaborator    | Message type | Message name                     | Key data                            | Integration style              | Relationship (from context map) |
 | --------------- | ------------ | -------------------------------- | ----------------------------------- | ------------------------------ | ------------------------------- |
-| EI Event Ledger | Event stream | Event stream (batch / sync read) | All EventTypeEnum + payload schemas (incl. StrategicAdjustmentDecision) | Batch / recompute or sync read | Customer-Supplier (Conformist)  |
+| EI Event Ledger | Event stream | Event stream (batch / sync read) | All EventTypeEnum + payload schemas (incl. StrategicAdjustmentDecision). **TopicLoop consumes 4 StudySession protocol events** (SessionIntentIssued, ActivationPlanIssued, FirstActionStarted, VerificationDecisionIssued) for SessionLifecycleState projection ([ADR-003](decisions/adr-003-projection-schema-evolution.md)). | Batch / recompute or sync read | Customer-Supplier (Conformist)  |
+| CurriculumCatalog | Query response | AliasLookup → topic alias resolution | topicId: UUID for a given raw topic string | Sync query | Customer-Supplier |
 
 
 ---
@@ -88,6 +90,7 @@ Compute and persist the student's derived state/metrics from the event ledger fo
 - **Projections own policy storage:** Strategic Adjustment appends StrategicAdjustmentDecision to Ledger; Projections consume from Ledger and persist to ei_student_policy; SA owns policy semantics.
 - **Numeric evidence only:** Projections supply numbers and state; interpretation (labels) belongs to LoopHealthAssessment.
 - **GetStudentSignals returns pre-computed state:** Aggregates, topic state, and policy are stored by projection logic; rolling windows (e.g. 7d) are defined in that logic, not by a horizon parameter on the query.
+- **Legacy topic reconciliation:** When projecting events with `topic: string` (pre-CurriculumCatalog), Projections query CurriculumCatalog alias lookup (`ICatalogRepository.findTopicsByAlias()`) to obtain a stable `catalogTopicId`. If no alias match, the raw string is preserved as `topic_id`. New events carry `topicId: UUID` directly from CC. See [05-cross-cutting-concerns.md § Topic ID evolution](05-cross-cutting-concerns.md).
 
 ---
 
