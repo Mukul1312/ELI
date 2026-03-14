@@ -39,3 +39,7 @@ The brand system is layered:
 
 ### 6. Review
 - [12-v1-readiness-review.md](12-v1-readiness-review.md) - Design-director assessment of the current system, including readiness, remaining gaps, and the final cleanup path.
+
+### 7. Operational Use
+- [13-stable-reference-freeze-checklist.md](13-stable-reference-freeze-checklist.md) - Practical go/no-go checklist for treating the folder as the stable V1 brand reference.
+- [14-product-team-handoff.md](14-product-team-handoff.md) - Working guide for product, design, and copy teams on how to apply the brand docs in real work.
