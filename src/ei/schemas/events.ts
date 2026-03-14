@@ -202,6 +202,21 @@ export const FlowSelectedSchema = z
   .strict();
 export type FlowSelected = z.infer<typeof FlowSelectedSchema>;
 
+/** Per ops-observability-tactical-spec §12: informational event appended after each SDUI compose step.
+ *  Owned by StudySessionOrchestration; consumed by Ops via IQueryEventsPort for PresentationTrace. */
+export const ViewComposedSchema = z
+  .object({
+    studentId: z.string(),
+    correlationId: z.string().optional(),
+    phase: z.enum(['checkin', 'p1', 'p2', 'p3']),
+    variant: z.string().optional(),                        // Phase1Variant for P1; undefined for others
+    sessionId: z.string().optional(),                      // from domain output where available
+    presentationSignals: z.record(z.unknown()).optional(), // key signals that drove presentation decision
+    composedAt: z.string().datetime(),
+  })
+  .strict();
+export type ViewComposed = z.infer<typeof ViewComposedSchema>;
+
 // ============================================================================
 // All event types enum (for ei_events.event_type column)
 // ============================================================================
@@ -224,5 +239,6 @@ export const EventTypeEnum = z.enum([
   'ScheduleMissed',
   'IdentityMomentShown',
   'FlowSelected',
+  'ViewComposed',
 ]);
 export type EventType = z.infer<typeof EventTypeEnum>;

@@ -12,10 +12,12 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
+import { getDb } from '../../../ei/runtime/db';
+import { PostgresAppendEventAdapter } from '../../../ei/infrastructure/persistence/append-event.pg';
 import { SessionIntentIssuedSchema } from '../../../ei/schemas/outputs';
 import { P1WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
 import { buildP1PresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
-import { composeP1View } from '../../../ei/study-session-orchestration/domain/services/view-composer';
+import { composeP1View, selectPhase1Variant } from '../../../ei/study-session-orchestration/domain/services/view-composer';
 import type { AggregatesForPresentation } from '../../../ei/study-session-orchestration/domain/types/aggregates-for-presentation';
 import type { TopicStateSnapshot } from '../../../ei/domain/student-aggregates/student-aggregates';
 import type { StateTrend } from '../../../ei/domain/student-aggregates/student-aggregates';
@@ -82,49 +84,79 @@ export const ComposeP1ViewInputSchema = z.object({
   historicalIndicators: z
     .object({ hadSilenceInLast14d: z.boolean(), hadHighPressureInLast14d: z.boolean() })
     .optional(),
+  correlationId: z.string().optional(),
 });
 
 // ============================================================================
 // Step definition
 // ============================================================================
 
+/** Pure compose function — callable without Mastra step context. */
+export async function executeComposeP1View(
+  inputData: z.infer<typeof ComposeP1ViewInputSchema>,
+): Promise<z.infer<typeof P1WrappedResponseSchema>> {
+  const {
+    domainOutput,
+    workflowInput,
+    aggregates,
+    topicStates,
+    sessionsLast7d,
+    loopsClosedLast7d,
+    sessionsTotal,
+    hasPriorOpen,
+    lastIdentityShownAt,
+    historicalIndicators,
+  } = inputData;
+
+  const ctx = buildP1PresentationContext(
+    domainOutput,
+    workflowInput,
+    mapAggregatesForPresentation(aggregates),
+    mapTopicSnapshots(topicStates),
+    { sessionsLast7d, loopsClosedLast7d },
+    lastIdentityShownAt,
+    historicalIndicators,
+    hasPriorOpen,
+    sessionsTotal,
+  );
+  const sdui = composeP1View(domainOutput, ctx);
+
+  // Emit ViewComposed — PresentationTrace observability (ops-observability-tactical-spec §12).
+  // selectPhase1Variant is deterministic/pure: safe to call again with same ctx.
+  const variant = selectPhase1Variant(ctx);
+  await new PostgresAppendEventAdapter(getDb()).append({
+    studentId: domainOutput.studentId,
+    eventType: 'ViewComposed',
+    topicId: domainOutput.topicId ?? domainOutput.topic ?? null,
+    payload: {
+      studentId: domainOutput.studentId,
+      correlationId: inputData.correlationId,
+      phase: 'p1',
+      variant,
+      presentationSignals: {
+        energy: ctx.energy,
+        silenceDays: ctx.silenceDays,
+        pendingChecks: ctx.pendingChecks,
+        mode: ctx.mode,
+        sessionsTotal: ctx.sessionsTotal,
+      },
+      composedAt: new Date().toISOString(),
+    },
+  });
+
+  return {
+    ...domainOutput,
+    schemaVersion: sdui.schemaVersion,
+    phase: sdui.phase,
+    view: sdui.view,
+    actions: sdui.actions,
+  };
+}
+
 export const composeP1ViewStep = createStep({
   id: 'compose-p1-view',
   inputSchema: ComposeP1ViewInputSchema,
   outputSchema: P1WrappedResponseSchema,
-  execute: async ({ inputData }): Promise<z.infer<typeof P1WrappedResponseSchema>> => {
-    const {
-      domainOutput,
-      workflowInput,
-      aggregates,
-      topicStates,
-      sessionsLast7d,
-      loopsClosedLast7d,
-      sessionsTotal,
-      hasPriorOpen,
-      lastIdentityShownAt,
-      historicalIndicators,
-    } = inputData;
-
-    const ctx = buildP1PresentationContext(
-      domainOutput,
-      workflowInput,
-      mapAggregatesForPresentation(aggregates),
-      mapTopicSnapshots(topicStates),
-      { sessionsLast7d, loopsClosedLast7d },
-      lastIdentityShownAt,
-      historicalIndicators,
-      hasPriorOpen,
-      sessionsTotal,
-    );
-    const sdui = composeP1View(domainOutput, ctx);
-
-    return {
-      ...domainOutput,
-      schemaVersion: sdui.schemaVersion,
-      phase: sdui.phase,
-      view: sdui.view,
-      actions: sdui.actions,
-    };
-  },
+  execute: async ({ inputData }): Promise<z.infer<typeof P1WrappedResponseSchema>> =>
+    executeComposeP1View(inputData),
 });

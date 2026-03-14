@@ -676,7 +676,7 @@ export function composeLearnCloseView(
 // Phase 1 Open — contextual greeting helpers
 // ────────────────────────────────────────────────────────────────────────────
 
-type Phase1Variant =
+export type Phase1Variant =
   | 'ONBOARDING'
   | 'SILENCE_RE_ENTRY'
   | 'LOW_ENERGY'

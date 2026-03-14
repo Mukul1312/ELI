@@ -10,11 +10,15 @@
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
+import { getDb } from '../../../ei/runtime/db';
+import { PostgresAppendEventAdapter } from '../../../ei/infrastructure/persistence/append-event.pg';
 import { VerificationDecisionIssuedSchema } from '../../../ei/schemas/outputs';
 import { P3WrappedResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
 import { composeP3View, composeLearnCloseView } from '../../../ei/study-session-orchestration/domain/services/view-composer';
 
-export const ComposeP3ViewInputSchema = VerificationDecisionIssuedSchema;
+export const ComposeP3ViewInputSchema = VerificationDecisionIssuedSchema.extend({
+  correlationId: z.string().optional(),
+});
 
 export const composeP3ViewStep = createStep({
   id: 'compose-p3-view',
@@ -28,6 +32,19 @@ export const composeP3ViewStep = createStep({
     const sdui = isLearn
       ? composeLearnCloseView(inputData)
       : composeP3View(inputData, inputData.sessionDurationSec, inputData.dropoutSignalActive ?? false);
+
+    // Emit ViewComposed — PresentationTrace observability (ops-observability-tactical-spec §12).
+    await new PostgresAppendEventAdapter(getDb()).append({
+      studentId: inputData.studentId,
+      eventType: 'ViewComposed',
+      topicId: inputData.topic,
+      payload: {
+        studentId: inputData.studentId,
+        correlationId: inputData.correlationId,
+        phase: 'p3',
+        composedAt: new Date().toISOString(),
+      },
+    });
 
     return {
       ...inputData,

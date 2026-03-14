@@ -74,6 +74,7 @@ describe('SelectFlowHandler', () => {
       topicId: 'topic-1',
       isOnboarding: false,
       isMicro: false,
+      sessionId: 'test-session-uuid',
       ...overrides,
     };
   }
@@ -118,14 +119,36 @@ describe('SelectFlowHandler', () => {
     expect(event.payload).toMatchObject({
       studentId: 'student-1',
       templateId: 'declared-standard',
+      sessionId: 'test-session-uuid',
       selectionContext: {
         hasTaskType: true,
         isOnboarding: false,
         isMicro: false,
         hasTopic: true,
+        cohortFlags: {},
       },
     });
     expect(event.payload).toHaveProperty('selectedAt');
+  });
+
+  it('includes sessionId in FlowSelected for non-negotiated templates', async () => {
+    aggregatesQuery.set('student-1', defaultAggregates);
+    await handler.execute(baseCommand({ taskType: 'Practice' })); // declared-standard
+    expect((eventAppender.events[0].payload as Record<string, unknown>).sessionId).toBe('test-session-uuid');
+  });
+
+  it('omits sessionId in FlowSelected for negotiated-standard', async () => {
+    aggregatesQuery.set('student-1', defaultAggregates);
+    await handler.execute(baseCommand()); // negotiated-standard (no taskType)
+    expect((eventAppender.events[0].payload as Record<string, unknown>).sessionId).toBeUndefined();
+  });
+
+  it('includes cohortFlags in selectionContext snapshot', async () => {
+    aggregatesQuery.set('student-1', defaultAggregates);
+    policyQuery.set('student-1', { dials: { 'ab.feature': true } });
+    await handler.execute(baseCommand());
+    const selectionContext = (eventAppender.events[0].payload as Record<string, unknown>).selectionContext as Record<string, unknown>;
+    expect(selectionContext.cohortFlags).toEqual({ 'ab.feature': true });
   });
 
   it('derives idempotency key from command', async () => {

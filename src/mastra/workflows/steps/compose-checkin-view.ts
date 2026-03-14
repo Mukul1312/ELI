@@ -11,6 +11,7 @@ import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 
 import { getDb } from '../../../ei/runtime/db';
+import { PostgresAppendEventAdapter } from '../../../ei/infrastructure/persistence/append-event.pg';
 import * as Q from '../../../ei/db/queries';
 import { SduiResponseSchema } from '../../../ei/study-session-orchestration/types/sdui-contract';
 import { buildCheckinPresentationContext } from '../../../ei/study-session-orchestration/domain/value-objects/presentation-context';
@@ -95,6 +96,13 @@ export const composeCheckinViewStep = createStep({
 
     // First-ever: show onboarding welcome (Screen 1) — no identity card, no energy/sleep
     if (!hasPriorOpen) {
+      // Emit ViewComposed for onboarding welcome (PresentationTrace observability)
+      await new PostgresAppendEventAdapter(db).append({
+        studentId,
+        eventType: 'ViewComposed',
+        topicId: null,
+        payload: { studentId, correlationId, phase: 'checkin', composedAt: new Date().toISOString() },
+      });
       return composeOnboardingWelcomeView();
     }
 
@@ -116,6 +124,14 @@ export const composeCheckinViewStep = createStep({
       .slice(0, 5)
       .filter((r) => r.topic_name)
       .map((r) => ({ id: r.topic_id, name: r.topic_name! }));
+
+    // Emit ViewComposed — PresentationTrace observability (ops-observability-tactical-spec §12).
+    await new PostgresAppendEventAdapter(db).append({
+      studentId,
+      eventType: 'ViewComposed',
+      topicId: null,
+      payload: { studentId, correlationId, phase: 'checkin', composedAt: new Date().toISOString() },
+    });
 
     return composeCheckinView(ctx, identityEligibility, recentTopics);
   },

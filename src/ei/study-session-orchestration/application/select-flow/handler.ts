@@ -28,7 +28,7 @@ export class SelectFlowHandler implements ISelectFlowUseCase {
   ) {}
 
   async execute(command: SelectFlowCommand): Promise<SelectFlowResult> {
-    const { studentId, topicId, taskType, isOnboarding, isMicro, idempotencyKey } = command;
+    const { studentId, topicId, taskType, isOnboarding, isMicro, sessionId, idempotencyKey } = command;
 
     // 1. Parallel I/O via driven ports
     const [aggregates, policy] = await Promise.all([
@@ -61,6 +61,9 @@ export class SelectFlowHandler implements ISelectFlowUseCase {
       payload: {
         studentId,
         templateId: template.id,
+        // Negotiated sessions: session identity is owned by protocol1-ignition (its own UUID).
+        // Including command.sessionId would correlate FlowSelected to a UUID that never reaches the Ledger.
+        sessionId: template.id !== 'negotiated-standard' ? sessionId : undefined,
         selectionContext: {
           hasTaskType: ctx.hasTaskType,
           isOnboarding: ctx.isOnboarding,
@@ -70,6 +73,7 @@ export class SelectFlowHandler implements ISelectFlowUseCase {
           silenceDays: ctx.silenceDays,
           pendingChecks: ctx.pendingChecks,
           openLoops: ctx.openLoops,
+          cohortFlags: { ...ctx.cohortFlags },
         },
         selectedAt,
       },

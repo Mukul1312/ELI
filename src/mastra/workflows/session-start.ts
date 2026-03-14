@@ -29,7 +29,7 @@ const appendAndComposeStep = createStep({
   inputSchema: SessionStartInput,
   outputSchema: z.any(),
   execute: async ({ inputData }) => {
-    const { studentId, topic, topicName, mode = 'Neutral', taskType, timebox, firstActionText, idempotencyKey } = inputData;
+    const { studentId, topic, topicName, mode = 'Neutral', taskType, timebox, firstActionText, idempotencyKey, correlationId } = inputData;
     const startedAt = new Date().toISOString();
 
     const payload = validateEventPayload('FirstActionStarted', {
@@ -60,6 +60,19 @@ const appendAndComposeStep = createStep({
       taskType,
       timebox,
       firstActionText: resolvedFirstAction,
+    });
+
+    // Emit ViewComposed — PresentationTrace observability (ops-observability-tactical-spec §12).
+    await appendEvent.append({
+      studentId,
+      eventType: 'ViewComposed',
+      topicId: topic,
+      payload: {
+        studentId,
+        correlationId,
+        phase: 'p2',
+        composedAt: new Date().toISOString(),
+      },
     });
 
     return sdui;

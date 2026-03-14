@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import { getDb } from '../../ei/runtime/db';
 import type { EiDb } from '../../ei/runtime/db';
+import { PostgresAppendEventAdapter } from '../../ei/infrastructure/persistence/append-event.pg';
 import {
   type AppOpenPayload,
   isAppOpenFirstTouch,
@@ -20,7 +21,7 @@ import {
   isAppOpenMicro,
 } from '../../ei/application/ei-protocol-router';
 import { SduiResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
-import { protocol1IgnitionWorkflow } from './protocol1-ignition';
+import { executeComposeP1View } from './steps/compose-p1-view';
 import { checkinViewWorkflow } from './checkin-view';
 import { sessionStartWorkflow } from './session-start';
 import { composeOnboardingResponseView } from '../../ei/study-session-orchestration/domain/services/view-composer';
@@ -115,6 +116,7 @@ const appOpenBranchStep = createStep({
       : await resolveTopicSafe(db, fullPayload.topic, studentId);
 
     // ── 2. SelectFlow: SSO domain decides template ──
+    const sessionId = crypto.randomUUID();
     const selectFlowHandler = new SelectFlowHandler(
       new PostgresStudentAggregatesQueryAdapter(db),
       new PostgresStudentPolicyQueryAdapter(db),
@@ -126,11 +128,11 @@ const appOpenBranchStep = createStep({
       taskType: fullPayload.taskType,
       isOnboarding: isAppOpenOnboarding(payload as AppOpenPayload),
       isMicro: isAppOpenMicro(payload as AppOpenPayload),
+      sessionId,
       idempotencyKey,
     });
 
     // ── 3. FlowExecutor: walk template phases via gate handler ports ──
-    const sessionId = crypto.randomUUID();
     const flowExecutor = new FlowExecutor(
       createDeclaredIntentHandler(db, idempotencyKey),
       createP1GateHandler(db, idempotencyKey),
@@ -157,7 +159,15 @@ const appOpenBranchStep = createStep({
           await Q.upsertTopicState(db, studentId, topicRef.topicId, { last_task_type: fullPayload.taskType });
         }
         if (flowResult.kind === 'onboarding') {
-          return composeOnboardingResponseView(topicRef.topicId, fullPayload.taskType ?? 'Practice', topicRef.topicName);
+          const sduiResult = composeOnboardingResponseView(topicRef.topicId, fullPayload.taskType ?? 'Practice', topicRef.topicName);
+          // Emit ViewComposed — PresentationTrace observability (ops-observability-tactical-spec §12).
+          await new PostgresAppendEventAdapter(db).append({
+            studentId,
+            eventType: 'ViewComposed',
+            topicId: topicRef.topicId,
+            payload: { studentId, correlationId, phase: 'p2', composedAt: new Date().toISOString() },
+          });
+          return sduiResult;
         }
         const run = await sessionStartWorkflow.createRun();
         return run.start({
@@ -174,18 +184,26 @@ const appOpenBranchStep = createStep({
         });
       }
       case 'negotiated': {
-        const run = await protocol1IgnitionWorkflow.createRun();
-        return run.start({
-          inputData: {
-            studentId,
-            topic: topicRef.topicId,
-            topicName: topicRef.topicName,
-            energy: fullPayload.energy,
-            sleepBucket: (fullPayload.sleepBucket ?? '7-8') as '7-8' | '<6' | '6-7' | '>=8',
-            openedAt: fullPayload.openedAt,
-            idempotencyKey,
-            correlationId,
-          },
+        // Per ADR-005 §Execution Model: FlowExecutor already ran P1.
+        // Load aggregates (same as protocol1IgnitionWorkflow's .map() step) and compose view directly.
+        const [aggregates, topicStates, checkinCtx, historicalIndicators] = await Promise.all([
+          Q.getAggregates(db, studentId),
+          Q.getAllTopicStates(db, studentId),
+          Q.getCheckinEventContext(db, studentId),
+          Q.getHistoricalIdentityIndicators(db, studentId),
+        ]);
+        return executeComposeP1View({
+          domainOutput: { ...flowResult.p1Output, topicName: topicRef.topicName },
+          workflowInput: { energy: fullPayload.energy },
+          aggregates: aggregates ?? null,
+          topicStates,
+          sessionsLast7d: checkinCtx.sessionsLast7d,
+          loopsClosedLast7d: checkinCtx.loopsClosedLast7d,
+          sessionsTotal: checkinCtx.sessionsTotal,
+          hasPriorOpen: checkinCtx.hasPriorOpen,
+          lastIdentityShownAt: checkinCtx.lastIdentityShownAt,
+          historicalIndicators,
+          correlationId,
         });
       }
       case 'micro': {

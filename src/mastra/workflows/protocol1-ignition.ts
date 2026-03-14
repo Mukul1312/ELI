@@ -21,6 +21,10 @@ import { ProtocolEngine } from '../../ei/domain/study-session/protocol-engine';
 import { SessionIntentIssuedSchema } from '../../ei/schemas/outputs';
 import { P1WrappedResponseSchema } from '../../ei/study-session-orchestration/types/sdui-contract';
 import { composeP1ViewStep } from './steps/compose-p1-view';
+import { PostgresCatalogRepository } from '../../curriculum-catalog/infrastructure/persistence/catalog-repository.pg';
+import { PostgresTopicSearchAdapter } from '../../curriculum-catalog/infrastructure/search/topic-search-adapter.pg';
+import { PostgresNormalizationQueueRepository } from '../../curriculum-catalog/infrastructure/persistence/normalization-queue-repository.pg';
+import { ResolveTopicHandler } from '../../curriculum-catalog/application/resolve-topic/handler';
 
 // ============================================================================
 // Input / output schemas
@@ -40,6 +44,24 @@ const P1Input = z.object({
 // ============================================================================
 // Steps
 // ============================================================================
+
+const resolveTopicStep = createStep({
+  id: 'resolve-topic',
+  inputSchema: P1Input,
+  outputSchema: P1Input,
+  execute: async ({ inputData }): Promise<z.infer<typeof P1Input>> => {
+    const db = getDb();
+    const catalogRepo = new PostgresCatalogRepository(db);
+    const searchAdapter = new PostgresTopicSearchAdapter(db);
+    const normalizationRepo = new PostgresNormalizationQueueRepository(db);
+    const handler = new ResolveTopicHandler(catalogRepo, searchAdapter, normalizationRepo);
+    const resolved = await handler.execute({
+      rawText: inputData.topic,
+      studentId: inputData.studentId,
+    });
+    return { ...inputData, topic: resolved.topicId, topicName: resolved.topicName };
+  },
+});
 
 const runP1Gate = createStep({
   id: 'run-p1-gate',
@@ -97,6 +119,7 @@ export const protocol1IgnitionWorkflow = createWorkflow({
   inputSchema: P1Input,
   outputSchema: P1WrappedResponseSchema,
 })
+  .then(resolveTopicStep)
   .then(runP1Gate)
   .map(async ({ inputData, getInitData }) => {
     const workflowInput = getInitData() as z.infer<typeof P1Input>;
@@ -123,6 +146,7 @@ export const protocol1IgnitionWorkflow = createWorkflow({
       hasPriorOpen: checkinCtx.hasPriorOpen,
       lastIdentityShownAt: checkinCtx.lastIdentityShownAt,
       historicalIndicators,
+      correlationId: workflowInput.correlationId,
     };
   })
   .then(composeP1ViewStep)

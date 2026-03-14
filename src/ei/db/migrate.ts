@@ -331,7 +331,36 @@ const SQL_STATEMENTS = [
    ON CONFLICT (unit_id, name) DO NOTHING`,
 
   // ================================================================
-  // 8. ADR-003: Projection schema evolution — 6 new ei_topic_state columns
+  // 8. CurriculumCatalog — topic_edges graph table
+  // ================================================================
+
+  `CREATE TABLE IF NOT EXISTS topic_edges (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_topic_id   UUID NOT NULL REFERENCES curriculum_topics(id) ON DELETE CASCADE,
+    target_topic_id   UUID NOT NULL REFERENCES curriculum_topics(id) ON DELETE CASCADE,
+    edge_type         TEXT NOT NULL CHECK (edge_type IN ('prerequisite_of', 'related_to', 'applied_in')),
+    strength          TEXT CHECK (strength IN ('required', 'recommended', 'helpful')),
+    cross_subject     BOOLEAN NOT NULL DEFAULT false,
+    notes             TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT topic_edges_no_self_loop CHECK (source_topic_id != target_topic_id),
+    CONSTRAINT topic_edges_unique UNIQUE (source_topic_id, target_topic_id, edge_type)
+  )`,
+
+  `CREATE INDEX IF NOT EXISTS idx_topic_edges_target
+   ON topic_edges (target_topic_id)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_topic_edges_source
+   ON topic_edges (source_topic_id)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_topic_edges_type
+   ON topic_edges (edge_type)`,
+
+  `CREATE INDEX IF NOT EXISTS idx_topic_edges_cross_subject
+   ON topic_edges (cross_subject) WHERE cross_subject = true`,
+
+  // ================================================================
+  // 9. ADR-003: Projection schema evolution — 6 new ei_topic_state columns
   // ================================================================
   `DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ei_topic_state' AND column_name = 'session_phase') THEN

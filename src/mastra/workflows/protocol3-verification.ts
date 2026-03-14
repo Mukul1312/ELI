@@ -134,5 +134,9 @@ export const protocol3VerificationWorkflow = createWorkflow({
   outputSchema: P3WrappedResponseSchema,
 })
   .then(runP3Gate)
+  .map(async ({ inputData, getInitData }) => {
+    const initData = getInitData() as z.infer<typeof P3Input>;
+    return { ...inputData, correlationId: initData.correlationId };
+  })
   .then(composeP3ViewStep)
   .commit();

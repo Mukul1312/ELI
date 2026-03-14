@@ -11,5 +11,8 @@ export interface SelectFlowCommand {
   readonly taskType?: string;
   readonly isOnboarding: boolean;
   readonly isMicro: boolean;
+  /** Present for declared/onboarding/micro flows — used in FlowSelected event for session correlation.
+   *  Absent for negotiated-standard: protocol1-ignition generates its own sessionId later. */
+  readonly sessionId?: string;
   readonly idempotencyKey?: string;
 }
