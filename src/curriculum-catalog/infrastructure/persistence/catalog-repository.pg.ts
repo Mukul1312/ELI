@@ -59,9 +59,18 @@ export class PostgresCatalogRepository implements ICatalogRepository {
   }
 
   async findTopicsByAlias(alias: string): Promise<CatalogTopic[]> {
-    const rows = await this.db.many<TopicRow>(
+    const rows = await this.db.manyOrNone<TopicRow>(
       'SELECT * FROM curriculum_topics WHERE $1 = ANY(aliases)',
       [alias.toLowerCase()],
+    );
+    return rows.map(rowToEntity);
+  }
+
+  async findTopicsByIds(ids: string[]): Promise<CatalogTopic[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db.manyOrNone<TopicRow>(
+      'SELECT * FROM curriculum_topics WHERE id = ANY($1::uuid[])',
+      [ids],
     );
     return rows.map(rowToEntity);
   }

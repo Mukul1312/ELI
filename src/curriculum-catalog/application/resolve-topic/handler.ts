@@ -10,6 +10,8 @@ import { NormalizationQueueEntry } from '../../domain/normalization-queue-entry'
 const SENTINEL_ID = '00000000-0000-0000-0000-000000000000';
 
 export class ResolveTopicHandler implements IResolveTopicUseCase {
+  private static readonly UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   constructor(
     private readonly catalogRepo: ICatalogRepository,
     private readonly searchAdapter: ITopicSearchAdapter,
@@ -17,6 +19,13 @@ export class ResolveTopicHandler implements IResolveTopicUseCase {
   ) {}
 
   async execute(command: ResolveTopicCommand): Promise<TopicReference> {
+    if (ResolveTopicHandler.UUID_REGEX.test(command.rawText.trim())) {
+      const existing = await this.catalogRepo.findTopicById(command.rawText.trim());
+      if (existing && !existing.toProps().provisional) {
+        return existing.toTopicReference();
+      }
+    }
+
     const normalized = command.rawText.trim().toLowerCase();
 
     // 1. Try exact alias match

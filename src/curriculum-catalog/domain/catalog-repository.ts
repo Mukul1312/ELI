@@ -19,6 +19,7 @@ export interface ICatalogRepository {
   findTopicById(id: string): Promise<CatalogTopic | null>;
   findTopicByNameAndExam(name: string, examId: string): Promise<CatalogTopic | null>;
   findTopicsByAlias(alias: string): Promise<CatalogTopic[]>;
+  findTopicsByIds(ids: string[]): Promise<CatalogTopic[]>;
   saveProvisionalTopic(topic: CatalogTopic): Promise<void>;
   saveTopic(topic: CatalogTopic): Promise<void>;
   saveTopics(topics: CatalogTopic[]): Promise<void>;

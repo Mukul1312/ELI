@@ -45,9 +45,11 @@ Keep EI runnable and diagnosable in production: observe behavior (logs, metrics,
 
 | Term              | Definition (in this context)                                       |
 | ----------------- | ------------------------------------------------------------------ |
-| CorrelationId     | Request-scoped ID for tracing across contexts                      |
+| CorrelationId     | Request-scoped ID for tracing across contexts; generated at API boundary, propagated through Mastra steps into domain events |
 | TraceId           | End-to-end trace for a flow                                        |
-| TimelineDebug     | Student or request timeline; assembled from Ledger and Projections |
+| TimelineDebug     | Student or request timeline; assembled from Ledger events + Projection state. For a single AppOpen: AppOpen → FlowSelected → SessionIntentIssued → ViewComposed (full request trace queryable by correlationId or sessionId) |
+| PresentationTrace | The sub-sequence of ViewComposed events in a student timeline; answers "which screen variant was shown and why" without requiring Mastra Studio access |
+| ViewComposed      | SSO-owned domain event appended after each SDUI composition step; carries correlationId, phase, variant, presentationSignals (key signals that drove the presentation decision). Owned by StudySessionOrchestration; consumed by Ops via IQueryEventsPort |
 | ReplayJob         | Job to re-ingest events; idempotent, auditable, throttled          |
 | BackfillJob       | Job to recompute projection state; scope, version, checkpoint      |
 | ProjectionVersion | Version of projection logic; enables safe rollback and audit       |
@@ -66,7 +68,7 @@ Keep EI runnable and diagnosable in production: observe behavior (logs, metrics,
 
 | Collaborator        | Message type   | Message name                 | Key data                           | Integration style    | Relationship (from context map) |
 | ------------------- | -------------- | ---------------------------- | ---------------------------------- | -------------------- | ------------------------------- |
-| EI Event Ledger     | Query response | Event stream (read-only)     | events, timeline, replay scope     | Read-only / replay   | Customer-Supplier               |
+| EI Event Ledger     | Query response | Event stream (read-only)     | All event types incl. SSO-owned events: FlowSelected (which flow, why), ViewComposed (which screen variant, which signals), SessionIntentIssued (gate decision), AppOpen (input signals). Correlatable by correlationId and sessionId across a single AppOpen request. | Read-only / replay   | Customer-Supplier               |
 | EI Projections      | Query response | Projection state (read-only) | aggregates, policy, backfill specs | Read-only / backfill | Customer-Supplier               |
 | BillingEntitlements | Query response | Billing audit (read-only)    | redemptions, entitlement status    | Read-only query      | Customer-Supplier               |
 
@@ -108,6 +110,8 @@ Ops does not supply domain data to other bounded contexts. Replay/backfill write
 - Ops views respect tenant boundaries; no unauthorized cross-cohort access.
 - TracedDbAdapter emits span logs for every DB query without modifying business code.
 - TracedAuthAdapter captures getSession, ensureMapping, resolveAuth as separate spans with correlationId.
+- For any AppOpen request: timeline query by studentId returns FlowSelected + ViewComposed events with matching correlationId, enabling full "which flow → which screen variant → which signals" trace without Mastra Studio access.
+- ViewComposed.variant correctly identifies which Phase1Variant was selected (e.g. SILENCE_RE_ENTRY, LOW_ENERGY) and the presentationSignals that drove it.
 
 ---
 
