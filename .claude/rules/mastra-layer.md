@@ -11,10 +11,12 @@ Mastra is the **outermost shell**. It handles I/O, orchestrates EI use cases, an
 
 ## Core Rules
 
-**1. Never import from `src/ei/domain/` in workflow or tool files.**
+**1. Never import from `src/ei/domain/` (EI Runtime domain) in workflow or tool files.**
 Always go through application handlers:
 - `RunP1GateHandler`, `RunDeclaredIntentHandler`, `RunP2GateHandler`, `RunP3GateHandler`
 - `AssessLoopHealthHandler`, `ApplyStrategicAdjustmentDecisionHandler`
+
+**Exception:** SSO domain pure functions are allowed — ViewComposer, PresentationContext builders, IdentityEligibility are pure (zero I/O, zero side effects). Import from `src/ei/study-session-orchestration/domain/` is safe in compose steps.
 
 **2. No domain logic in workflow steps.** Steps are thin orchestration; delegate everything to `src/ei/application/`.
 
@@ -31,8 +33,8 @@ Pattern: `load DB rows → map to AggregatesForPresentation → buildXxxPresenta
 
 | Workflow | EI handler / function |
 |---|---|
+| `ei-app-open.ts` | `DetectResumeHandler` → `SelectFlowHandler` → `FlowExecutor` (via handler factories) |
 | `protocol1-ignition.ts` | `RunP1GateHandler` |
-| `ei-app-open.ts` | `RunDeclaredIntentHandler` via `declare-intent` tool |
 | `protocol2-activation.ts` | `RunP2GateHandler` |
 | `protocol3-verification.ts` | `RunP3GateHandler` |
 | `verification-complete.ts` | DB queries + `composePhase3View` |
@@ -45,9 +47,9 @@ Pattern: `load DB rows → map to AggregatesForPresentation → buildXxxPresenta
 
 ```
 1. Load aggregates from DB using queries.ts helpers
-2. Map DB rows → AggregatesForPresentation (typed DTO from src/ei/sdui/types/aggregates-for-presentation.ts)
-3. Call build{Phase}PresentationContext() from src/ei/sdui/presentation-context.ts
-4. Call compose{Phase}View(output, ctx) from src/ei/sdui/view-composer.ts
+2. Map DB rows → AggregatesForPresentation (typed DTO from src/ei/study-session-orchestration/domain/types/aggregates-for-presentation.ts)
+3. Call build{Phase}PresentationContext() from src/ei/study-session-orchestration/domain/value-objects/presentation-context.ts
+4. Call compose{Phase}View(output, ctx) from src/ei/study-session-orchestration/domain/services/view-composer.ts
 5. Return wrapped SDUI response (P1WrappedResponse / P2WrappedResponse / P3WrappedResponse)
 ```
 
@@ -64,7 +66,7 @@ NEVER put side effects inside `view-composer.ts` — ViewComposer is a pure func
 { schemaVersion: 1, phase, view: { header, body, actions, footer }, actions: Record<string, SduiAction>, domain }
 ```
 
-Phase-specific wrappers defined in `src/ei/sdui/types/sdui-contract.ts`:
+Phase-specific wrappers defined in `src/ei/study-session-orchestration/types/sdui-contract.ts`:
 `P1WrappedResponse`, `P2WrappedResponse`, `P3WrappedResponse`
 
 ## Anti-Patterns to Avoid

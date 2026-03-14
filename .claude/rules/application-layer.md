@@ -64,6 +64,8 @@ Rule: Domain validates domain concepts. Application validates command shape/inpu
 
 ## Use Case Map
 
+### EI Runtime (AdaptiveCoaching) — `src/ei/application/`
+
 | Use case | Handler |
 |---|---|
 | P1 gate (ELI path) | `run-p1-gate/handler.ts` |
@@ -76,6 +78,16 @@ Rule: Domain validates domain concepts. Application validates command shape/inpu
 | SA decision application | `apply-strategic-adjustment-decision/handler.ts` |
 | Schedule missed emission | `emit-schedule-missed/handler.ts` |
 | EI protocol routing | `ei-protocol-router/router.ts` |
+
+### StudySessionOrchestration — `src/ei/study-session-orchestration/application/`
+
+| Use case | Handler | ADR |
+|---|---|---|
+| Flow selection (pick FlowTemplate) | `select-flow/handler.ts` | ADR-005 |
+| Resume detection | `detect-resume/handler.ts` | ADR-005 |
+| Flow execution (orchestrate gate sequence) | `execute-flow/handler.ts` | ADR-005 |
+
+SSO application handlers import SSO domain + port interfaces only. Same rules as EI application layer: no DB, no domain logic, thin orchestration.
 
 ## Concurrency Boundaries
 

@@ -36,6 +36,7 @@ Infrastructure → Application → Domain
 | Strategic Adjustment | `src/ei/application/apply-strategic-adjustment-decision/`, `src/mastra/workflows/strategic-adjustment.ts` |
 | CohortAccess | ACL at API boundary — server-derived `studentId` only |
 | OpsObservability | `src/mastra/tools/signal-compute.ts`, timeline reads in `src/ei/db/queries.ts` |
+| CurriculumCatalog | `src/curriculum-catalog/` (planned) — domain/, application/, infrastructure/ |
 
 ---
 
@@ -62,11 +63,39 @@ Infrastructure → Application → Domain
 
 ---
 
-## ADR-001 — Two P1 paths (read: docs/engineering-ddd-design/decisions/adr-001-declared-intent-design.md)
+## Architecture Decision Records
+
+### ADR-001 — Two P1 paths (read: docs/engineering-ddd-design/decisions/adr-001-declared-intent-design.md)
 
 - `DeclaredIntent` (`value-objects/declared-intent.ts`): student-driven, data integrity only, **primary (Sessions 1–8)**
 - `NegotiatedIntent` (`value-objects/negotiated-intent.ts`): ELI engine, full business rules
 - Both emit `SessionIntentIssued` with `intentSource: 'declared' | 'negotiated'` discriminator
+- `ei_study_sessions` table removed; session state fully derived from Ledger events
+
+### ADR-002 — Declared-Intent Bypass Fix (read: docs/engineering-ddd-design/decisions/adr-002-declared-intent-bypass-fix.md)
+
+- Declared path now runs `RunDeclaredIntentHandler` → silent `RunP2GateHandler` (emits `ActivationPlanIssued`)
+- Both paths produce identical Ledger event sequence; mode is LoopHealth-driven for declared sessions
+- `PhaseDeriver` updated to accept `FirstActionStarted` as active-session evidence for declared path
+
+### ADR-003 — Projection Schema Evolution (read: docs/engineering-ddd-design/decisions/adr-003-projection-schema-evolution.md)
+
+- `ei_topic_state` gained 6 SessionLifecycleState columns: `session_phase`, `current_session_id`, `verification_floor`, `watch_only_flag`, `intent_source`, `last_session_started_at`
+- `ei_student_aggregates` gained 5 columns: `sessions_last_7d`, `loops_closed_last_7d`, `has_prior_app_open`, `last_identity_shown_at`, `active_days_7d`
+- Eliminates ~5000ms latency from raw event stream reads
+
+### ADR-004 — Session Lifecycle Persistence (read: docs/engineering-ddd-design/decisions/adr-004-session-lifecycle-persistence.md)
+
+- `IStudySessionRepository.findById()` folds Ledger events into reconstituted aggregate
+- `save()` is no-op (events already appended to Ledger by handlers)
+- Cross-protocol constraints (verificationFloor, watchOnlyFlag) available from aggregate without Ledger re-reads
+
+### ADR-005 — SSO Extraction (read: docs/engineering-ddd-design/decisions/adr-005-flow-level-adaptation.md)
+
+- StudySessionOrchestration extracted as separate bounded context from EI Runtime
+- SSO owns: FlowStrategy, ViewComposer, FlowTemplate, PresentationContext, FlowSelectionContext, IdentityEligibility
+- SSO is "domain services + VOs" context — no aggregate root
+- SSO domain may import `src/ei/schemas/` (Published Language); MUST NOT import `src/ei/domain/`
 
 ---
 
@@ -76,6 +105,24 @@ Infrastructure → Application → Domain
 - **Driven ports (outbound):** `domain/{aggregate}/repository.ts` OR `application/shared/port-*.ts`
 - One repository per aggregate root — NEVER per DB table
 - Repository interfaces use domain types only — no SQL/ORM types exposed
+
+---
+
+## Error Conventions
+
+- **Domain errors** MUST extend `DomainError` from `src/ei/domain/shared/errors.ts` — invariant violations, invalid VO construction
+- **Application errors** MUST extend `ApplicationError` — command shape validation, precondition failures at use-case boundary
+- Domain validates domain concepts. Application validates command shape/input boundaries.
+- Catch and map to API responses at the boundary (API routes), not inside handlers.
+
+---
+
+## Time Semantics
+
+- **NEVER** call `Date.now()` or `new Date()` inside domain files
+- "Now" is a parameter passed in by the application layer via `IClockPort` (`src/ei/application/shared/port-clock.ts`)
+- ISO 8601 strings at port boundaries; `Date` objects only inside domain logic
+- Projections use GREATEST semantics — timestamps never regress (monotonic update only)
 
 ---
 
@@ -98,6 +145,20 @@ Infrastructure → Application → Domain
 **Do now:** pure domain aggregate roots, repository interfaces, thin Postgres adapters, use-case handlers, spec tests.
 
 **Defer until proven needed:** full CQRS (separate read/write models), event sourcing framework, DI container, per-aggregate event buses, snapshot strategy.
+
+---
+
+## Event Ownership (ADR-005)
+
+Every event in `EventTypeEnum` has exactly one owning bounded context:
+
+**SSO-owned events (producer: UI/SSO):** `AppOpen`, `IntentSet`, `SessionEnd`, `FirstActionStarted`, `Replan`, `IntentResponse`, `RetrievalVerified`, `RetrievalScheduled`, `RetrievalSkipped`, `VerificationCompleted`, `FlowSelected`, `IdentityMomentShown`, `ViewComposed`
+
+**AdaptiveCoaching-owned events (producer: P1/P2/P3):** `SessionIntentIssued`, `ActivationPlanIssued`, `VerificationDecisionIssued`, `ScheduleMissed`
+
+**StrategicAdjustment-owned:** `StrategicAdjustmentDecision`
+
+Both SSO and AC append to the shared Ledger. Ledger owns schema and idempotency.
 
 ---
 

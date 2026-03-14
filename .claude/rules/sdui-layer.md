@@ -1,11 +1,14 @@
 ---
 paths:
   - "src/ei/sdui/**"
+  - "src/ei/study-session-orchestration/**"
 ---
 
 # SDUI Layer — Presentation Rules (StudySessionOrchestration)
 
-Full spec: `docs/engineering-ddd-design/canvas-ei-runtime.md` (Gateway context)
+Full spec: `docs/engineering-ddd-design/canvas-study-session-orchestration.md`, `docs/engineering-ddd-design/tactical/study-session-orchestration-tactical-spec.md`
+
+**ADR-005:** SSO is a separate bounded context from EI Runtime. See `docs/engineering-ddd-design/decisions/adr-005-flow-level-adaptation.md`.
 
 ## Core Rules
 
@@ -28,6 +31,22 @@ Full spec: `docs/engineering-ddd-design/canvas-ei-runtime.md` (Gateway context)
 | `types/aggregates-for-presentation.ts` | Typed DTO mapping DB rows to presentation fields |
 | `microcopy/catalog.ts` | Master microcopy catalog |
 | `identity/compute-identity-eligibility.ts` | Pure eligibility check — no DB reads, no writes |
+
+## SSO Domain Services & Value Objects (`src/ei/study-session-orchestration/domain/`)
+
+SSO domain is a **domain services + VOs** context (no aggregate root). Different import rules than EI Runtime domain:
+- May import `src/ei/schemas/` for Published Language types (event schemas, output contracts)
+- MUST NOT import `src/ei/domain/` (EI Runtime domain), `db/`, `mastra/`, `infrastructure/`
+
+| File | Purpose |
+|---|---|
+| `domain/services/flow-strategy.ts` | Stateless FlowTemplate selection from student context signals |
+| `domain/services/view-composer.ts` | Pure per-phase functions → SduiResponse |
+| `domain/value-objects/flow-template.ts` | Which phases included, which show UI (static factories) |
+| `domain/value-objects/flow-selection-context.ts` | Input VO for FlowStrategy (projection signals subset) |
+| `domain/value-objects/presentation-context.ts` | Signals consumed by ViewComposer/IdentityEligibility |
+
+**SSO-owned events:** `FlowSelected`, `IdentityMomentShown`, `ViewComposed` — informational, appended to shared Ledger.
 
 ## PresentationContext — Use the Correct Builder
 

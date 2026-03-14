@@ -1,6 +1,6 @@
 # ADR-005: Flow-Level Adaptation — StudySessionOrchestration Bounded Context Extraction + FlowStrategy
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-03-13
 **Deciders:** Product + Engineering (AI Study Brother core team)
 **Supersedes:** None (new ADR)

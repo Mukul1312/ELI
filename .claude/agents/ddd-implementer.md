@@ -17,6 +17,8 @@ Infrastructure → Application → Domain
 - `src/ei/domain/` imports NOTHING outside itself — no `db/`, `mastra/`, `schemas/`, `infrastructure/`, `application/`
 - `src/ei/application/` imports domain + port interfaces only — NO `db/`, `mastra/`, or `infrastructure/` imports
 - `src/ei/infrastructure/` implements ports — NO domain logic
+- `src/ei/study-session-orchestration/domain/` imports NOTHING outside itself EXCEPT `src/ei/schemas/` for Published Language types
+- `src/ei/study-session-orchestration/application/` imports SSO domain + port interfaces only
 
 **Before writing code, ask:** "Can I run this domain logic in a test with no DB and no HTTP?" If no — it doesn't belong in `domain/`.
 
@@ -30,8 +32,9 @@ Infrastructure → Application → Domain
 | EI Event Ledger | `src/ei/schemas/events.ts`, `src/ei/db/queries.ts`, `src/ei/infrastructure/persistence/append-event.pg.ts` |
 | EI Projections | `src/ei/domain/topic-loop/`, `src/ei/domain/student-aggregates/`, `src/ei/application/apply-event-to-topic-loop/`, `src/ei/application/recompute-student-aggregates/`, `src/ei/infrastructure/projector/` |
 | LoopHealthAssessment | `src/ei/domain/loop-health/`, `src/ei/application/assess-loop-health/` |
-| SDUI (presentation) | `src/ei/sdui/` |
+| StudySessionOrchestration | `src/ei/study-session-orchestration/domain/` (FlowStrategy, ViewComposer, FlowTemplate, PresentationContext), `src/ei/study-session-orchestration/types/` (SduiResponse), `src/ei/sdui/` (legacy presentation) |
 | Strategic Adjustment | `src/ei/application/apply-strategic-adjustment-decision/`, `src/mastra/workflows/strategic-adjustment.ts` |
+| CurriculumCatalog | `src/curriculum-catalog/` (planned) — domain/, application/, infrastructure/ |
 | Mastra orchestration | `src/mastra/workflows/`, `src/mastra/tools/`, `src/mastra/workflows/steps/` |
 
 ---
@@ -77,11 +80,35 @@ Key VOs: `DeclaredIntent` (data integrity only), `NegotiatedIntent` (full ELI bu
 
 ---
 
-## ADR-001: Two P1 paths
+## Architecture Decision Records
+
+### ADR-001: Two P1 paths (docs/engineering-ddd-design/decisions/adr-001-declared-intent-design.md)
 
 - `DeclaredIntent`: student-driven, data integrity only, **primary for Sessions 1–8**
 - `NegotiatedIntent`: ELI engine, all business rules (scope, mode, verificationFloor, constraints)
 - Both emit `SessionIntentIssued` with `intentSource: 'declared' | 'negotiated'` discriminator
+- `ei_study_sessions` table removed; session state derived from Ledger events
+
+### ADR-002: Declared-Intent Bypass Fix
+
+- Declared path runs `RunDeclaredIntentHandler` → silent `RunP2GateHandler` (emits `ActivationPlanIssued`)
+- Both paths produce identical Ledger event sequence; mode is LoopHealth-driven
+
+### ADR-003: Projection Schema Evolution
+
+- `ei_topic_state` gained 6 columns: `session_phase`, `current_session_id`, `verification_floor`, `watch_only_flag`, `intent_source`, `last_session_started_at`
+- `ei_student_aggregates` gained 5 columns: `sessions_last_7d`, `loops_closed_last_7d`, `has_prior_app_open`, `last_identity_shown_at`, `active_days_7d`
+
+### ADR-004: Session Lifecycle Persistence
+
+- `IStudySessionRepository.findById()` folds Ledger events into reconstituted aggregate; `save()` is no-op
+- Cross-protocol constraints (verificationFloor, watchOnlyFlag) available from aggregate
+
+### ADR-005: SSO Extraction
+
+- StudySessionOrchestration is a separate bounded context from EI Runtime
+- SSO owns: FlowStrategy, ViewComposer, FlowTemplate, PresentationContext, FlowSelectionContext, IdentityEligibility
+- SSO domain may import `src/ei/schemas/` (Published Language); MUST NOT import `src/ei/domain/`
 
 ---
 
@@ -128,7 +155,8 @@ One repository per aggregate root — NEVER per DB table.
 
 ## Mastra Rules
 
-- Never import from `src/ei/domain/` — always call application handlers
+- Never import from `src/ei/domain/` (EI Runtime domain) — always call application handlers
+- **Exception:** SSO domain pure functions are allowed — import from `src/ei/study-session-orchestration/domain/` is safe in compose steps (zero I/O, zero side effects)
 - Compose steps follow: `load DB rows → map to AggregatesForPresentation → buildXxxPresentationContext() → composeXxxView() → wrap response`
 - `view-composer.ts` is a pure function — ZERO DB calls, ZERO side effects
 - Side effects (e.g. `IdentityMomentShown` event) go in the Mastra step, not ViewComposer
@@ -158,6 +186,16 @@ One repository per aggregate root — NEVER per DB table.
 | `src/ei/domain/` | Unit, no mocks | Test invariants by attempting violations |
 | `src/ei/application/` | Unit, in-memory fakes | Implement port interfaces as fakes — never mock domain |
 | `src/ei/infrastructure/` | Integration, real DB | Never mock Postgres |
+
+---
+
+## Event Ownership (ADR-005)
+
+**SSO-owned (producer: UI/SSO):** `AppOpen`, `IntentSet`, `SessionEnd`, `FirstActionStarted`, `Replan`, `IntentResponse`, `RetrievalVerified`, `RetrievalScheduled`, `RetrievalSkipped`, `VerificationCompleted`, `FlowSelected`, `IdentityMomentShown`, `ViewComposed`
+
+**AdaptiveCoaching-owned (producer: P1/P2/P3):** `SessionIntentIssued`, `ActivationPlanIssued`, `VerificationDecisionIssued`, `ScheduleMissed`
+
+**StrategicAdjustment-owned:** `StrategicAdjustmentDecision`
 
 ---
 
