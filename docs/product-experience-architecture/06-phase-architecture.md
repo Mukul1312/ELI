@@ -27,7 +27,7 @@ Phase should **not** change:
 - Eli should rely on immediate context rather than history-heavy assumptions
 - continuity should be light and non-presumptuous
 - reflective language should be minimal or absent
-- the experience should feel welcoming, clear, and safe
+- the experience should feel welcoming, clear, and easy to use
 - the product should avoid acting like it "knows" the student already
 
 ### What Arrival protects against

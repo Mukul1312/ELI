@@ -67,8 +67,8 @@ Reflection should remain sparse.
 
 The same content role should behave differently depending on current capacity.
 
-### Shelter
-- **Orientation:** should reduce threat and narrow attention quickly
+### Gentle
+- **Orientation:** should simplify and narrow attention quickly
 - **Invitation:** should feel reversible, gentle, and low-ceremony
 - **Confirmation:** should stay quiet and stabilizing rather than energizing
 - **Reflection:** should be rare and extremely bounded
@@ -119,7 +119,7 @@ Reflection is premature when:
 
 - the language sounds emotionally ahead of the evidence
 - the product is still in `Arrival`
-- the student is clearly in a strained `Shelter` moment
+- the student is clearly in a strained `Gentle` moment
 - the reflection feels like brand performance rather than recognition
 
 ## Content Rule

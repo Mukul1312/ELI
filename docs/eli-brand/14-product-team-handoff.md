@@ -81,7 +81,7 @@ These are the best files for protecting system integrity over time.
 
 Use the folder to answer:
 
-- what emotional job Eli is doing here
+- what behavioral job Eli is doing here
 - which operating state the interface should feel closest to
 - how much structure or warmth is appropriate
 - whether the interface is calm, grounded, and non-performative
@@ -105,7 +105,7 @@ Then write product copy in the relevant feature or screen spec, not inside the b
 Use the folder to answer:
 
 - what semantic role color is playing
-- whether the typography behavior matches the emotional posture
+- whether the typography behavior matches the behavioral posture
 - whether the brand presence is restrained enough
 - whether the interface is using confirmation, action, and emphasis honestly
 
@@ -118,7 +118,7 @@ Use this split consistently:
 ### Brand docs should define
 
 - identity
-- anti-patterns
+- anti-patterns (anti-shame, anti-noise, anti-complexity)
 - adaptive logic at the principle level
 - state and phase meaning
 - voice and tone rules
@@ -144,7 +144,7 @@ If a document starts describing what the product literally does step by step, it
 When applying the system, ask these three questions in order:
 
 1. What does the student likely need right now?
-   This points toward `Shelter`, `Focus`, or `Momentum`.
+   This points toward `Gentle`, `Focus`, or `Momentum`.
 
 2. How much has Eli earned the right to assume or express?
    This points toward `Arrival`, `Attunement`, or `Familiarity`.
@@ -174,6 +174,7 @@ Do not reopen stable docs just because an edge case appears.
 - Do not turn brand docs into feature specs.
 - Do not solve uncertainty by adding more slogans.
 - Do not add decorative brand behavior that competes with calm product use.
+- Do not narrow the audience back to a specific student archetype without explicit strategic justification.
 - Prefer clarification over expansion when updating stable docs.
 
 The system should stay disciplined enough that new work makes it clearer, not larger.

@@ -45,10 +45,10 @@ Primary action buttons use **Muted Terracotta (`#B35C44`)**.
 - The color and the copy work together to lower the barrier to entry.
 
 ## Law 5: No Dashboard Behaviors
-Eli actively rejects standard productivity software patterns that induce anxiety or guilt.
+Eli actively rejects standard productivity software patterns. These patterns replace clarity with noise and make the product feel like a management tool rather than a companion.
 - **No Streaks:** Do not track consecutive days.
-- **No Progress Bars:** Do not use percentage bars (e.g., "40% complete") which trigger completion anxiety.
+- **No Progress Bars:** Do not use percentage bars (e.g., "40% complete") which create completion pressure.
 - **No Guilt Metrics:** Never show a counter of "days missed."
-- **No Extrinsic Gamification:** No badges, leaderboards, or points. 
+- **No Extrinsic Gamification:** No badges, leaderboards, or points.
 
 Progress should be expressed in grounded, non-performative ways, and identity should be reflected through earned meaning rather than reward mechanics.

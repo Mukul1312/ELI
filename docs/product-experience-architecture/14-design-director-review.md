@@ -1,47 +1,50 @@
 # Design-Director Review
 
-This document reviews the current `docs/product-experience-architecture/` folder as a product-architecture system.
+This document reviews the current `docs/product-experience-architecture/` folder as a product-architecture system following Eli's repositioning.
 
 It is not another architecture spec. It is a judgment document that identifies where the folder is strongest, weakest, and still too abstract to fully support downstream UX specification work.
 
 ## Executive Verdict
 
-The folder is strategically strong and structurally credible.
+The folder is strategically strong and now better aligned with the broader thesis.
 
-It already works as a serious architecture reference and it clearly follows from the Eli brand system without collapsing back into generic productivity-product thinking. The adaptive model is especially strong.
+The repositioning from emotional rescue to behavioral companion removes the implicit assumption that the product's primary job is to comfort. That assumption was never explicit in the architecture, but it was latent in some of the earlier framing. With Eli repositioned as a study companion for all exam students, the architecture reads more clearly as what it always was: a behavioral system grounded in presence, clarity, and evidence.
 
-The folder is not yet at its most operational form. It still needs one cleanup round focused on decisiveness, surface specificity, and stronger bridges into actual UX specification work.
+The folder still needs one cleanup round focused on decisiveness, surface specificity, and stronger bridges into actual UX specification work. But the strategic center is now firmer.
 
 ## What Is Strong
 
-### 1. Strategic center is clear
-The strongest part of the folder is its foundation.
+### 1. The adaptive model translates well into product behavior
+The best execution in the folder remains the adaptation layer:
+
+- `05-state-architecture.md`
+- `06-phase-architecture.md`
+
+The state trio (Gentle, Focus, Momentum) and the phase model (Arrival, Attunement, Familiarity) correctly translate behavioral signals into product behavior without drifting into persona logic or theatrical personalization. The repositioning strengthens this layer because the states no longer carry a rescue connotation. Gentle is not Shelter. It is a product posture for students who need lower friction and more presence, not emotional first aid.
+
+### 2. The experience spine is sound
+The spine in `03-experience-spine.md` holds up well under the repositioned thesis. The loop of return, orient, commit, work, close, and reflect when earned is structurally neutral. It does not depend on any particular emotional framing. It works equally well for a student in crisis and a student in a strong rhythm, which is exactly what the repositioning demands.
+
+### 3. Strategic center is clear
+The foundation docs remain strong:
 
 - `01-product-thesis.md`
 - `02-core-experience-model.md`
 - `03-experience-spine.md`
 
-These documents clearly define what kind of product Eli is, what job it performs, and what behavioral loop the product should protect. They feel derived from Eli's brand logic rather than borrowed from generic app strategy.
+These documents define what kind of product Eli is and what behavioral loop the product should protect. They follow from Eli's brand logic rather than from generic app strategy.
 
-### 2. The adaptive model translates well into product behavior
-The best execution in the folder is the adaptation layer:
-
-- `05-state-architecture.md`
-- `06-phase-architecture.md`
-
-These docs make the brand system usable for product design. They correctly translate state and relationship maturity into product behavior without drifting into persona logic or theatrical personalization.
-
-### 3. The anti-pattern guardrails are sharp
+### 4. The anti-pattern guardrails are sharp
 `13-product-anti-patterns.md` is one of the strongest docs in the folder.
 
-It is memorable, specific, and useful. It gives future contributors a clear test for drift and protects Eli from turning into a dashboard, gamified system, or over-personalized AI companion performance.
+It is memorable, specific, and useful. It gives future contributors a clear test for drift and protects Eli from turning into a dashboard, gamified system, or over-personalized AI companion performance. The five brand laws (Presence, Clarity, Restraint, Truth, Support) reinforce these guardrails naturally.
 
 ## What Is Weakest
 
 ### 1. `12-v1-product-architecture.md` is still too cautious
-This is currently the weakest file in the folder.
+This remains the weakest file in the folder.
 
-It is supposed to synthesize the architecture into a practical V1 recommendation, but it remains too careful in its phrasing. It summarizes well, but it does not make enough firm product-shaping calls.
+It is supposed to synthesize the architecture into a practical V1 recommendation, but it stays too careful in its phrasing. It summarizes well, but it does not make enough firm product-shaping calls.
 
 The document still leans on language like:
 
@@ -49,7 +52,7 @@ The document still leans on language like:
 - "likely V1 behavior"
 - "should not overbuild"
 
-That makes it directionally correct, but less decisive than a true V1 architecture recommendation should be.
+That makes it directionally correct, but less decisive than a true V1 architecture recommendation should be. The repositioning gives the team more confidence about the product's scope. The V1 doc should reflect that confidence.
 
 ### 2. `07-surface-architecture.md` stops one layer too early
 The surface architecture is conceptually correct, but still under-specified for real product design use.
@@ -57,7 +60,7 @@ The surface architecture is conceptually correct, but still under-specified for 
 It defines the canonical surfaces well, but it does not yet specify enough architectural properties for each surface, such as:
 
 - whether the surface is primary or secondary in navigation
-- where `Mirror` is allowed or disallowed
+- where Mirror is allowed or disallowed
 - which states most commonly dominate that surface
 - how phase changes what the surface may express
 
@@ -68,7 +71,7 @@ The navigation doc clearly rejects dashboard-like and tab-heavy product structur
 
 But it still leaves too much room for interpretation around the actual top-level structure of the product. The philosophy is right, but the recommended IA posture is not yet specific enough.
 
-### 4. `10-content-architecture.md` is clean but underpowered
+### 4. `10-content-architecture.md` is clean but underpowered on state and phase sensitivity
 The four-role content model is useful:
 
 - orientation
@@ -76,7 +79,7 @@ The four-role content model is useful:
 - confirmation
 - reflection
 
-But the document does not yet connect those roles strongly enough to state and phase. Because of that, it reads more like a clean taxonomy than a full product writing architecture.
+But the document does not yet connect those roles strongly enough to state and phase. It does not show how content should shift across Gentle, Focus, and Momentum, or how Arrival versus Familiarity changes what the product is willing to say. Because of that, it reads more like a clean taxonomy than a full product writing architecture.
 
 ## Most Important Gap
 
@@ -98,7 +101,7 @@ All of those are directionally related, but they are not structurally identical.
 
 and still believe they are following the docs.
 
-This ambiguity should be resolved explicitly.
+This ambiguity should be resolved explicitly. The repositioning does not fix it, but it does make it more important. A behavioral companion for all exam students needs a clear continuity model because the product must orient returning students quickly regardless of their state or phase.
 
 ## Where The Folder Is Still Too Abstract
 
@@ -111,7 +114,7 @@ The canonical surfaces are named, but not yet operational enough to guide design
 The navigation philosophy is clear, but the recommended top-level structure is still too open.
 
 ### 3. Content behavior by state and phase
-The content model is useful, but it does not yet show how content roles change across `Shelter`, `Focus`, `Momentum`, `Arrival`, `Attunement`, and `Familiarity`.
+The content model is useful, but it does not yet show how content roles change across Gentle, Focus, Momentum, Arrival, Attunement, and Familiarity.
 
 ### 4. V1 commitment level
 The final synthesis does not yet make enough binding calls about what exists in V1 versus what is deferred.
@@ -135,11 +138,13 @@ Weakest docs in the folder:
 
 ## Overall Assessment
 
-The folder is already strong enough to function as a real architecture reference.
+The repositioning strengthens the product architecture by removing the assumption that the product's primary job is emotional rescue.
 
-Its strongest quality is that it does not feel generic. It clearly carries Eli's own product posture: calm, loop-centered, non-performative, and evidence-bound.
+The architecture was never fully committed to that assumption, but the earlier framing allowed it to linger. With Eli now positioned as a behavioral study companion for all exam students, the architecture reads as what it should be: a calm, loop-centered, evidence-bound system that adapts to where a student is without performing that adaptation theatrically.
 
-Its main weakness is not strategic confusion. Its main weakness is that a few important docs are still one layer too abstract to serve as a confident handoff into UX specification.
+The emotional promise of "grounded momentum" fits the architecture naturally. The spine already produces momentum. The adaptation model already produces groundedness. The repositioning names what the architecture was already doing.
+
+The folder's main weakness is not strategic confusion. Its main weakness is that a few important docs are still one layer too abstract to serve as a confident handoff into UX specification.
 
 ## Recommendation
 
@@ -147,6 +152,7 @@ Treat the folder as:
 
 - architecturally strong
 - strategically sound
+- better aligned with the repositioned thesis
 - not yet fully operational for downstream UX work
 
 The next pass should not add new philosophy. It should tighten the existing system so that:
@@ -154,7 +160,7 @@ The next pass should not add new philosophy. It should tighten the existing syst
 - continuity is defined structurally
 - surfaces become more operational
 - navigation becomes more explicit
-- content behavior becomes more adaptive
-- the V1 recommendation becomes firmer
+- content behavior becomes more adaptive across state and phase
+- the V1 recommendation becomes firmer and reflects the confidence the repositioning provides
 
-At that point, the folder will be much better positioned to support concrete UX specification work.
+At that point, the folder will be ready to support concrete UX specification work.

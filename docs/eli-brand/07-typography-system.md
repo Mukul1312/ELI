@@ -18,7 +18,7 @@ This distinction allows the interface to stay practical while giving Eli a recog
 ## Type Roles
 
 ### 1. Voice Type
-Voice Type appears when Eli is speaking, reflecting, or setting emotional tone.
+Voice Type appears when Eli is speaking, reflecting, or setting tone.
 
 Its job is to feel:
 - human
@@ -36,7 +36,7 @@ Voice Type should not feel:
 - Use it sparingly, only where Eli's presence actually matters.
 - Favor regular or book-like weights over assertive heaviness.
 - Let spacing and rhythm create emphasis before boldness does.
-- Use italics only as a rare modulation, not as the default emotional cue.
+- Use italics only as a rare modulation, not as the default cue.
 
 ### 2. Structure Type
 Structure Type appears wherever the interface needs to orient, label, or organize action.
@@ -72,12 +72,12 @@ Typography should create calm hierarchy, not theatrical contrast.
 - louder
 - more branded
 - more urgent
-- more emotionally manipulative
+- more manipulative
 
 ## Hierarchy of Calm
 When type is assembled well, the student should feel the following order naturally:
 
-1. **Presence:** Eli's voice is noticed first when emotional meaning matters.
+1. **Presence:** Eli's voice is noticed first when meaning matters.
 2. **Action:** The next practical step is easy to locate.
 3. **Support:** Labels, metadata, and secondary information stay available without competing.
 
@@ -94,9 +94,9 @@ Specific font choices are intentionally left open until tested, but any selected
 
 ### Structure Type must
 - stay highly readable across controls and dense UI moments
-- feel stable and contemporary without leaning “startup default”
+- feel stable and contemporary without leaning "startup default"
 - support calm hierarchy in sentence case
 - coexist with the voice type without visual argument
 
 ## Design Constraint
-Typography is one of Eli's main regulatory tools. If the system feels too expressive, it adds pressure. If it feels too neutral, Eli disappears. The correct balance is **present, calm, and usable**.
+Typography is one of Eli's main tools for maintaining a focused study environment. If the system feels too expressive, it adds pressure. If it feels too neutral, Eli disappears. The correct balance is **present, calm, and usable**.

@@ -15,8 +15,10 @@ Eli should never sound:
 - therapeutic in a vague way
 - over-familiar before trust is earned
 - decorative, poetic, or slogan-heavy
+- information-heavy or encyclopedic
+- cluttered with options or caveats
 
-The product can be warm, but it should never sound like it is trying to impress the student with its tone.
+The product can be warm, but it should never sound like it is trying to impress the student with its tone. It should also never sound like it is trying to impress the student with how much it knows.
 
 ## Core Grammar Laws
 1. **Observe before infer.** Start from what is visible or supportable, not from what Eli wishes were true.
@@ -27,7 +29,7 @@ The product can be warm, but it should never sound like it is trying to impress 
 
 ## Tone Shifts By Expression State
 
-### Shelter
+### Gentle
 - Short, grounding, and low-pressure
 - Fewer inferences
 - Fewer questions
@@ -55,6 +57,8 @@ Never use these phrases or concepts:
 - **"7-day streak!"** It creates a binary success/failure frame.
 - **"Let's get back on track."** It implies moral drift instead of present support.
 - **"40% complete."** It turns progress into pressure-heavy performance language.
+- **"Here are your 5 options..."** Too many choices adds complexity when the student needs clarity.
+- **"Based on your analytics..."** It turns study into data review and makes the product feel like a management tool.
 
 ## Rules for Earned Reflection
 - Reflection must be grounded in repeated evidence, not one-off events.
@@ -65,7 +69,7 @@ Never use these phrases or concepts:
 ## Illustrative Language Patterns
 The examples below are illustrative only. They are not canonical product copy and should be treated as pattern references, not fixed phrases.
 
-- **Shelter example:** a brief line that reduces pressure and narrows attention to one manageable next step.
+- **Gentle example:** a brief line that reduces pressure and narrows attention to one manageable next step.
 - **Focus example:** a practical line that organizes the next action without adding emotional weight.
 - **Momentum example:** a more decisive line that reinforces forward motion without becoming competitive.
 - **Mirror example:** a concise reflection that turns repeated behavior into meaning without overstating intimacy.
@@ -73,4 +77,4 @@ The examples below are illustrative only. They are not canonical product copy an
 ## Sentence Structure
 - Use **active voice**, **second person** ("you"), and **present tense** where possible.
 - Keep message blocks short. If the thought grows, split it rather than densifying it.
-- In `Shelter`, default to the fewest words needed to make the next step feel possible.
+- In `Gentle`, default to the fewest words needed to make the next step feel possible.

@@ -55,7 +55,7 @@ In V1:
 
 If the architecture is correct, V1 should feel:
 
-- easier to come back to than a normal study app
+- better to study with than a normal study app
 - clearer about what matters right now
 - quieter once the student begins
 - more believable at completion than typical productivity products

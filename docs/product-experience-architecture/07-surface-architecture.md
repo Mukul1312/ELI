@@ -15,12 +15,12 @@ Its job is to:
 - welcome the student back without performance pressure
 - restore orientation quickly
 - make the next step visible
-- reduce emotional drag at the moment of return
+- help the student re-orient quickly
 
 Architectural properties:
 
 - **Role in architecture:** Primary surface
-- **State sensitivity:** Highly sensitive, especially to `Shelter` and `Focus`
+- **State sensitivity:** Highly sensitive, especially to `Gentle` and `Focus`
 - **Phase sensitivity:** Strong. Early phases should stay generic and non-presumptuous
 - **Mirror allowance:** Allowed only when reflection has been earned and remains light
 - **Must never become:** A dashboard-like review wall or guilt-heavy summary
@@ -41,7 +41,7 @@ The commitment surface is where Eli converts orientation into willingness to act
 Architectural properties:
 
 - **Role in architecture:** Primary surface
-- **State sensitivity:** Most influenced by `Shelter` and `Focus`; `Momentum` may make it more decisive
+- **State sensitivity:** Most influenced by `Gentle` and `Focus`; `Momentum` may make it more decisive
 - **Phase sensitivity:** Moderate. Phase should affect confidence of framing, not task inflation
 - **Mirror allowance:** Not appropriate as a dominant layer here
 - **Must never become:** A setup ritual or choice-heavy planning screen
@@ -62,7 +62,7 @@ This surface should be the least branded-feeling part of the product in a decora
 Architectural properties:
 
 - **Role in architecture:** Primary surface
-- **State sensitivity:** Most often `Focus` or `Momentum`; `Shelter` should simplify aggressively
+- **State sensitivity:** Most often `Focus` or `Momentum`; `Gentle` should simplify aggressively
 - **Phase sensitivity:** Light. Phase may affect small continuity cues, not the fundamental working posture
 - **Mirror allowance:** Disallowed during active work
 - **Must never become:** A noisy management surface or feature shelf
@@ -103,7 +103,7 @@ This surface should appear only when reflection has been earned.
 Architectural properties:
 
 - **Role in architecture:** Secondary surface
-- **State sensitivity:** Most credible in `Focus` and `Momentum`; `Shelter` should use it sparingly
+- **State sensitivity:** Most credible in `Focus` and `Momentum`; `Gentle` should use it sparingly
 - **Phase sensitivity:** High. `Arrival` should remain minimal, `Familiarity` may be more precise
 - **Mirror allowance:** This is the `Mirror` surface
 - **Must never become:** An always-on insights area or pseudo-therapeutic diagnosis layer
@@ -123,7 +123,7 @@ It should feel supportive, not managerial.
 Architectural properties:
 
 - **Role in architecture:** Secondary embedded surface
-- **State sensitivity:** Most useful in `Shelter` and `Focus`, where re-entry support matters most
+- **State sensitivity:** Most useful in `Gentle` and `Focus`, where re-entry support matters most
 - **Phase sensitivity:** Moderate-to-high. Later phases may carry more trusted continuity
 - **Mirror allowance:** Limited. Reflection may appear nearby, but continuity should not become `Mirror`
 - **Must never become:** A self-review destination, analytics page, or progress dashboard

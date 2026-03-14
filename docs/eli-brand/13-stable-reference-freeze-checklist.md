@@ -22,11 +22,12 @@ Freeze does **not** mean every future detail is settled forever. It means the re
 The brand system should only be frozen when these decisions are treated as locked:
 
 - Eli has one stable identity with adaptive expression
-- Eli has three operating states: `Shelter`, `Focus`, `Momentum`
+- Eli has three operating states: `Gentle`, `Focus`, `Momentum`
 - Eli has one reflective layer: `Mirror`
 - Eli has three relationship phases: `Arrival`, `Attunement`, `Familiarity`
 - phase progression is evidence-based, not tied to rigid session counts
 - the brand adapts to student state and relationship depth, not to fixed persona categories
+- Eli is a behavioral study companion for all exam students, not a narrowly targeted intervention
 
 If any of these still feel open to casual reinterpretation, the folder is not ready to freeze.
 
@@ -72,7 +73,22 @@ Confirm that:
 
 If brand docs are still absorbing product mechanics or flow logic, freeze should wait.
 
-## 6. Open Questions Threshold
+## 6. Framing Consistency Checklist
+
+The repositioned system must be reflected consistently across the entire folder.
+
+Confirm that:
+
+- all docs use `Gentle / Focus / Momentum` (not `Shelter`)
+- the thesis reflects the broader positioning: Eli helps students study better, as a behavioral companion for all exam students
+- anti-patterns include anti-shame, anti-noise, and anti-complexity with equal weight
+- the emotional promise uses "grounded momentum" rather than "safe momentum"
+- brand laws follow the reordered sequence: Presence, Clarity, Restraint, Truth, Support
+- no docs contain remnants of avoidant-specific or narrow-audience framing that contradicts the repositioned thesis
+
+If mixed framing signals remain, the folder is not ready to freeze.
+
+## 7. Open Questions Threshold
 
 The system does not need every open question resolved before freeze.
 
@@ -93,7 +109,7 @@ Examples of acceptable unresolved items:
 
 It is **not** acceptable to freeze if unresolved items still question the core architecture itself.
 
-## 7. Change Control After Freeze
+## 8. Change Control After Freeze
 
 After freeze, proposed changes should be treated as one of three categories:
 
@@ -108,7 +124,7 @@ Alters the core model, such as identity laws, state structure, phase structure, 
 
 Only architecture changes should trigger deep review. Clarifications and application details should remain disciplined and narrow.
 
-## 8. Final Go / No-Go Test
+## 9. Final Go / No-Go Test
 
 Before freezing the folder, answer these questions directly:
 
@@ -117,10 +133,11 @@ Before freezing the folder, answer these questions directly:
 3. Can a future collaborator explain the difference between identity, states, phases, and `Mirror` after one read?
 4. Are the remaining open questions managed in `11-open-questions-and-decisions.md` rather than hidden inside core docs?
 5. Is the folder stable enough to stop behaving like an exploration and start behaving like a working source of truth?
+6. Does every doc in the folder reflect the repositioned thesis consistently, with no mixed framing signals?
 
-If the answer is yes to all five, the Eli brand system is ready to be treated as the stable V1 reference.
+If the answer is yes to all six, the Eli brand system is ready to be treated as the stable V1 reference.
 
-## 9. Freeze Recommendation
+## 10. Freeze Recommendation
 
 When this checklist passes, the correct next move is:
 

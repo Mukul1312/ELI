@@ -1,6 +1,6 @@
 # State Architecture
 
-The Eli product should regulate the experience through `Shelter`, `Focus`, and `Momentum`.
+The Eli product should regulate the experience through `Gentle`, `Focus`, and `Momentum`.
 
 These are not different products and not separate visual themes. They are three intensities of the same product, tuned to the student's current capacity.
 
@@ -20,11 +20,11 @@ State should **not** change:
 - the product's main loop
 - the core ethical posture of the experience
 
-## Shelter
+## Gentle
 
-`Shelter` should be used when the student's current capacity is low and the product needs to reduce threat before asking for effort.
+`Gentle` should be used when the student needs less complexity and more room to begin or continue.
 
-### Product behavior in Shelter
+### Product behavior in Gentle
 - the number of visible choices should be lowest
 - one next step should dominate the surface
 - copy should be shortest and most grounding
@@ -32,11 +32,10 @@ State should **not** change:
 - actions should feel reversible and low-commitment
 - secondary information should recede aggressively
 
-### What Shelter is protecting against
-- overwhelm
-- shame
-- avoidance triggered by complexity
+### What Gentle is protecting against
+- cognitive overload
 - decision fatigue
+- scattered attention
 
 ## Focus
 
@@ -74,7 +73,7 @@ State should **not** change:
 
 The main product variables influenced by state are:
 
-| Variable | Shelter | Focus | Momentum |
+| Variable | Gentle | Focus | Momentum |
 |---|---|---|---|
 | Choice count | Lowest | Moderate | Moderate-plus |
 | Copy posture | Grounding | Practical | More decisive |

@@ -5,7 +5,7 @@ This document tracks the decisions that are now locked in the Eli brand system a
 ## Locked Structural Decisions
 These decisions are now part of the working brand architecture:
 
-- Eli has **three operating states**: `Shelter`, `Focus`, `Momentum`
+- Eli has **three operating states**: `Gentle`, `Focus`, `Momentum`
 - Eli has **one reflective layer**: `Mirror`
 - Eli matures through **three relationship phases**: `Arrival`, `Attunement`, `Familiarity`
 - Phase progression is **evidence-based**, not tied to hard-coded session thresholds
@@ -56,7 +56,7 @@ These questions affect the sensory expression of the brand.
 
 - The color must feel human and low-pressure
 - It must still achieve accessible contrast in button states
-- It must not drift into either “muddy” or “urgent” territory
+- It must not drift into either "muddy" or "urgent" territory
 
 **Next Step:** Test candidate hues in context, not in isolation.
 **Resolution method:** Visual testing plus accessibility review. The chosen hue must satisfy both emotional tone and contrast requirements.
@@ -78,7 +78,7 @@ These questions affect the tangible brand artifacts.
 These questions cannot be settled by taste alone and will need testing.
 
 ### 6. How much adaptation is noticeable before it feels uncanny?
-**Decision Pending:** Eli should adapt, but the line between “attuned” and “too obviously personalized” is still unknown.
+**Decision Pending:** Eli should adapt, but the line between "attuned" and "too obviously personalized" is still unknown.
 
 **Next Step:** Test subtle and strong adaptation variants to see what feels supportive versus intrusive.
 **Resolution method:** Qualitative research or structured internal review with multiple adaptation intensities.
@@ -88,4 +88,3 @@ These questions cannot be settled by taste alone and will need testing.
 
 **Next Step:** Validate whether reflective language lands as recognition, overreach, or brand performance.
 **Resolution method:** Language testing and qualitative feedback. This should be evaluated through perceived credibility, not just stylistic quality.
-

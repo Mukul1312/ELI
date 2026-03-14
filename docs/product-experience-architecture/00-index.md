@@ -1,6 +1,6 @@
 # Eli Product Experience Architecture
 
-This folder translates the Eli brand system into product form.
+Eli helps students study better. This folder translates that thesis and the Eli brand system into product form.
 
 `docs/eli-brand/` defines who Eli is, how Eli adapts, and what Eli must never become. This folder defines what kind of product naturally follows from that brand system.
 
@@ -13,7 +13,7 @@ This folder defines:
 - what kind of product Eli is
 - the primary behavioral loop of the product
 - the structural model of the experience
-- how `Shelter`, `Focus`, `Momentum`, `Arrival`, `Attunement`, `Familiarity`, and `Mirror` affect product behavior
+- how `Gentle`, `Focus`, `Momentum`, `Arrival`, `Attunement`, `Familiarity`, and `Mirror` affect product behavior
 - the canonical product surfaces
 - navigation, interaction, content, and visual architecture
 - the recommended V1 product form
@@ -61,7 +61,7 @@ The architecture is layered:
 - [04-structural-product-model.md](04-structural-product-model.md) - The structural organization of the product around a primary loop, supporting layers, and reflective surfaces.
 
 ### 3. Adaptation
-- [05-state-architecture.md](05-state-architecture.md) - How `Shelter`, `Focus`, and `Momentum` change product behavior.
+- [05-state-architecture.md](05-state-architecture.md) - How `Gentle`, `Focus`, and `Momentum` change product behavior.
 - [06-phase-architecture.md](06-phase-architecture.md) - How `Arrival`, `Attunement`, and `Familiarity` change relational confidence and product specificity.
 
 ### 4. Product Surfaces

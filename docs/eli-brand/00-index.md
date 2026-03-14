@@ -1,8 +1,8 @@
 # Eli Brand System V1
 
-This folder contains the fresh, first-principles brand system for Eli. It supersedes older scattered brand assumptions from the legacy UX documentation. 
+This folder contains the fresh, first-principles brand system for Eli. It supersedes older scattered brand assumptions from the legacy UX documentation.
 
-This system defines Eli as a stable companion identity with an **adaptive expression** model. The brand is meant for product, UI, copy, and future visual design work, ensuring Eli scales safely across known and unknown student types without losing its core feeling.
+This system defines Eli as a stable companion identity with an **adaptive expression** model. Eli is a behavioral study companion for all exam students. The brand is meant for product, UI, copy, and future visual design work, ensuring Eli scales safely across known and unknown student types without losing its core feeling.
 
 ## How to Read This Folder
 
@@ -22,7 +22,7 @@ The brand system is layered:
 
 ### 2. Adaptive System
 - [03-adaptive-expression.md](03-adaptive-expression.md) - The model of one identity with many expressions, and the specific design levers used to adapt.
-- [04-brand-states.md](04-brand-states.md) - The three operating states (`Shelter`, `Focus`, `Momentum`) and the `Mirror` reflective layer.
+- [04-brand-states.md](04-brand-states.md) - The three operating states (`Gentle`, `Focus`, `Momentum`) and the `Mirror` reflective layer.
 - [05-brand-phases.md](05-brand-phases.md) - How the relationship matures through `Arrival`, `Attunement`, and `Familiarity`.
 
 ### 3. Design System Translation
@@ -38,7 +38,7 @@ The brand system is layered:
 - [11-open-questions-and-decisions.md](11-open-questions-and-decisions.md) - Locked decisions plus the structural, expressive, asset, and validation questions that remain open.
 
 ### 6. Review
-- [12-v1-readiness-review.md](12-v1-readiness-review.md) - Design-director assessment of the current system, including readiness, remaining gaps, and the final cleanup path.
+- [12-v1-readiness-review.md](12-v1-readiness-review.md) - Design-director assessment of the repositioned system, including readiness, remaining gaps, and the final cleanup path.
 
 ### 7. Operational Use
 - [13-stable-reference-freeze-checklist.md](13-stable-reference-freeze-checklist.md) - Practical go/no-go checklist for treating the folder as the stable V1 brand reference.

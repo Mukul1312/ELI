@@ -1,19 +1,19 @@
 # Core Experience Model
 
-The Eli product is built around a behavioral and emotional model, not around a catalog of utilities.
+The Eli product is built around a behavioral model, not around a catalog of utilities.
 
-Its purpose is not to help students manage everything. Its purpose is to help students return, begin, continue, close, and occasionally understand what their behavior means.
+Its purpose is not to help students manage everything. Its purpose is to help students begin, continue, close, and occasionally understand what their behavior means.
 
 ## The Core Product Promise
 
-Eli lowers the emotional cost of coming back to study and makes the next step feel possible without creating new pressure.
+Eli helps students study better by adapting to what they need and keeping the experience clear, grounded, and focused.
 
-## The Five Emotional Jobs
+## The Five Product Jobs
 
-At the product level, Eli performs five emotional jobs:
+At the product level, Eli performs five product jobs:
 
-### 1. Reduce resistance
-When a student arrives under load, the product should lower threat before asking for effort.
+### 1. Meet the student where they are
+When a student arrives, the product should adapt to their current state before asking for effort.
 
 ### 2. Clarify the next step
 The product should make the next action easier to accept, not more abstract or more overwhelming.
@@ -40,7 +40,7 @@ Eli should behave like a companion with a narrow, disciplined job:
 
 The product should consistently move a student through this sequence:
 
-1. arrival under some level of load
+1. arrival in some current state
 2. orientation to what matters now
 3. willingness to begin
 4. protected work
@@ -56,6 +56,6 @@ Because Eli is built around this model:
 - the product should center moments, not utilities
 - the product should prefer continuity over exploration
 - the product should reduce friction before increasing ambition
-- the product should measure success by re-entry and believable progress, not feature usage volume
+- the product should measure success by sustained engagement and believable progress, not feature usage volume
 
 This is the behavioral core that the rest of the architecture should protect.

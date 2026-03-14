@@ -1,8 +1,8 @@
 # Visual System
 
-The visual system is designed to create a "tactile desk" or "quiet room" feel. It relies heavily on negative space, semantic color restraint, and soft depth to regulate the student's nervous system.
+The visual system is designed to create a "tactile desk" or "quiet room" feel. It relies heavily on negative space, semantic color restraint, and soft depth to support focus and reduce unnecessary visual noise.
 
-This document defines sensory and visual behavior. It should explain how Eli looks and moves, not repeat the full emotional philosophy already defined in the thesis, identity, and adaptive-expression docs.
+This document defines sensory and visual behavior. It should explain how Eli looks and moves, not repeat the full philosophy already defined in the thesis, identity, and adaptive-expression docs.
 
 ## Color Palette & Semantic Roles
 
@@ -12,7 +12,7 @@ Colors in Eli are strictly semantic. We do not use color merely for decoration o
 
 - **Purpose:** Backgrounds, canvases, negative space.
 - **Meaning:** "Room to breathe."
-- **Usage:** It immediately removes the clinical SaaS feel, lowering anxiety and providing a safe, focus-friendly backdrop. It can shift warmer or quieter in `Shelter` conditions.
+- **Usage:** It immediately removes the clinical SaaS feel, providing a clean, focus-friendly backdrop. It can shift warmer or quieter in `Gentle` conditions.
 
 ### 2. Deep Charcoal (`#2A2825`) & Warm Charcoal (`#736F66`)
 
@@ -35,11 +35,11 @@ Colors in Eli are strictly semantic. We do not use color merely for decoration o
 ## Surfaces and Depth
 
 - **Tactility over Flatness:** Use subtle drop shadows or soft inset borders to make components feel like physical paper cards resting on a desk. Avoid harsh 1px borders that feel like database grids.
-- **Soft Corners:** Use rounded corners to signal safety and approachability.
+- **Soft Corners:** Use rounded corners to signal approachability.
 
 ## Spatial Rhythm (Negative Space)
 
-- **The Breath:** Provide large areas of Warm Paper around components. A calm companion doesn't crowd you. 
+- **The Breath:** Provide large areas of Warm Paper around components. A calm companion doesn't crowd you.
 - **Restraint:** If a screen feels empty, that is a feature, not a bug. Do not fill the space with illustrations or dashboard metrics.
 
 ## Restrained Motion
@@ -47,4 +47,3 @@ Colors in Eli are strictly semantic. We do not use color merely for decoration o
 - **Settle, Don't Snap:** Motion should feel physical and settling rather than instant, sharp, or energetic. Transitions should land softly.
 - **Reduce Load, Don't Dramatize:** Motion should make state changes easier to understand, not more theatrical.
 - **Grounded, Not Celebratory:** Progress should feel calm, satisfying, and real. Avoid motion language that turns success into spectacle.
-
