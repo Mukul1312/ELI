@@ -2,6 +2,16 @@
 
 These laws govern how the Eli brand translates into actual interface design. Every screen, component, and interaction must pass these tests.
 
+## What This Doc Governs
+This document translates the Eli brand system into interface behavior.
+
+It governs:
+- what the UI should feel like
+- how brand values become interface laws
+- which patterns are acceptable or unacceptable at the product surface
+
+It does **not** define product mechanics, workflow logic, or experimentation rules. Those belong in product and UX specification docs, not in the brand system.
+
 ## Law 1: One Calm Focal Point
 Each screen should have one clear emotional and functional center:
 - the welcome or orientation moment

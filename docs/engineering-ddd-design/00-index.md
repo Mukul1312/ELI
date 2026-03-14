@@ -55,15 +55,15 @@ All of these feed the modeling. Reference them explicitly when filling each sect
 ## Section index
 
 
-| File                                                           | Purpose                                                      |
-| -------------------------------------------------------------- | ------------------------------------------------------------ |
-| [01-domain-narrative.md](01-domain-narrative.md)               | One-page problem, actors, EI loop, what "working" means      |
-| [02-subdomains.md](02-subdomains.md)                           | Subdomain list; Core/Supporting/Generic; Now/Next/Later      |
-| [03-context-map.md](03-context-map.md)                         | Bounded contexts, boundaries, relationships, Mermaid diagram |
-| [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md)   | Invariants, event catalog, data ownership, ACLs              |
-| [06-infrastructure-optimization.md](06-infrastructure-optimization.md) | Trace-data-driven latency reduction; DDD ownership mapping |
-| [09-tactical-ddd-candidates.md](09-tactical-ddd-candidates.md) | Proposed aggregates, domain services, and value objects      |
-| [tactical/00-index.md](tactical/00-index.md)                   | Tactical DDD specs (TopicLoop, LoopHealth, …)                |
+| File                                                                   | Purpose                                                      |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [01-domain-narrative.md](01-domain-narrative.md)                       | One-page problem, actors, EI loop, what "working" means      |
+| [02-subdomains.md](02-subdomains.md)                                   | Subdomain list; Core/Supporting/Generic; Now/Next/Later      |
+| [03-context-map.md](03-context-map.md)                                 | Bounded contexts, boundaries, relationships, Mermaid diagram |
+| [05-cross-cutting-concerns.md](05-cross-cutting-concerns.md)           | Invariants, event catalog, data ownership, ACLs              |
+| [06-infrastructure-optimization.md](06-infrastructure-optimization.md) | Trace-data-driven latency reduction; DDD ownership mapping   |
+| [09-tactical-ddd-candidates.md](09-tactical-ddd-candidates.md)         | Proposed aggregates, domain services, and value objects      |
+| [tactical/00-index.md](tactical/00-index.md)                           | Tactical DDD specs (TopicLoop, LoopHealth, …)                |
 
 
 ### Bounded context canvases (core)

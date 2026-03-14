@@ -4,6 +4,16 @@ This folder contains the fresh, first-principles brand system for Eli. It supers
 
 This system defines Eli as a stable companion identity with an **adaptive expression** model. The brand is meant for product, UI, copy, and future visual design work, ensuring Eli scales safely across known and unknown student types without losing its core feeling.
 
+## How to Read This Folder
+
+The brand system is layered:
+
+- **Thesis:** what Eli is, why it exists, and what territory it owns
+- **Identity:** the permanent laws and anti-patterns that do not change
+- **Adaptation:** how Eli changes expression through states, phases, and the `Mirror` layer
+- **Translation:** how the brand becomes visual, typographic, linguistic, and interface behavior
+- **Review:** how ready the current system is and what still needs tightening
+
 ## Documentation Index
 
 ### 1. Thesis and Identity
@@ -26,3 +36,6 @@ This system defines Eli as a stable companion identity with an **adaptive expres
 
 ### 5. Log
 - [11-open-questions-and-decisions.md](11-open-questions-and-decisions.md) - Locked decisions plus the structural, expressive, asset, and validation questions that remain open.
+
+### 6. Review
+- [12-v1-readiness-review.md](12-v1-readiness-review.md) - Design-director assessment of the current system, including readiness, remaining gaps, and the final cleanup path.

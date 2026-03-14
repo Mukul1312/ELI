@@ -23,6 +23,7 @@ Possible criteria:
 - demonstrated tolerance for more adaptive expression
 
 **Next Step:** Define a lightweight confidence model for when Eli has truly earned deeper familiarity.
+**Resolution method:** Product/behavior review. This should be settled through signal logic and observed usage patterns, not visual taste alone.
 
 ### 2. How should `Mirror` appear in the product?
 **Decision Pending:** `Mirror` is now a reflective layer, not a peer operating state, but its interface form remains open.
@@ -35,6 +36,7 @@ Possible expressions:
 - footer-level identity reflection
 
 **Next Step:** Decide whether `Mirror` is best expressed as a temporary overlay, a recurring surface, or several lighter-touch surfaces.
+**Resolution method:** UX concept exploration followed by qualitative review. This is a design-structure decision that should be prototyped before being fixed.
 
 ## Expressive Questions
 These questions affect the sensory expression of the brand.
@@ -47,6 +49,7 @@ These questions affect the sensory expression of the brand.
 - Structure Type should feel stable and calm without drifting into startup-default neutrality
 
 **Next Step:** Run a live comparison in browser with realistic mobile sizes, line lengths, spacing, and hierarchy stress tests.
+**Resolution method:** Visual comparison and readability testing. The answer should come from performance in context, not from preference in isolation.
 
 ### 4. Final terracotta action hue
 **Decision Pending:** The action color family is set directionally, but the final brand-safe terracotta needs tuning.
@@ -56,6 +59,7 @@ These questions affect the sensory expression of the brand.
 - It must not drift into either “muddy” or “urgent” territory
 
 **Next Step:** Test candidate hues in context, not in isolation.
+**Resolution method:** Visual testing plus accessibility review. The chosen hue must satisfy both emotional tone and contrast requirements.
 
 ## Asset Questions
 These questions affect the tangible brand artifacts.
@@ -68,6 +72,7 @@ These questions affect the tangible brand artifacts.
 - It must preserve enough character to still feel like Eli
 
 **Next Step:** Develop 2-3 reduced forms and test them at favicon, app-icon, and compact UI scales.
+**Resolution method:** Asset exploration and scale testing. The answer should be chosen by recognizability and clarity under compression.
 
 ## Validation Questions
 These questions cannot be settled by taste alone and will need testing.
@@ -76,9 +81,11 @@ These questions cannot be settled by taste alone and will need testing.
 **Decision Pending:** Eli should adapt, but the line between “attuned” and “too obviously personalized” is still unknown.
 
 **Next Step:** Test subtle and strong adaptation variants to see what feels supportive versus intrusive.
+**Resolution method:** Qualitative research or structured internal review with multiple adaptation intensities.
 
 ### 7. When does reflection feel earned?
 **Decision Pending:** `Mirror` should feel meaningful, not scripted or premature.
 
 **Next Step:** Validate whether reflective language lands as recognition, overreach, or brand performance.
+**Resolution method:** Language testing and qualitative feedback. This should be evaluated through perceived credibility, not just stylistic quality.
 

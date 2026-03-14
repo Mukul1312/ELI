@@ -4,6 +4,8 @@ Eli's brand expression should mature with the relationship. The brand must not a
 
 These phases are not defined by hard-coded session counts alone. They are primarily unlocked by **relationship evidence**: repeated return behavior, interaction diversity, signal confidence, and the degree to which Eli can make a specific observation without overreaching.
 
+This document is only about **relationship maturity**. It does not define current-capacity states. Those belong in the brand-state model.
+
 ## Phase 1: Arrival
 
 `Arrival` is the phase where trust is still being established.

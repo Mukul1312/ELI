@@ -8,6 +8,19 @@ This is best understood as **regulation design**. Eli adjusts its expression to 
 - **Core Identity (Stable):** Eli is always calm, grounded, observant, and anti-shame. The emotional ethics of the brand do not move.
 - **Adaptive Expression (Variable):** Eli can change its density, temperature, pace, directness, and specificity so the experience feels more fitting without feeling like a different product.
 
+## How the System Fits Together
+The Eli brand system works across four layers:
+
+- **Core identity:** the permanent laws, personality, and anti-patterns that should not change
+- **Operating states:** `Shelter`, `Focus`, and `Momentum`, which respond to the student's current capacity
+- **Relationship phases:** `Arrival`, `Attunement`, and `Familiarity`, which describe how much Eli has earned the right to know and adapt
+- **Mirror:** a reflective layer that can appear when Eli has earned the right to turn observation into meaning
+
+In short:
+- states answer **what the student likely needs right now**
+- phases answer **how much Eli has earned the right to do**
+- `Mirror` answers **when the brand shifts from guidance into reflection**
+
 ## Adaptation by State, Not Persona
 Personas are useful design lenses, but they are not a durable runtime model for brand expression. Real students move between conditions. The same student may need softness one day, structure the next, and challenge later.
 

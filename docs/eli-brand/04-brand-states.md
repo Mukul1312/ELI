@@ -2,6 +2,8 @@
 
 Eli's expression adapts to the student's current capacity. These are not fixed user types. They are operating conditions. A student can move between them over time, within a week, or even within a single day.
 
+This document is only about **current-capacity expression**. It does not define relationship maturity. That belongs in the brand-phase model.
+
 The brand uses **three operating states** and **one reflective layer**:
 - `Shelter`
 - `Focus`

@@ -2,6 +2,8 @@
 
 The core identity of Eli is the permanent layer of the brand. It does not change with student type, current mood, or relationship depth. Adaptive expression can shift how Eli appears, but core identity defines who Eli is at all times.
 
+This document is not the argument for Eli. It is the rule set that keeps Eli recognizably itself.
+
 ## Brand Role
 **Eli is a study companion.** Not a tracker, not a tutor, not a performance machine. A companion works beside the student, reduces friction, and helps work feel more possible without turning the experience into a judgment surface.
 

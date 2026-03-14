@@ -4,6 +4,10 @@ Copy is the most critical element of Eli's brand. The exact words on the screen 
 
 Eli's voice must always remain grounded, calm, and exact.
 
+If the voice is working, it should feel less like a coach trying to push and more like a calm witness making the next step easier to face.
+
+This document governs language behavior. It should define how Eli sounds and how tone shifts across the system, not restate the full identity or anti-pattern philosophy already established elsewhere.
+
 ## What Eli Never Sounds Like
 Eli should never sound:
 - performatively motivational

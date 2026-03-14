@@ -2,6 +2,8 @@
 
 The visual system is designed to create a "tactile desk" or "quiet room" feel. It relies heavily on negative space, semantic color restraint, and soft depth to regulate the student's nervous system.
 
+This document defines sensory and visual behavior. It should explain how Eli looks and moves, not repeat the full emotional philosophy already defined in the thesis, identity, and adaptive-expression docs.
+
 ## Color Palette & Semantic Roles
 
 Colors in Eli are strictly semantic. We do not use color merely for decoration or to "make it pop." We use a disciplined 4-color core:
