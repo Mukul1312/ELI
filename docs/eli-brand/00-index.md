@@ -4,6 +4,8 @@ This folder contains the fresh, first-principles brand system for Eli. It supers
 
 This system defines Eli as a stable companion identity with an **adaptive expression** model. Eli is a behavioral study companion for all exam students. The brand is meant for product, UI, copy, and future visual design work, ensuring Eli scales safely across known and unknown student types without losing its core feeling.
 
+For the canonical documentation stack, folder boundary model, and shared term definitions, use `docs/00-documentation-boundary-and-terminology.md`.
+
 ## How to Read This Folder
 
 The brand system is layered:
@@ -14,16 +16,48 @@ The brand system is layered:
 - **Translation:** how the brand becomes visual, typographic, linguistic, and interface behavior
 - **Review:** how ready the current system is and what still needs tightening
 
+Use the shared system map in `docs/00-documentation-boundary-and-terminology.md` when you need to see how the brand model connects to product architecture and the V1 UX spec.
+
+## What This Folder Owns
+
+This folder owns:
+
+- Eli's brand thesis and territory
+- core identity, brand laws, and anti-patterns
+- adaptive expression principles
+- the meaning of `Gentle`, `Focus`, `Momentum`, `Arrival`, `Attunement`, `Familiarity`, and `Mirror`
+- voice, typography, visual behavior, interface laws, and brand asset behavior
+
+This folder does **not** own:
+
+- canonical product structure
+- final navigation or route behavior
+- screen-by-screen UX specifications
+- runtime logic, thresholds, experiments, or implementation details
+
+Those belong downstream in `docs/product-experience-architecture/`, `docs/v1-ux-spec/`, and implementation documentation, following `docs/00-documentation-boundary-and-terminology.md`.
+
+## Ownership At A Glance
+
+| Doc | Owns | Does not own |
+|---|---|---|
+| `01-brand-thesis.md` | Eli's strategic argument, territory, and category boundary | Permanent laws, anti-pattern inventory, or adaptation mechanics |
+| `02-core-identity.md` | What never changes: role, promise, personality, laws, anti-patterns | The case for why Eli exists or how adaptation works |
+| `03-adaptive-expression.md` | The adaptive system: identity vs expression, states, phases, `Mirror`, and abstract levers | Detailed state definitions, phase definitions, or translation rules |
+| `04-brand-states.md` | Present-moment expression by state | Relationship maturity or downstream implementation detail |
+| `05-brand-phases.md` | Earned relationship maturity and expressive permission | State posture or downstream translation behavior |
+| `06-10` | Translation into visuals, typography, voice, UI laws, and asset behavior | Core architecture changes |
+
 ## Documentation Index
 
 ### 1. Thesis and Identity
-- [01-brand-thesis.md](01-brand-thesis.md) - The anchor thesis: What Eli is, and what Eli must never become.
-- [02-core-identity.md](02-core-identity.md) - The permanent layer: brand role, emotional promise, personality, and anti-patterns.
+- [01-brand-thesis.md](01-brand-thesis.md) - The strategic argument: what Eli is, why it exists, what territory it owns, and the product forms it refuses in positioning terms.
+- [02-core-identity.md](02-core-identity.md) - The permanent law layer: brand role, emotional promise, personality, brand laws, and anti-patterns.
 
 ### 2. Adaptive System
-- [03-adaptive-expression.md](03-adaptive-expression.md) - The model of one identity with many expressions, and the specific design levers used to adapt.
-- [04-brand-states.md](04-brand-states.md) - The three operating states (`Gentle`, `Focus`, `Momentum`) and the `Mirror` reflective layer.
-- [05-brand-phases.md](05-brand-phases.md) - How the relationship matures through `Arrival`, `Attunement`, and `Familiarity`.
+- [03-adaptive-expression.md](03-adaptive-expression.md) - The adaptive model: how identity stays stable while expression changes through states, phases, `Mirror`, and abstract levers.
+- [04-brand-states.md](04-brand-states.md) - The operating-state layer: what `Gentle`, `Focus`, `Momentum`, and the `Mirror` layer mean in present-moment expression.
+- [05-brand-phases.md](05-brand-phases.md) - The phase layer: how `Arrival`, `Attunement`, and `Familiarity` regulate what Eli has earned the right to assume and express.
 
 ### 3. Design System Translation
 - [06-visual-system.md](06-visual-system.md) - Semantic color logic (Paper, Charcoal, Terracotta, Sage), spatial rhythm, and restrained motion.

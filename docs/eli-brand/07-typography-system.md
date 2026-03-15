@@ -98,5 +98,29 @@ Specific font choices are intentionally left open until tested, but any selected
 - support calm hierarchy in sentence case
 - coexist with the voice type without visual argument
 
+## Type Behavior By State
+
+Typography should adapt across operating states to support the overall experience posture.
+
+### Gentle
+- **Voice Type** may appear more prominently because presence matters more when the student has less capacity. Eli's spoken presence should lead.
+- **Structure Type** should be minimal. Reduce labels, metadata, and organizational text to the fewest elements needed.
+- **Weights** should favor lighter values. Avoid heavy or assertive type that adds visual pressure.
+- **Hierarchy** should be soft and easy to parse with fewer competing levels.
+
+### Focus
+- Balanced use of both Voice Type and Structure Type at their standard weights and proportions.
+- This is the default typographic expression the system is designed around.
+
+### Momentum
+- **Structure Type** may carry slightly more weight as the experience becomes more organized and forward-moving.
+- **Voice Type** remains available for earned moments but does not need to lead every surface.
+- **Hierarchy** may sharpen slightly — firmer weight distinctions, clearer level separation.
+- **Weights** may use medium or semi-bold values more readily to support decisiveness.
+
+### What type state shifts must never do
+- Change the typeface itself. State changes weight, proportion, and prominence — not the font selection.
+- Make the product feel typographically louder in Momentum or typographically weak in Gentle. The shifts are tuning within a calm range.
+
 ## Design Constraint
 Typography is one of Eli's main tools for maintaining a focused study environment. If the system feels too expressive, it adds pressure. If it feels too neutral, Eli disappears. The correct balance is **present, calm, and usable**.

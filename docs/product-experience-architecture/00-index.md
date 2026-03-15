@@ -6,6 +6,8 @@ Eli helps students study better. This folder translates that thesis and the Eli 
 
 The goal of this folder is to make the Eli product architecture explicit without drifting into final screen-by-screen specs.
 
+For the canonical documentation stack, folder boundary model, and shared term definitions, use `docs/00-documentation-boundary-and-terminology.md`.
+
 ## What This Folder Governs
 
 This folder defines:
@@ -32,10 +34,24 @@ Those belong in later UX specs, design-system docs, and implementation docs.
 
 Read this folder as a translation layer:
 
-- `docs/eli-brand/` = identity, adaptive expression, interface laws
-- `docs/product-experience-architecture/` = product form, experience model, surfaces, and product behavior
+- `docs/eli-brand/` = identity, adaptive expression, and interface laws
+- `docs/product-experience-architecture/` = product form, experience model, loop, surfaces, and product behavior
+- `docs/v1-ux-spec/` = concrete UX specifications for what the student sees and does
 
-This folder should never contradict the Eli brand system. It should make that system usable for product design work.
+This folder is downstream of the brand system and upstream of UX specs. It should never contradict the Eli brand system, and it should stop one layer short of final route and surface specification.
+
+Use the shared system map in `docs/00-documentation-boundary-and-terminology.md` when you need a one-scan view of how brand architecture becomes product architecture and then the V1 UX spec.
+
+## Brand To Product Translation At A Glance
+
+| Brand model | Product architecture translation |
+|---|---|
+| `Core identity` | Product posture and anti-drift constraints |
+| `Adaptive expression` | Adaptive product behavior |
+| `State` | How much structure, directness, and visible context the product should carry right now |
+| `Phase` | How much specificity, continuity, and reflective confidence the product has earned |
+| `Mirror` | Secondary reflective behavior near return, continuity, or closure |
+| Brand system as a whole | Loop, structure, surfaces, navigation, content, and visual architecture |
 
 ## How to Read This Folder
 
@@ -79,6 +95,7 @@ The architecture is layered:
 
 ### 7. Review
 - [14-design-director-review.md](14-design-director-review.md) - Assessment of the current folder, including strongest areas, weakest areas, and what is still too abstract.
+- [15-open-questions-and-decisions.md](15-open-questions-and-decisions.md) - Controlled log of unresolved product decisions, with owners, evidence needs, and V1 criticality.
 
 ## Working Rule
 

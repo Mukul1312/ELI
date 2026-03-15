@@ -63,6 +63,30 @@ Reflection should remain sparse.
 | Close | Confirmation |
 | Mirror | Reflection |
 
+## Content Across Product Objects
+
+Content should respect the difference between `session`, `study thread`, and `curriculum context`.
+
+- **Session language** should drive immediate action. It should help the student start, continue, or close the current bounded study moment.
+- **Study thread language** should drive continuity. It should help the student recognize what line of work is still alive, resumable, or worth returning to.
+- **Curriculum context language** should appear only when it clarifies what the thread belongs to. It must never sound like taxonomy management, syllabus administration, or academic bookkeeping.
+
+## Conversational Content Roles
+
+If conversational Eli exists, its content should stay within these allowed roles:
+
+- orientation recall
+- invitation support
+- grounded confirmation context
+- earned reflection
+
+Conversational Eli should not become:
+
+- analytics narration
+- comparative summary
+- planning-heavy instruction
+- productivity-score language
+
 ## Content Behavior By State
 
 The same content role should behave differently depending on current capacity.

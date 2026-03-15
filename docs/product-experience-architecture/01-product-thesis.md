@@ -30,6 +30,10 @@ Eli sits at the intersection of:
 
 The product does not try to own all of learning. It owns the experience layer where a student needs help moving from wherever they are into focused, sustained action.
 
+Eli should organize around student-declared study threads rather than forcing formal curriculum structure first. Subject, unit, chapter, or topic context may support those threads, but should not become the primary product object.
+
+Eli may also support the student through a secondary conversational mode, but that mode remains subordinate to the loop. Its job is to reduce friction, not to replace structure or become a dashboard-like control center.
+
 ## What Eli Wins On
 
 Eli should win on:

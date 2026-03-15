@@ -4,6 +4,8 @@ This document explains how product, design, and copy teams should use the Eli br
 
 The goal of `docs/eli-brand/` is not to replace product or UX specifications. Its role is to keep Eli coherent while features, flows, interfaces, and language continue to evolve.
 
+For the canonical documentation stack, owner-doc model, and shared terminology, use `docs/00-documentation-boundary-and-terminology.md`.
+
 ## 1. What This Folder Is For
 
 Use `docs/eli-brand/` as the source of truth for:
@@ -111,33 +113,20 @@ Use the folder to answer:
 
 Then define exact tokens, component styles, and implementation rules in the relevant design system or UI specification.
 
-## 4. Brand Docs vs Product UX Specs
+## 4. Brand Docs vs Downstream Docs
 
-Use this split consistently:
+Use the canonical boundary model in `docs/00-documentation-boundary-and-terminology.md`.
 
-### Brand docs should define
+In practice:
 
-- identity
-- anti-patterns (anti-shame, anti-noise, anti-complexity)
-- adaptive logic at the principle level
-- state and phase meaning
-- voice and tone rules
-- visual and typographic behavior
-- interface laws
-- brand asset behavior
+- `docs/eli-brand/` defines identity, adaptive expression, tone, visual behavior, interface laws, and anti-patterns
+- `docs/product-experience-architecture/` defines loop, structure, surfaces, navigation posture, and product behavior
+- `docs/v1-ux-spec/` defines what the student sees and does
+- implementation docs define thresholds, tokens, instrumentation, and engineering logic
 
-### Product or UX specs should define
+Brand docs may frame continuity of work and grounded study context at the level of meaning and posture. Product architecture docs own the formal definitions of `session`, `study thread`, and `curriculum context`.
 
-- onboarding flows
-- session behavior
-- CTA logic
-- component rules
-- content placement
-- event or signal thresholds
-- experimentation plans
-- validation methods tied to a specific feature
-
-If a document starts describing what the product literally does step by step, it probably belongs outside `docs/eli-brand/`.
+If a document starts describing what the product literally does step by step, it belongs downstream of `docs/eli-brand/`.
 
 ## 5. How To Work With States, Phases, And Mirror
 
@@ -179,13 +168,24 @@ Do not reopen stable docs just because an edge case appears.
 
 The system should stay disciplined enough that new work makes it clearer, not larger.
 
-## 8. Practical Default
+## 8. When To Update Which Doc
+
+Use this rule before editing:
+
+- update `docs/00-documentation-boundary-and-terminology.md` when a cross-folder term, boundary, or owner-doc rule needs to change
+- update an owner doc when the meaning of a concept changes inside its own layer
+- update a downstream doc when the concept stays the same but needs more application detail
+
+Do not quietly redefine shared terms like `state`, `phase`, `Mirror`, `surface`, or `continuity` inside a downstream doc.
+
+## 9. Practical Default
 
 If a team is unsure where to start:
 
 1. read `00-index.md`
-2. read `03-adaptive-expression.md`
-3. read the translation doc closest to the task: `06`, `07`, `08`, `09`, or `10`
-4. check `11-open-questions-and-decisions.md` before inventing a new rule
+2. read `docs/00-documentation-boundary-and-terminology.md`
+3. read `03-adaptive-expression.md`
+4. read the translation doc closest to the task: `06`, `07`, `08`, `09`, or `10`
+5. check `11-open-questions-and-decisions.md` before inventing a new rule
 
 That default path will solve most day-to-day usage without reopening strategic questions.

@@ -23,6 +23,51 @@ In short:
 
 `Focus` is the default center of gravity. `Gentle` and `Momentum` are equal adaptive poles around it — one for lower-capacity moments, one for higher-capacity moments.
 
+## Brand-Layer System Map
+
+This is the brand-layer map only. For the full cross-folder model showing how the brand system becomes product architecture and then the V1 UX spec, use `docs/00-documentation-boundary-and-terminology.md`.
+
+The adaptive brand system can be understood in one scan:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Core Identity (permanent)                          │
+│  Brand role, emotional promise, personality,        │
+│  brand laws, anti-patterns                          │
+│  → Never changes                                    │
+└──────────────────────┬──────────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+  ┌─────────┐    ┌─────────┐    ┌───────────┐
+  │ Gentle  │    │  Focus  │    │ Momentum  │
+  │         │    │(default)│    │           │
+  └─────────┘    └─────────┘    └───────────┘
+  Current-capacity states: what the student needs now
+       │               │               │
+       ▼               ▼               ▼
+  ┌─────────┐    ┌───────────┐  ┌────────────┐
+  │ Arrival │    │Attunement │  │Familiarity │
+  └─────────┘    └───────────┘  └────────────┘
+  Relationship phases: how much Eli has earned
+                       │
+                       ▼
+              ┌─────────────────┐
+              │     Mirror      │
+              │(reflective layer│
+              │ phase-gated)    │
+              └─────────────────┘
+```
+
+## Operating Rules
+
+- `State` regulates present-moment posture: how soft, structured, direct, or spacious Eli should feel now.
+- `Phase` regulates earned permission: how specific, continuous, or assumptive Eli is allowed to be.
+- `Mirror` is phase-gated and evidence-gated. It is most credible once Eli has moved beyond `Arrival`, and it should not appear in `Gentle × Arrival`.
+- Specificity may be informed by the current bounded study moment, the student's ongoing line of work, and the student's real study context, but this document does not define the product model for those concepts.
+- Detailed state definitions belong in `04-brand-states.md`.
+- Detailed phase definitions belong in `05-brand-phases.md`.
+
 ## Adaptation by State, Not Persona
 Personas are useful design lenses, but they are not a durable runtime model for brand expression. Real students move between conditions. The same student may need softness one day, structure the next, and challenge later.
 
@@ -33,6 +78,11 @@ For that reason, Eli adapts to **state** rather than identity category. The bran
 
 ## Adaptation by Relationship Depth
 Eli also adapts based on the maturity of the relationship. Early on, Eli should feel calm, clear, and appropriately generic. Later, it can feel more attuned. Much later, it can feel familiar. This progression is earned through evidence, not forced through a schedule.
+
+## Adaptation vs. Translation
+This document owns **what changes and why**.
+
+The downstream translation docs (`06` through `10`) own **how those changes appear** in visuals, typography, voice, interface laws, and brand assets.
 
 ## The Adaptive Levers
 When Eli adapts, it changes these levers:
@@ -59,18 +109,9 @@ When Eli adapts, it changes these levers:
    - *Growing trust:* More contextual observations.
    - *Earned familiarity:* Reflection based on patterns Eli can responsibly stand behind.
 
-6. **Action Energy:** How should the next step feel?
-   - *Gentle:* Reversible, low-commitment, easy to start.
-   - *Focus:* Bounded, clear, and practical.
-   - *Momentum:* Challenging, but still calm and non-coercive.
-
-## Expression Architecture
-Eli's adaptive system has two levels:
-- **Operating states:** `Gentle`, `Focus`, `Momentum`
-- **Reflective layer:** `Mirror`
-
-`Focus` is the default. Most students, most of the time, land here. `Gentle` and `Momentum` are symmetric adaptations — one softens, one sharpens — and neither carries more weight than the other.
-
-`Mirror` is not a full-time operating state like the others. It is a reflective layer that can surface when Eli has earned the right to say something more meaningful than a simple next-step instruction.
+6. **Action Energy:** How should Eli's invitation into motion feel?
+   - *Lower-capacity moments:* Easier to begin and less loaded.
+   - *Default moments:* Bounded, clear, and practical.
+   - *Higher-capacity moments:* More decisive, while still calm and non-coercive.
 
 By tuning these levers, Eli remains unmistakably itself while becoming more fitting to the student's exact moment.

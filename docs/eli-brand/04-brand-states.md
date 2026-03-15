@@ -4,6 +4,8 @@ Eli's expression adapts to the student's current needs. These are not fixed user
 
 This document is only about **current-state expression**. It does not define relationship maturity. That belongs in the brand-phase model.
 
+This document defines what each state means. Downstream docs define how state shifts appear in visuals, copy, product behavior, and UX surfaces.
+
 The brand uses **three operating states** and **one reflective layer**:
 - `Gentle`
 - `Focus` (default)
@@ -48,6 +50,8 @@ The brand uses **three operating states** and **one reflective layer**:
 ## Mirror Layer
 
 `Mirror` is not a peer operating state. It is a reflective layer that can appear on top of `Focus` or `Momentum` when Eli has earned the right to say something more meaningful than a standard instruction or nudge.
+
+`Mirror` still depends on relationship maturity. This doc defines its present-moment posture; `05-brand-phases.md` defines when that posture has been earned.
 
 - **Emotional job:** Turn observed behavior into meaning without sounding presumptuous.
 - **Visual temperature:** Quiet and sparse. The reflection should carry the emphasis, not the chrome.

@@ -13,6 +13,8 @@ The core Eli loop is:
 5. **Close** - progress is verified in a grounded way
 6. **Reflect when earned** - `Mirror` may turn repeated behavior into meaning
 
+This loop is the lifecycle of a `session`. `Study threads` persist across multiple passes through the loop and are what make return, continuity, and later reflection meaningful over time.
+
 ## Loop Diagram
 
 ```mermaid

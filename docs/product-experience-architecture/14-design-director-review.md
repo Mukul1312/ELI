@@ -4,13 +4,15 @@ This document reviews the current `docs/product-experience-architecture/` folder
 
 It is not another architecture spec. It is a judgment document that identifies where the folder is strongest, weakest, and still too abstract to fully support downstream UX specification work.
 
+The documentation boundary model and canonical terminology are now governed centrally in `docs/00-documentation-boundary-and-terminology.md`.
+
 ## Executive Verdict
 
 The folder is strategically strong and now better aligned with the broader thesis.
 
 The repositioning from emotional rescue to behavioral companion removes the implicit assumption that the product's primary job is to comfort. That assumption was never explicit in the architecture, but it was latent in some of the earlier framing. With Eli repositioned as a study companion for all exam students, the architecture reads more clearly as what it always was: a behavioral system grounded in presence, clarity, and evidence.
 
-The folder still needs one cleanup round focused on decisiveness, surface specificity, and stronger bridges into actual UX specification work. But the strategic center is now firmer.
+The folder has become materially stronger as an architecture handoff. The strategic center is firm, the boundary model is clearer, and the main remaining work now sits downstream in UX-spec cleanup and open product decisions rather than in core architecture confusion.
 
 ## What Is Strong
 
@@ -42,82 +44,49 @@ It is memorable, specific, and useful. It gives future contributors a clear test
 ## What Is Weakest
 
 ### 1. `12-v1-product-architecture.md` is still too cautious
-This remains the weakest file in the folder.
+This has improved substantially.
 
-It is supposed to synthesize the architecture into a practical V1 recommendation, but it stays too careful in its phrasing. It summarizes well, but it does not make enough firm product-shaping calls.
+`12-v1-product-architecture.md` now behaves much more like a binding decision memo. It makes firmer calls on what V1 includes, what is secondary, what is out of scope, and which transition paths are actually allowed.
 
-The document still leans on language like:
+The remaining question is not whether the file is decisive enough. The remaining question is whether downstream UX specs now consume it cleanly without reintroducing their own local transition semantics.
 
-- "may include"
-- "likely V1 behavior"
-- "should not overbuild"
+### 2. `07-surface-architecture.md` has improved but could go further
+The surface architecture is now the canonical owner of transition mechanics as well as surface roles.
 
-That makes it directionally correct, but less decisive than a true V1 architecture recommendation should be. The repositioning gives the team more confidence about the product's scope. The V1 doc should reflect that confidence.
+That is a major improvement. The folder now defines entry logic, default handoffs, inserts, interruption rules, and re-entry posture at the architecture layer instead of forcing UX specs to invent them locally.
 
-### 2. `07-surface-architecture.md` stops one layer too early
-The surface architecture is conceptually correct, but still under-specified for real product design use.
-
-It defines the canonical surfaces well, but it does not yet specify enough architectural properties for each surface, such as:
-
-- whether the surface is primary or secondary in navigation
-- where Mirror is allowed or disallowed
-- which states most commonly dominate that surface
-- how phase changes what the surface may express
-
-That makes it a good framing doc, but not yet a strong bridge into UX specification.
+The remaining gap is not missing transition grammar. The remaining gap is whether the UX docs have fully stopped carrying duplicate versions of that grammar.
 
 ### 3. `08-navigation-philosophy.md` is stronger on rejection than recommendation
-The navigation doc clearly rejects dashboard-like and tab-heavy product structures, which is good.
+This has also improved.
 
-But it still leaves too much room for interpretation around the actual top-level structure of the product. The philosophy is right, but the recommended IA posture is not yet specific enough.
+The navigation doc now reflects route implications of the canonical transition model rather than operating only as a set of rejection principles. It is more prescriptive about what counts as in-flow, what counts as leaving the route, and how return behavior should work.
 
-### 4. `10-content-architecture.md` is clean but underpowered on state and phase sensitivity
-The four-role content model is useful:
+The remaining task is downstream alignment: ensuring the UX IA and surface specs inherit this route posture cleanly.
 
-- orientation
-- invitation
-- confirmation
-- reflection
+### 4. `10-content-architecture.md` is now operationally stronger
+The four-role content model (orientation, invitation, confirmation, reflection) is now connected to both state and phase through explicit "Content Behavior By State" and "Content Behavior By Phase" sections. These sections show how each content role shifts across Gentle, Focus, Momentum and Arrival, Attunement, Familiarity.
 
-But the document does not yet connect those roles strongly enough to state and phase. It does not show how content should shift across Gentle, Focus, and Momentum, or how Arrival versus Familiarity changes what the product is willing to say. Because of that, it reads more like a clean taxonomy than a full product writing architecture.
+The remaining gap is the "Reflection: Appropriate Vs Premature" section, which could be more tightly connected to the system map in `03-adaptive-expression.md` to avoid any ambiguity about when reflection is structurally eligible.
 
-## Most Important Gap
+## Most Important Remaining Gap
 
-The biggest unresolved issue in the folder is the structural ambiguity around **continuity**.
+The structural ambiguity around **continuity** is now resolved at the architecture level. `04-structural-product-model.md` defines continuity structurally, `07-surface-architecture.md` defines its insertion role in the loop, and `08-navigation-philosophy.md` protects it from becoming a route.
 
-Across the current docs, continuity appears as:
-
-- a supporting layer
-- a canonical surface
-- a secondary route
-- a V1 supporting route
-
-All of those are directionally related, but they are not structurally identical. That means a future PM or designer could interpret continuity as:
-
-- a lightweight module
-- a dedicated page
-- a route in navigation
-- a recurring embedded surface
-
-and still believe they are following the docs.
-
-This ambiguity should be resolved explicitly. The repositioning does not fix it, but it does make it more important. A behavioral companion for all exam students needs a clear continuity model because the product must orient returning students quickly regardless of their state or phase.
+What remains unresolved is the **product form** of embedded continuity: what exact payload it carries, how much context it preserves, and how it should appear in the V1 UX without becoming managerial. Those are now explicit product decisions rather than hidden architectural ambiguity.
 
 ## Where The Folder Is Still Too Abstract
 
-The folder remains too abstract in a few key places:
+The folder has improved in several areas but remains too abstract in:
 
-### 1. Surface architecture
-The canonical surfaces are named, but not yet operational enough to guide design decisions confidently.
+### 1. Surface transitions
+This is largely resolved in the architecture layer. The remaining risk is duplicate or conflicting transition logic in downstream UX specs.
 
 ### 2. Navigation architecture
-The navigation philosophy is clear, but the recommended top-level structure is still too open.
+This is improved, but should still be checked against the UX IA docs for exact downstream alignment.
 
-### 3. Content behavior by state and phase
-The content model is useful, but it does not yet show how content roles change across Gentle, Focus, Momentum, Arrival, Attunement, and Familiarity.
-
-### 4. V1 commitment level
-The final synthesis does not yet make enough binding calls about what exists in V1 versus what is deferred.
+### 3. Continuity mechanics
+The structural decision is now canonical. The remaining open work is the detailed product form of embedded continuity.
 
 ## Strength Ranking
 
@@ -128,13 +97,13 @@ Strongest docs in the folder:
 3. `03-experience-spine.md`
 4. `13-product-anti-patterns.md`
 5. `01-product-thesis.md`
+6. `10-content-architecture.md` (improved — now includes state and phase sensitivity)
+7. `07-surface-architecture.md` (improved — now includes architectural properties per surface)
 
-Weakest docs in the folder:
+Docs that still need the most attention:
 
-1. `12-v1-product-architecture.md`
-2. `07-surface-architecture.md`
-3. `08-navigation-philosophy.md`
-4. `10-content-architecture.md`
+1. `docs/v1-ux-spec/02-information-architecture.md` and the core surface specs, to ensure they consume rather than redefine transition logic
+2. `15-open-questions-and-decisions.md`, to keep unresolved product questions explicit and owned
 
 ## Overall Assessment
 
@@ -144,7 +113,10 @@ The architecture was never fully committed to that assumption, but the earlier f
 
 The emotional promise of "grounded momentum" fits the architecture naturally. The spine already produces momentum. The adaptation model already produces groundedness. The repositioning names what the architecture was already doing.
 
+The prior boundary ambiguity between brand docs, product architecture docs, and downstream UX specs is now structurally resolved through the shared governance model. The folder's job is clearer: it sits between `docs/eli-brand/` and `docs/v1-ux-spec/`, translating identity into product form without collapsing into screen specification.
+
 The folder's main weakness is not strategic confusion. Its main weakness is that a few important docs are still one layer too abstract to serve as a confident handoff into UX specification.
+The folder's main weakness is no longer core architectural ambiguity. It is now the quality of the handoff into UX specification and the management of the remaining downstream open decisions.
 
 ## Recommendation
 
@@ -155,12 +127,19 @@ Treat the folder as:
 - better aligned with the repositioned thesis
 - not yet fully operational for downstream UX work
 
-The next pass should not add new philosophy. It should tighten the existing system so that:
+Several of the gaps identified in the initial review have been addressed:
 
-- continuity is defined structurally
-- surfaces become more operational
-- navigation becomes more explicit
-- content behavior becomes more adaptive across state and phase
-- the V1 recommendation becomes firmer and reflects the confidence the repositioning provides
+- continuity is now defined structurally in `04-structural-product-model.md`
+- surfaces now include architectural properties plus transition mechanics
+- content behavior now includes explicit state and phase sensitivity sections
+- the V1 recommendation now uses binding language rather than hedged phrasing
+- navigation now reflects route implications of the transition model
+- unresolved product questions now have a dedicated log in `15-open-questions-and-decisions.md`
+
+The next pass should focus on:
+
+- removing architecture-owned transition logic from downstream UX specs
+- resolving the exact product form of embedded continuity
+- keeping remaining product decisions explicit, owned, and evidence-backed
 
 At that point, the folder will be ready to support concrete UX specification work.

@@ -27,6 +27,15 @@ When something meaningful is completed, the product should confirm that progress
 ### 5. Turn repetition into meaning
 Only when enough evidence exists, the product may help the student recognize a real pattern through `Mirror`.
 
+Conversational Eli may support these jobs secondarily by:
+
+- helping with re-entry
+- helping name what is happening in a study thread
+- answering bounded history questions
+- reducing uncertainty around the next move
+
+This support mode should remain subordinate to the loop rather than becoming a parallel product center.
+
 ## The Behavioral Stance
 
 Eli should behave like a companion with a narrow, disciplined job:
@@ -35,6 +44,8 @@ Eli should behave like a companion with a narrow, disciplined job:
 - it helps the student stay with the current unit of effort
 - it acknowledges real progress
 - it does not inflate itself into a performance system
+
+The `session` is the immediate unit of action in this model. The `study thread` is the persistent unit of continuity. Eli's product job is to make sessions easier to enter and close while helping the student stay connected to the thread over time.
 
 ## The Experience Logic
 

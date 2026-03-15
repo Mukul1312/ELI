@@ -6,6 +6,8 @@ Its purpose is not to reopen the architecture. Its purpose is to confirm that th
 
 Use this checklist when deciding whether `docs/eli-brand/` is ready to function as the working source of truth for product, UI, copy, and future visual design work.
 
+Use `docs/00-documentation-boundary-and-terminology.md` as the canonical boundary and terminology reference when applying this checklist.
+
 ## 1. What Freeze Means
 
 For V1, a freeze means:
@@ -61,14 +63,16 @@ Confirm that:
 
 If multiple docs still feel like they are doing the same job, the folder is not fully stable.
 
-## 5. Brand-vs-Product Boundary Checklist
+## 5. Cross-Folder Boundary Checklist
 
-The folder should be frozen only if the boundary between brand docs and product UX specs is usable in practice.
+The folder should be frozen only if the documentation stack defined in `docs/00-documentation-boundary-and-terminology.md` is usable in practice.
 
 Confirm that:
 
-- brand docs define identity, expression, principles, tone, and interface laws
-- product or UX specs define workflows, feature behavior, runtime logic, experiments, and implementation details
+- `docs/eli-brand/` stays focused on identity, expression, principles, tone, and interface laws
+- `docs/product-experience-architecture/` owns loop, structure, surfaces, and product behavior
+- `docs/v1-ux-spec/` owns route, surface, and transition specification
+- implementation docs own thresholds, tokens, experiments, instrumentation, and engineering detail
 - future contributors can tell the difference without repeatedly re-debating where something belongs
 
 If brand docs are still absorbing product mechanics or flow logic, freeze should wait.
@@ -81,7 +85,7 @@ Confirm that:
 
 - all docs use `Gentle / Focus / Momentum` (not `Shelter`)
 - the thesis reflects the broader positioning: Eli helps students study better, as a behavioral companion for all exam students
-- anti-patterns include anti-shame, anti-noise, and anti-complexity with equal weight
+- anti-patterns include all six canonical constraints from `02-core-identity.md` (anti-hype, anti-shame, anti-noise, anti-complexity, anti-performance-dashboard, anti-gamification) with equal weight
 - the emotional promise uses "grounded momentum" rather than "safe momentum"
 - brand laws follow the reordered sequence: Presence, Clarity, Restraint, Truth, Support
 - no docs contain remnants of avoidant-specific or narrow-audience framing that contradicts the repositioned thesis
@@ -123,6 +127,8 @@ Adds guidance for usage in product, visual design, copy, or implementation conte
 Alters the core model, such as identity laws, state structure, phase structure, or the role of `Mirror`.
 
 Only architecture changes should trigger deep review. Clarifications and application details should remain disciplined and narrow.
+
+When a change affects shared terminology, concept ownership, or the brand/product/UX boundary itself, update `docs/00-documentation-boundary-and-terminology.md` as part of the review.
 
 ## 9. Final Go / No-Go Test
 

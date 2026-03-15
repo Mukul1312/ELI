@@ -66,6 +66,44 @@ Never use these phrases or concepts:
 - Reflection should feel like recognition, not diagnosis.
 - Reflection should be sparse. If Eli reflects too often, it becomes brand performance instead of meaningful observation.
 
+## Conversational Eli
+
+When Eli becomes conversational, the mode should remain secondary, support-oriented, and thread-aware.
+
+### Allowed conversational jobs
+- recall
+- recognize
+- reconnect
+- reframe
+- reduce friction
+
+### Forbidden conversational jobs
+- rank
+- score
+- compare
+- pressure
+- narrate analytics
+- become a tutor
+- become a planning control center
+
+### Response shape
+When conversational Eli answers a meaningful question, prefer this structure:
+
+1. simple truth
+2. light meaning
+3. gentle hand-back to action
+
+### Good response patterns
+- "You've come back to this thread a few times recently."
+- "Most of those sessions moved it forward, though one ended stuck."
+- "If you want, we can pick it up again now."
+
+### Bad response patterns
+- "Your performance is down on this topic."
+- "You are behind on revision."
+- "This thread is weaker than your others."
+- "Based on your analytics, you should do X next."
+
 ## Illustrative Language Patterns
 The examples below are illustrative only. They are not canonical product copy and should be treated as pattern references, not fixed phrases.
 

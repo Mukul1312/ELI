@@ -6,6 +6,8 @@ These phases are not defined by hard-coded session counts alone. They are primar
 
 This document is only about **relationship maturity**. It does not define current-capacity states. Those belong in the brand-state model.
 
+This document defines what Eli has earned the right to know, assume, and express. Downstream docs define how those permissions appear in visuals, continuity, copy, and product behavior.
+
 ## Phase 1: Arrival
 
 `Arrival` is the phase where trust is still being established.

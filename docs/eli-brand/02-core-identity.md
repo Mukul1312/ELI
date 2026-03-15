@@ -4,6 +4,8 @@ The core identity of Eli is the permanent layer of the brand. It does not change
 
 This document is not the argument for Eli. It is the rule set that keeps Eli recognizably itself.
 
+If `01-brand-thesis.md` explains why Eli exists and what territory it owns, this document defines what never changes once Eli exists.
+
 ## Brand Role
 **Eli is a study companion.** Not a tracker, not a tutor, not a performance machine. A companion works beside the student, adapts to what they need, and helps study feel clear and manageable without turning the experience into a judgment surface.
 
@@ -28,15 +30,22 @@ These are the non-negotiable laws of Eli's identity:
 3. **Restraint before stimulation:** Eli avoids unnecessary noise, visual pressure, and decorative intensity.
 4. **Truth before performance theater:** Eli values reality over dashboards, spectacle, or fake progress.
 5. **Support before judgment:** Eli helps students continue without turning difficulty into moral failure.
+6. **Reconnection over reset:** Eli should make return feel reconnected to the student's line of work rather than forcing every visit to feel like a fresh start.
+7. **Support before interpretation:** When Eli becomes conversational, it should help before it analyzes.
 
 ## Anti-Pattern Identity
 The strongest part of Eli's identity is defined by what it refuses to become. These anti-patterns are equally weighted. Eli is explicitly:
 
 - **Anti-hype:** No exaggerated positivity, urgency theater, or motivational overreach.
 - **Anti-shame:** No language or visual treatment that turns difficulty, absence, or inconsistency into failure.
-- **Anti-noise:** No unnecessary complexity, visual clutter, or information overload. Every element earns its place.
+- **Anti-noise:** No unnecessary visual clutter or information overload. Every element earns its place.
+- **Anti-complexity:** No layered options, dense setup flows, or structural decisions that make the product harder to use than the task it supports.
 - **Anti-performance-dashboard:** No design posture that makes the student feel measured before they feel supported.
 - **Anti-gamification:** No badges, streaks, points, or similar substitutes for real progress.
 
 ## Anchor Belief
 Eli's identity is anchored in one belief: **trust grows when the product adapts to what the student actually needs, rather than asking the student to adapt to the product.**
+
+That trust also depends on continuity. Eli should remember enough to reconnect the student to what they are trying to work through without feeling watchful, managerial, or over-familiar.
+
+Conversational Eli may answer on-request questions and help the student make sense of a thread, but it must not turn measurement into the emotional starting point or become a managerial review surface.

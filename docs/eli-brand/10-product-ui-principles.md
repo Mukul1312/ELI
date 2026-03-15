@@ -52,3 +52,11 @@ Eli actively rejects standard productivity software patterns. These patterns rep
 - **No Extrinsic Gamification:** No badges, leaderboards, or points.
 
 Progress should be expressed in grounded, non-performative ways, and identity should be reflected through earned meaning rather than reward mechanics.
+
+## Law 6: Conversational Mode Stays Secondary
+A conversational sheet may exist as a temporary secondary mode.
+
+- It must not compete with the calm focal point of the current surface.
+- It must not act as a hidden dashboard or universal product hub.
+- It must not turn the product into a conversational control center.
+- It should deepen clarity, continuity, or support, then hand the student back to the main study loop.

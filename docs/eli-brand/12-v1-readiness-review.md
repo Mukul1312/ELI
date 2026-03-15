@@ -10,7 +10,7 @@ This repositioning is a strategic improvement. It does not discard the architect
 
 The state rename from `Shelter` to `Gentle` is the most visible structural change. It creates better symmetry across the trio (`Gentle / Focus / Momentum`) and removes the clinical overtone that `Shelter` carried. The emotional promise has shifted from "safe momentum" to "grounded momentum," which better reflects the repositioned system's tone: steady, present, and non-dramatic.
 
-Anti-patterns have been expanded. Anti-shame remains, but it now sits alongside anti-noise and anti-complexity as equal architectural constraints. This reflects the broader audience: not every student's primary friction is shame. Some are overwhelmed by noise. Some are lost in complexity. The brand now guards against all three with equal discipline.
+Anti-patterns have been expanded. The canonical set in `02-core-identity.md` now includes six constraints — anti-hype, anti-shame, anti-noise, anti-complexity, anti-performance-dashboard, and anti-gamification — each treated with equal architectural weight. This reflects the broader audience: not every student's primary friction is shame. Some are overwhelmed by noise. Some are lost in complexity. Some are pressured by measurement. The brand now guards against all six with equal discipline.
 
 Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`. This ordering better reflects the system's actual priorities: Eli shows up first, then makes things clear, then holds back, then tells the truth, then supports.
 
@@ -27,7 +27,7 @@ Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`
 - `03-adaptive-expression.md` continues to give the system a real operating model. The repositioning does not weaken this layer.
 - `04-brand-states.md` is improved by the `Gentle / Focus / Momentum` rename. The trio now reads as three modes of productive engagement rather than a recovery-to-performance arc.
 - `05-brand-phases.md` remains healthy. Evidence-based phase progression is audience-agnostic and does not depend on the old thesis.
-- The expanded anti-pattern set (anti-shame, anti-noise, anti-complexity) is more architecturally complete. The old system over-indexed on shame as the primary friction. The new system treats all three as equal design constraints.
+- The expanded anti-pattern set (anti-hype, anti-shame, anti-noise, anti-complexity, anti-performance-dashboard, anti-gamification) is architecturally complete. The old system over-indexed on shame as the primary friction. The new system treats all six as equal design constraints.
 
 ### Brand strengths
 - `02-core-identity.md` benefits from the reordered brand laws. `Presence, Clarity, Restraint, Truth, Support` is a more natural hierarchy than the previous ordering.
@@ -41,9 +41,9 @@ Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`
 - The relationship between the old thesis language and the new positioning should be clean. Docs should not contain mixed signals about who Eli is for.
 
 ### Structural gaps (carried forward)
-- `01-brand-thesis.md` and `02-core-identity.md` still need their roles sharpened. The thesis is the argument; the identity doc is the law. This distinction predates the repositioning and remains relevant.
-- The system-map explanation showing how identity, states, phases, and `Mirror` relate is still missing from any single scannable location.
-- The boundary between brand system and product UX system is still not explicitly stated as a formal rule.
+- The top-layer role split is now formalized in the owner docs: `01` carries the argument, `02` carries the law layer, and `03` carries the adaptive system.
+- The shared system map and formal cross-folder boundary now live in `docs/00-documentation-boundary-and-terminology.md` rather than being implied through review commentary.
+- The remaining structural task is maintenance discipline: future edits should reinforce the owner-doc model rather than reintroduce overlap.
 
 ### Editorial gaps (carried forward)
 - Some repeated concepts across the folder (anti-dashboard, restraint, earned reflection) still need cleaner ownership. The repositioning does not fix this; it is an editorial discipline issue.
@@ -69,7 +69,7 @@ Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`
 | Typography system usefulness | Strong | Type behavior framework is unaffected by repositioning. |
 | Voice system usefulness | Strong | Grammar-first approach is audience-agnostic. Minor framing updates may be needed. |
 | Logo/asset system usefulness | Strong | Mark presence system is unaffected. |
-| Anti-pattern completeness | Improved | Anti-shame, anti-noise, anti-complexity now treated as equal constraints. |
+| Anti-pattern completeness | Strong | Six canonical anti-patterns (anti-hype, anti-shame, anti-noise, anti-complexity, anti-performance-dashboard, anti-gamification) treated as equal constraints. |
 | Product UI translation strength | Needs tightening | Still slightly high-level in places. Predates repositioning. |
 | Open question quality | Needs tightening | Good categorization. Decision criteria and validation ownership still light. |
 | Framing consistency | Needs one pass | All docs must reflect the repositioned thesis. No mixed signals. |
@@ -83,15 +83,15 @@ Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`
 - Confirm `Gentle` replaces `Shelter` everywhere.
 
 ### Priority 2: Structural clarity
-- Sharpen the distinction between `01-brand-thesis.md` and `02-core-identity.md`.
-- Add one explicit system-map explanation showing how identity, states, phases, and `Mirror` relate.
+- Protect the sharpened distinction between `01-brand-thesis.md`, `02-core-identity.md`, and `03-adaptive-expression.md`.
+- Keep the shared system map and cross-folder boundary model current as downstream docs evolve.
 
 ### Priority 3: Editorial tightening
 - Reduce repeated core principles across the folder.
 - Standardize intro and closing language so the docs feel equally deliberate.
 
 ### Priority 4: Execution readiness
-- Add a short boundary rule clarifying what belongs in brand docs versus product UX specs.
+- Enforce the boundary rule now formalized in `docs/00-documentation-boundary-and-terminology.md`.
 - Strengthen `11-open-questions-and-decisions.md` with clearer decision and validation logic.
 
 ### Priority 5: Distinctive sharpening
@@ -102,7 +102,7 @@ Brand laws have been reordered to `Presence, Clarity, Restraint, Truth, Support`
 
 - Mixed framing across docs could confuse new contributors about who Eli is for. The repositioning must be reflected everywhere, not just in the thesis.
 - The broader audience raises the distinctiveness bar. If the brand reads as "well-designed study app" rather than "unmistakably Eli," it may struggle to differentiate.
-- Future contributors may reintroduce product tactics into brand docs because the brand-vs-product boundary is not explicit enough.
+- Future contributors may still reintroduce product tactics into brand docs if they ignore the formal owner-doc and boundary model.
 - The folder may continue to grow without a clear closure signal, leading to perpetual refinement.
 
 ## 7. Recommendation
@@ -119,9 +119,9 @@ The Eli brand system should be treated as fully stable for V1 when:
 
 - the repositioned thesis is reflected consistently across all docs, with no remnants of narrow-audience framing
 - the roles of `01-brand-thesis.md` and `02-core-identity.md` are cleanly separated
-- identity, states, phases, and `Mirror` can be understood in one scan
+- identity, states, phases, and `Mirror` can be understood in one scan through the shared system map
 - `Gentle / Focus / Momentum` naming is used consistently throughout the folder
-- anti-patterns (anti-shame, anti-noise, anti-complexity) are represented with equal weight
+- all six canonical anti-patterns from `02-core-identity.md` are represented with equal weight
 - open questions are paired with a clear way to resolve them
 - the docs are consistent enough to guide product and UI work without frequent reinterpretation
 - no legacy framing or audience-narrowing drift remains in the foundational brand docs

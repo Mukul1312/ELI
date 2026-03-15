@@ -60,6 +60,17 @@ Only a small number of secondary routes are legitimate in V1:
 
 These should feel clearly secondary.
 
+## Route Implications Of Surface Transitions
+
+The canonical transition model in `07-surface-architecture.md` should determine navigation behavior, not the other way around.
+
+- Moving between `Arrival`, `Commitment`, `Active Study`, and `Completion` is in-flow movement inside the main route.
+- `Continuity` is an embedded insert around return or close, not a route transition.
+- `Reflection` is an earned insert near return or close, not a peer-level route.
+- Leaving for setup, preferences, or lightweight history is a temporary departure from the main route and should return the student to the same loop point when possible.
+- Re-entry with active work should resolve directly to `Active Study`.
+- Re-entry without active work should resolve to `Arrival`.
+
 ## Recommended Top-Level IA Posture
 
 In practice, Eli's IA should feel like:
@@ -71,15 +82,21 @@ In practice, Eli's IA should feel like:
 
 It should not feel like a product with many peer-level destinations.
 
-## Continuity Principle
+## Leave And Return Behavior
 
-Continuity should help the student re-enter more easily, not give them a place to linger in abstraction.
+Shallow navigation depends on predictable leave-and-return rules:
 
-In Eli's architecture, continuity is primarily a **supporting layer** whose preferred manifestation is a **lightweight embedded surface** inside the main route. It is not a top-level destination.
+- secondary routes should preserve the student's last meaningful loop point
+- returning from setup or preferences should resume the main route rather than restart the experience
+- returning from lightweight history should support recall, then hand back into `Arrival` or the active loop point
+- navigation should not convert interruption into overview browsing by default
+- route restoration should reinforce the main loop, not compete with it
 
-If a separate historical view exists, it should remain secondary and should support recall, not self-review.
+## Continuity In Navigation
 
-If continuity becomes somewhere the user spends time reviewing themselves instead of returning to work, it has drifted.
+Per the canonical continuity definition in `04-structural-product-model.md`, continuity is a lightweight embedded surface inside the main route, not a top-level destination or navigation route.
+
+The navigation implication: continuity does not appear as a tab, a peer-level destination, or a navigable section. It appears embedded within the main route, especially around return and closure. If a separate historical view exists, it remains clearly secondary and supports recall, not self-review.
 
 ## What Shallow Navigation Looks Like
 
